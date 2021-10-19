@@ -22,7 +22,7 @@ export class HealthController {
     // TODO: check health
     return this.health.check([
       () => this.db.pingCheck('database'),
-      () => this.eth.pingCheck('infura'),
+      () => this.eth.pingCheck('ethereum'),
     ]);
   }
 }
