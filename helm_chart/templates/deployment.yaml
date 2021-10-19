@@ -35,18 +35,33 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8080
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /
+              path: /v1/health
               port: http
           readinessProbe:
             httpGet:
-              path: /
+              path: /v1/health
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+          {{ range .Values.configurations }}
+          {{- if (default .enabled false)}}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+              subPath: {{ .subPath }}
+          {{- end }}
+          {{- end }}
+          {{ range .Values.secrets }}
+          {{- if (default .enabled false) }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+              subPath: {{ .subPath }}
+          {{- end }}
+          {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -58,4 +73,19 @@ spec:
       {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      {{ range .Values.configurations }}
+      {{- if default .enabled false }}
+        - name: {{ .name }}
+          configMap:
+            name: {{ .name }}
+      {{- end }}
+      {{- end}}
+      {{range .Values.secrets }}
+      {{- if default .enabled false }}
+        - name: {{ .name }}
+          secret:
+            secretName: {{ .name }}
+      {{- end }}
       {{- end }}

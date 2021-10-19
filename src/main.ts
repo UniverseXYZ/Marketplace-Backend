@@ -16,8 +16,8 @@ async function bootstrap() {
 
   // Swagger Documentation
   const options = new DocumentBuilder()
-    .setTitle('Universal Marcketplace API')
-    .setDescription('Universal Marcketplace API Documentation')
+    .setTitle('Universe Marcketplace API')
+    .setDescription('Universe Marcketplace API Documentation')
     .addTag('health')
     .build();
 
