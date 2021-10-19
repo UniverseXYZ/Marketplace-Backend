@@ -16,8 +16,9 @@ export class EthHealthIndicator extends HealthIndicator {
   async pingCheck(key: string): Promise<HealthIndicatorResult> {
     const { web3 } = this.ethService;
     const blockNumber = await web3.eth.getBlockNumber();
+    const network = await web3.eth.net.getNetworkType();
     const isHealthy = !R.isNil(blockNumber);
-    const result = this.getStatus(key, isHealthy, { blockNumber });
+    const result = this.getStatus(key, isHealthy, { blockNumber, network });
 
     if (isHealthy) {
       return result;
