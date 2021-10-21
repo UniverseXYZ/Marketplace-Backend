@@ -1,0 +1,67 @@
+@rinkebyhost = https://ethereum-api-staging.rarible.org
+@ropstenhost = https://ethereum-api-dev.rarible.org
+@mainnethost = https://ethereum-api.rarible.org
+@localhost = http://localhost:8080
+@hostname = {{rinkebyhost}}
+
+
+### Encode
+POST {{hostname}}/v0.1/order/encoder/order
+Content-Type: application/json
+
+{
+    "type": "RARIBLE_V2",
+    "maker": "0xa035F2A1fC34fec7EfbD2E9cA2d567c5Cc001d91",
+    "make": {
+        "assetType": {
+            "assetClass": "ERC721",
+            "contract": "0xcfa14f6DC737b8f9e0fC39f05Bf3d903aC5D4575",
+            "tokenId": 1
+        },
+        "value": "1"
+    },
+    "take": {
+        "assetType": {
+            "assetClass": "ETH"
+        },
+        "value": "1000000000000000000"
+    },
+    "data": {
+        "dataType": "RARIBLE_V2_DATA_V1",
+        "payouts": [],
+        "originFees": []
+    },
+    "salt": "3621",
+    "signature": ""
+}
+
+
+### Sign Order
+POST {{hostname}}/v0.1/order/orders
+content-type: application/json
+
+{
+    "type": "RARIBLE_V2",
+    "maker": "0x744222844bFeCC77156297a6427B5876A6769e19",
+    "make": {
+        "assetType": {
+            "assetClass": "ERC721",
+            "contract": "0xcfa14f6DC737b8f9e0fC39f05Bf3d903aC5D4575",
+            "tokenId": 1
+        },
+        "value": "1"
+    },
+    "take": {
+        "assetType": {
+            "assetClass": "ETH"
+        },
+        "value": "1000000000000000000"
+    },
+    "data": {
+        "dataType": "RARIBLE_V2_DATA_V1",
+        "payouts": [],
+        "originFees": []
+    },
+    "salt": "5422",
+    "signature": "0x45461654b86e856686e7a2e9a9213b29f8dc32a731046e0c2f1aa01e4eaa991e41ebc67535fac14c333ad5b0d0d821ef518edc9ed08ad7efc0af572620c045ce1c"
+}
