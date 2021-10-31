@@ -1,9 +1,11 @@
 import { TypeOrmOptionsFactory, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
 import { AppConfig } from '../configuration/configuration.service';
+import { Order } from '../orders/order.entity';
+import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
 // TODO: Add all db entities
-const entities = [];
+const entities = [Order];
 
 @Injectable()
 export class TypeOrmDefaultConfigService implements TypeOrmOptionsFactory {
@@ -14,6 +16,7 @@ export class TypeOrmDefaultConfigService implements TypeOrmOptionsFactory {
       type: 'postgres',
       autoLoadEntities: false,
       logging: false,
+      namingStrategy: new SnakeNamingStrategy(),
       entities,
       ...this.config.values.database,
     };

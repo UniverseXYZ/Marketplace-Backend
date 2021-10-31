@@ -19,5 +19,12 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "resolveJsonModule": true,
-  }
+  },
+  "include": [
+    "src/**/*",
+    "**/*.spec.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

@@ -7,6 +7,7 @@ import { TypeOrmDefaultConfigService } from './modules/database/database.provide
 import configuration from './modules/configuration';
 import { DatabaseModule } from './modules/database/database.module';
 import { EthereumModule } from './modules/ethereum/ethereum.module';
+import { OrdersModule } from './modules/orders/orders.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { EthereumModule } from './modules/ethereum/ethereum.module';
     }),
     HealthModule,
     EthereumModule,
+    OrdersModule,
   ],
   controllers: [],
   providers: [],
