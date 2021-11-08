@@ -12,3 +12,12 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
       POSTGRESQL_ENABLE_TLS: 'yes'
+  api:
+    image: kunooo/marketplace-backend:20211108.2
+    volumes:
+      - ./appsettings/appsettings.development.json:/workdir/dist/appsettings/appsettings.json
+      - ./secrets/secrets.dev.json:/workdir/dist/secrets/secrets.json
+    ports:
+      - 8080:8080
+    depends_on:
+      - postgres
