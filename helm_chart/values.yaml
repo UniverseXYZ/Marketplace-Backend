@@ -4,10 +4,10 @@ appName: universe-marketplace-backend
 replicaCount: 1
 
 image:
-  repository: universe/marketplace-backend
+  repository: kunooo/marketplace-backend
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "20211108.1"
 
 imagePullSecrets: []
 fullnameOverride: ""
@@ -27,13 +27,13 @@ podSecurityContext:
   {}
   # fsGroup: 2000
 
-securityContext:
-  capabilities:
-    drop:
-      - ALL
-  readOnlyRootFilesystem: true
-  runAsNonRoot: true
-  runAsUser: 1000
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #     - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
 
 service:
   type: ClusterIP
@@ -76,13 +76,13 @@ autoscaling:
 
 configurations:
   - name: marketplace-appsettings
-    mountPath: /workdir/appsetings/appsettings.json
+    mountPath: /workdir/dist/appsettings/appsettings.json
     subPath: appsettings.json
     enabled: true
 
 secrets:
   - name: marketplace-secrets
-    mountPath: /workdir/secrets/secrets.json
+    mountPath: /workdir/dist/secrets/secrets.json
     subPath: secrets.json
     enabled: true
 
