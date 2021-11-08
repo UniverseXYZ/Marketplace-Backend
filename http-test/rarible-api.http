@@ -4,6 +4,102 @@
 @localhost = http://localhost:8080
 @hostname = {{rinkebyhost}}
 
+### Encode order
+POST {{hostname}}/v0.1/order/encoder/order
+Content-Type: application/json
+
+{
+  "type": "RARIBLE_V2",
+  "maker": "0xE1d7a59AB392EA29b059dAE31c5A573e2fEcC5A8",
+  "taker": "0x0000000000000000000000000000000000000000",
+  "make": {
+    "assetType": {
+      "assetClass": "ERC721",
+      "contract": "0x04dCA48CBFd79287686F3Db03DC4EFEbC5266677",
+      "tokenId": 1
+    },
+    "value": "1"
+  },
+  "take": {
+    "assetType": {
+      "assetClass": "ERC20",
+      "contract": "0x350a9180ed984E12Fe6CfB244E2A86E6C51E17B1"
+    },
+    "value": "10000000000000000000"
+  },
+  "salt": 1,
+  "start": 0,
+  "end": 0,
+  "data": {
+    "dataType": "RARIBLE_V2_DATA_V1",
+    "payouts": [
+      {
+        "account": "0x60f80121c31a0d46b5279700f9df786054aa5ee5",
+        "value": 0
+      }
+    ],
+    "originFees": [
+      {
+        "account": "0x60f80121c31a0d46b5279700f9df786054aa5ee5",
+        "value": 0
+      }
+    ]
+  },
+  "signature": ""
+}
+
+### encode assettype
+POST {{hostname}}/v0.1/order/encoder/assetType
+Content-Type: application/json
+
+{
+  "assetClass": "ERC721",
+  "contract": "0x60f80121c31a0d46b5279700f9df786054aa5ee5",
+  "tokenId": 717802
+}
+
+### Encode order
+POST {{hostname}}/v0.1/order/encoder/order
+Content-Type: application/json
+
+{
+  "type": "RARIBLE_V2",
+  "maker": "0x60f80121c31a0d46b5279700f9df786054aa5ee5",
+  "taker": "0x60f80121c31a0d46b5279700f9df786054aa5ee5",
+  "make": {
+    "assetType": {
+      "assetClass": "ERC721",
+      "contract": "0xcfa14f6DC737b8f9e0fC39f05Bf3d903aC5D4575",
+      "tokenId": "1"
+    },
+    "value": 717802
+  },
+  "take": {
+    "assetType": {
+      "assetClass": "ETH"
+    },
+    "value": 717802
+  },
+  "salt": 717802,
+  "start": 0,
+  "end": 0,
+  "data": {
+    "dataType": "RARIBLE_V2_DATA_V1",
+    "payouts": [
+      {
+        "account": "0x60f80121c31a0d46b5279700f9df786054aa5ee5",
+        "value": 0
+      }
+    ],
+    "originFees": [
+      {
+        "account": "0x60f80121c31a0d46b5279700f9df786054aa5ee5",
+        "value": 0
+      }
+    ]
+  },
+  "signature": "string"
+}
 
 ### Encode
 POST {{hostname}}/v0.1/order/encoder/order
