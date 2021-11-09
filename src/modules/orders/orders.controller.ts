@@ -43,8 +43,8 @@ export class OrdersController {
     // e.g. 2. if maker is the owener of NFT. maybe frontend should do the check as its from makers' wallet
 
     const order = this.orderService.convertToOrder(body);
-    // const savedOrder = await this.orderService.saveOrder(order);
-    return order;
+    const savedOrder = await this.orderService.saveOrder(order);
+    return savedOrder;
   }
 
   @Post(':hash/prepare')
@@ -56,6 +56,7 @@ export class OrdersController {
     const leftOrder = await this.orderService.getOrderByHash(hash);
 
     if (leftOrder.status !== OrderStatus.CREATED) {
+      // TODO: Return badrequest
       throw new Error('Order has been filled');
     }
     // TODO: verify if maker's token got approved to transfer proxy

@@ -161,9 +161,16 @@ export class OrdersService {
     const order = await this.orderRepository.findOne({
       hash: event.leftOrderHash,
     });
+    // TODO: refactor to use logger
     if (!order) {
       console.log(
         `The matched order is not found in database. Order left hash: ${event.leftOrderHash}`,
+      );
+      return;
+    }
+    if (order.status !== OrderStatus.CREATED) {
+      console.log(
+        `The matched order is not in CREATED status. Order left hash: ${event.leftOrderHash}`,
       );
       return;
     }

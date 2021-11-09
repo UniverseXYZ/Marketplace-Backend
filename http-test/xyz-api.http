@@ -16,26 +16,20 @@ content-type: application/json
 
 
 ### Get Order by hash
-Get {{hostname}}/v1/orders/0xdc62be9add23f8f689987d0dfd199befd374c8b3ff914bfe4b231bd6e294d6e2
+Get {{hostname}}/v1/orders/0xa81385dd5cb02077780d145afb6e407f5dd1d8961194c3b05f7f2388c23d6b10
 
 ### Prepare Order Execution
-Post {{hostname}}/v1/orders/0xdc62be9add23f8f689987d0dfd199befd374c8b3ff914bfe4b231bd6e294d6e2/prepare
+Post {{hostname}}/v1/orders/0xa81385dd5cb02077780d145afb6e407f5dd1d8961194c3b05f7f2388c23d6b10/prepare
 Content-Type: application/json
 
 {
   "maker": "0xE1d7a59AB392EA29b059dAE31c5A573e2fEcC5A8",
-  "amount": "100000000000000000000",
-  "revenueSplits": [
-    {
-      "account": "0x3bB0dE46c6B1501aF5921Fb7EDBc15dFD998Fadd",
-      "value": "5000"
-    }
-  ]
+  "amount": "3"
 }
 
 
 ### Encode or Create Seller Order
-POST {{hostname}}/v1/orders/encoder/order
+POST {{hostname}}/v1/orders/order
 Content-Type: application/json
 
 {
@@ -46,7 +40,7 @@ Content-Type: application/json
     "assetType": {
       "assetClass": "ERC721",
       "contract": "0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE",
-      "tokenId": 2
+      "tokenId": 6
     },
     "value": "1"
   },
@@ -55,43 +49,6 @@ Content-Type: application/json
       "assetClass": "ETH"
     },
     "value": "100000000000000000"
-  },
-  "salt": 3,
-  "start": 0,
-  "end": 0,
-  "data": {
-    "dataType": "ORDER_DATA",
-    "revenueSplits": [
-      {
-        "account": "0x3bB0dE46c6B1501aF5921Fb7EDBc15dFD998Fadd",
-        "value": "5000"
-      }
-    ]
-  },
-  "signature": "0x87891ef19fd0169ae39b323d9b0c235a5d7cfeefec8a184d2612e76e1ebf974667b6addb8c28215aadd95322475e4c3c57f381a44809f0fd5eda30be42b97e501c"
-}
-
-### Encode or Create Sell Bundle
-POST {{hostname}}/v1/orders/order
-Content-Type: application/json
-
-{
-  "type": "UNIVERSE_V1",
-  "maker": "0xE1d7a59AB392EA29b059dAE31c5A573e2fEcC5A8",
-  "taker": "0x0000000000000000000000000000000000000000",
-  "make": {
-    "assetType": {
-      "assetClass": "ERC721_BUNDLE",
-      "contracts": ["0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE"],
-      "tokenIds": [[3, 4]]
-    },
-    "value": "2"
-  },
-  "take": {
-    "assetType": {
-      "assetClass": "ETH"
-    },
-    "value": "200000000000000000"
   },
   "salt": 4,
   "start": 0,
@@ -105,7 +62,44 @@ Content-Type: application/json
       }
     ]
   },
-  "signature": "0x21763f7b9c4d123cff32079364e8593381cb62057d54aa017691a5df2b6f51d52afe6c7e889f701fbf9299cc80a4ed9339f3d2bff1b2c1fd9b4d358b3b5ffc991b"
+  "signature": "0xad47f02925ffbd0bbc6a53846b0f499ca74ec8a176e4e1420eb1dcbb21d05a3d1e3f20957f2f7f8c99586e9ed92d2aeb2c85ea54afd39b49c4a1d20bd639d2e41c"
+}
+
+### Encode or Create Sell Bundle
+POST {{hostname}}/v1/orders/order
+Content-Type: application/json
+
+{
+  "type": "UNIVERSE_V1",
+  "maker": "0xa035F2A1fC34fec7EfbD2E9cA2d567c5Cc001d91",
+  "taker": "0x0000000000000000000000000000000000000000",
+  "make": {
+    "assetType": {
+      "assetClass": "ERC721_BUNDLE",
+      "contracts": ["0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE"],
+      "tokenIds": [[1, 2, 3]]
+    },
+    "value": "3"
+  },
+  "take": {
+    "assetType": {
+      "assetClass": "ETH"
+    },
+    "value": "300000000000000000"
+  },
+  "salt": 5,
+  "start": 0,
+  "end": 0,
+  "data": {
+    "dataType": "ORDER_DATA",
+    "revenueSplits": [
+      {
+        "account": "0x3bB0dE46c6B1501aF5921Fb7EDBc15dFD998Fadd",
+        "value": "1000"
+      }
+    ]
+  },
+  "signature": "0x5e21870c8d65761d682ee969a5017b5cd305e7f78a22829c589a26e23c3d870d0f501a5d8c7ed900114a3cb7c0a74b06e5458ba3ca50844925f55ab23786b2531c"
 }
 
 ### Encode or Create Buy Order

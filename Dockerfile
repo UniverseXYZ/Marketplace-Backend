@@ -19,4 +19,3 @@ ENTRYPOINT ["/sbin/tini", "--", "node", "./dist/src/main.js"]
 
 WORKDIR /workdir
 COPY --from=builder /workdir .
-RUN ls
