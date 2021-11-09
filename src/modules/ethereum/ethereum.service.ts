@@ -33,7 +33,7 @@ export class EthereumService {
     } else {
       const secret = R.path(['ethereum', 'infuraProjectSecret'], config.values);
       const projectId = R.path(['ethereum', 'infuraProjectId'], config.values);
-      url = `https://${EthereumNetworkType[key]}.infura.io/v3/${projectId}`;
+      url = `https://:${secret}@${EthereumNetworkType[key]}.infura.io/v3/${projectId}`;
       provider = new Web3.providers.HttpProvider(url, {
         keepAlive: true,
         timeout: 30000,
@@ -46,7 +46,7 @@ export class EthereumService {
 
     this.web3 = new Web3(provider);
     const ethersProvider = new ethers.providers.InfuraProvider(
-      R.path(['ethereum', 'ethereumNetwork'], config.values),
+      EthereumNetworkType[key],
       R.path(['ethereum', 'infuraProjectId'], config.values),
     );
     this.exchange = Exchange(

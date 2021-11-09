@@ -7,14 +7,14 @@ image:
   repository: kunooo/marketplace-backend
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "20211108.1"
+  tag: "20211108.2"
 
 imagePullSecrets: []
 fullnameOverride: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
-  create: true
+  create: false
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
@@ -23,8 +23,8 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext:
-  {}
+# podSecurityContext:
+#   {}
   # fsGroup: 2000
 
 securityContext: {}
