@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { EthereumService } from '../ethereum/ethereum.service';
-import { MatchOrderDto, OrderDto, PrepareTxDto, QueryDto } from './order.dto';
+import { OrderDto, PrepareTxDto, QueryDto } from './order.dto';
 import { OrderStatus } from './order.types';
 import { OrdersService } from './orders.service';
 
 @Controller('orders')
+@ApiTags('Orderbook')
 export class OrdersController {
   constructor(
     private orderService: OrdersService,
@@ -81,13 +83,5 @@ export class OrdersController {
       value.toString(),
     );
     return tx;
-  }
-
-  @Put(':hash/match')
-  async matchOrder(@Body() body: MatchOrderDto) {
-    // TODO: Check if this order has already matched. In case the same salt was used. And Warning in this case
-    // TODO: Add defense code e.g. filter with order status only created
-    await this.orderService.matchOrder(body);
-    return 'OK';
   }
 }

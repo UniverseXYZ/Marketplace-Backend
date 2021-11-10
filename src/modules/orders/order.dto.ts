@@ -20,14 +20,21 @@ export class OrderDto {
 
   @IsString()
   @ApiProperty({
-    example: '0x67b93857317462775666a310ac292D61dEE4bbb9',
+    example: '0xE1d7a59AB392EA29b059dAE31c5A573e2fEcC5A8',
     description: 'The wallet address who is going to give asset',
     required: true,
   })
   maker: string;
 
   @ApiProperty({
-    example: '',
+    example: {
+      assetType: {
+        assetClass: 'ERC721',
+        contract: '0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE',
+        tokenId: 6,
+      },
+      value: '1',
+    },
     description: 'asset info you want to give out',
     required: true,
   })
@@ -36,7 +43,7 @@ export class OrderDto {
 
   @IsString()
   @ApiProperty({
-    example: '0x67b93857317462775666a310ac292D61dEE4bbb9',
+    example: '0x0000000000000000000000000000000000000000',
     description: 'The wallet address who you want to take this asset',
     required: false,
   })
@@ -44,7 +51,12 @@ export class OrderDto {
 
   @ValidateNested()
   @ApiProperty({
-    example: '',
+    example: {
+      assetType: {
+        assetClass: 'ETH',
+      },
+      value: '100000000000000000',
+    },
     description: 'Asset Info you want to get back',
     required: true,
   })
@@ -52,7 +64,7 @@ export class OrderDto {
 
   @IsNumber()
   @ApiProperty({
-    example: '',
+    example: 1,
     description: 'nonce for signatures submitted with the order',
     required: false,
   })
@@ -60,7 +72,7 @@ export class OrderDto {
 
   @IsNumber()
   @ApiProperty({
-    example: '0',
+    example: 0,
     description: 'uint - order cannot be filled before this time',
     required: true,
   })
@@ -68,21 +80,34 @@ export class OrderDto {
 
   @IsNumber()
   @ApiProperty({
-    example: '0',
+    example: 0,
     description: 'uint - order cannot be filled after this time',
     required: true,
   })
   end: number;
 
   @ApiProperty({
-    example: '',
-    description: '',
+    example: {
+      dataType: 'ORDER_DATA',
+      revenueSplits: [
+        {
+          account: '0x3bB0dE46c6B1501aF5921Fb7EDBc15dFD998Fadd',
+          value: '5000',
+        },
+      ],
+    },
+    description: 'order data, for now only for the revenue splits',
     required: true,
   })
   @ValidateNested()
   data: IOrderData;
 
-  @ApiProperty({})
+  @ApiProperty({
+    example:
+      '0xad47f02925ffbd0bbc6a53846b0f499ca74ec8a176e4e1420eb1dcbb21d05a3d1e3f20957f2f7f8c99586e9ed92d2aeb2c85ea54afd39b49c4a1d20bd639d2e41c',
+    description: 'signature of the order info',
+    required: false,
+  })
   signature: string;
 }
 
@@ -95,9 +120,27 @@ export class PrepareTxDto {
   })
   maker: string;
 
+  @ApiProperty({
+    example: '1',
+    description: 'The amount you want to buy',
+    required: true,
+  })
   @IsString()
   amount: string;
 
+  @ApiProperty({
+    example: {
+      dataType: 'ORDER_DATA',
+      revenueSplits: [
+        {
+          account: '0x3bB0dE46c6B1501aF5921Fb7EDBc15dFD998Fadd',
+          value: '5000',
+        },
+      ],
+    },
+    description: 'Possible revenue splits',
+    required: false,
+  })
   revenueSplits?: IPart[];
 }
 
@@ -113,32 +156,65 @@ export class MatchOrderDto {
 }
 
 export class QueryDto {
-  @ApiProperty()
+  @ApiProperty({
+    example: 1,
+    description: 'The page of results',
+    required: false,
+  })
   @IsNumberString()
   @IsOptional()
-  page: number;
+  page?: number;
 
-  @ApiProperty()
+  @ApiProperty({
+    example: 10,
+    description: 'The amount of results shown in one page',
+    required: false,
+  })
   @IsNumberString()
   @IsOptional()
-  limit: number;
+  limit?: number;
 
+  @ApiProperty({
+    example: '0xE1d7a59AB392EA29b059dAE31c5A573e2fEcC5A8',
+    description: 'Who created this order',
+    required: false,
+  })
   @IsString()
   @IsOptional()
   maker: string;
 
+  @ApiProperty({
+    example: 1,
+    description: 'Order side. e.g. 0 for buy, 1 for sell',
+    required: false,
+  })
   @IsNumberString()
   @IsOptional()
   side: number;
 
+  @ApiProperty({
+    example: 'ERC721_BUNDLE',
+    description: 'Asset class of the order. e.g. ERC721, ERC721_BUNDLE',
+    required: false,
+  })
   @IsString()
   @IsOptional()
   assetClass: string;
 
+  @ApiProperty({
+    example: '0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE',
+    description: 'Asset address',
+    required: false,
+  })
   @IsString()
   @IsOptional()
   collection: string;
 
+  @ApiProperty({
+    example: 1,
+    description: 'Token id of the NFT',
+    required: false,
+  })
   @IsNumberString()
   @IsOptional()
   tokenId: number;
