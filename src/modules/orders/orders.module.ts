@@ -5,10 +5,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from './order.entity';
 import { OrderEncodersController } from './order-encoders.controller';
 import { EthereumModule } from '../ethereum/ethereum.module';
+import { OrdersInternalController } from './orders-internal.controller';
 
 @Module({
   providers: [OrdersService],
-  controllers: [OrdersController, OrderEncodersController],
+  controllers: [
+    OrdersController,
+    OrderEncodersController,
+    OrdersInternalController,
+  ],
   imports: [TypeOrmModule.forFeature([Order]), EthereumModule],
 })
 export class OrdersModule {}

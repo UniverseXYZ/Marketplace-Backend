@@ -8,7 +8,7 @@ import {
 import { EthHealthIndicator } from '../eth-health/eth-health.service';
 
 @Controller('health')
-@ApiTags('health')
+@ApiTags('Health')
 export class HealthController {
   constructor(
     private health: HealthCheckService,

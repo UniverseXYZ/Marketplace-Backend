@@ -14,6 +14,10 @@ async function bootstrap() {
   const port = config.values.app.port || 8080;
   const sessionSecret = R.path(['app', 'sessionSecret'], config.values);
 
+  app.setGlobalPrefix('v1', {
+    exclude: ['internal/orders/:hash/match'],
+  });
+
   // Middlewares
   app.use(helmet());
 
@@ -21,7 +25,6 @@ async function bootstrap() {
   const options = new DocumentBuilder()
     .setTitle('Universe Marcketplace API')
     .setDescription('Universe Marcketplace API Documentation')
-    .addTag('health')
     .build();
 
   const document = SwaggerModule.createDocument(app, options);
@@ -32,8 +35,6 @@ async function bootstrap() {
       transform: true,
     }),
   );
-
-  app.setGlobalPrefix('v1');
 
   app.enableVersioning({
     type: VersioningType.URI,

@@ -134,7 +134,7 @@ Content-Type: application/json
 }
 
 ### Match Order
-PUT {{hostname}}/v1/orders/0x7a711e9b7ee5c5ff8dcb41f0815e9104e7d074b4f153cbbddaef0637276bc0ec/match
+PUT {{hostname}}/internal/orders/0x7a711e9b7ee5c5ff8dcb41f0815e9104e7d074b4f153cbbddaef0637276bc0ec/match
 Content-Type: application/json
 
 {
