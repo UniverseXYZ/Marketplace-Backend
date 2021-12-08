@@ -8,7 +8,7 @@ image:
   repository: kunooo/marketplace-api
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "20211109.1"
+  tag: "20211111.2"
 
 imagePullSecrets: []
 
