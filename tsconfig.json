@@ -22,9 +22,9 @@
   },
   "include": [
     "src/**/*",
-    "**/*.spec.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "**/*.spec.ts"
   ]
 }
