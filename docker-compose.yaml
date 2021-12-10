@@ -1,23 +1,23 @@
 version: '3'
 
 services:
-  postgres:
-    image: postgres:12-alpine
-    ports:
-      - 5432:5432
-    volumes:
-      - ~/database/xyz:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: marketplace
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
-      POSTGRESQL_ENABLE_TLS: 'yes'
+  # postgres:
+  #   image: postgres:12-alpine
+  #   ports:
+  #     - 5432:5432
+  #   volumes:
+  #     - ~/database/xyz:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_DB: marketplace
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_USER: postgres
+  #     POSTGRESQL_ENABLE_TLS: 'yes'
   api:
-    image: kunooo/marketplace-backend:20211108.2
+    image: kunooo/marketplace-orderbook:20211210.1
     volumes:
-      - ./appsettings/appsettings.development.json:/workdir/dist/appsettings/appsettings.json
-      - ./secrets/secrets.dev.json:/workdir/dist/secrets/secrets.json
+      - ./appsettings/appsettings.json:/workdir/appsettings/appsettings.json
+      - ./secrets/secrets.json:/workdir/secrets/secrets.json
     ports:
       - 8080:8080
-    depends_on:
-      - postgres
+    # depends_on:
+    #   - postgres
