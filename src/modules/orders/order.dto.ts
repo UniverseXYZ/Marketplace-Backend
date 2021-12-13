@@ -219,3 +219,16 @@ export class QueryDto {
   @IsOptional()
   tokenId: number;
 }
+
+export class CancelOrderDto {
+  blockNum: string;
+  hash: string;
+  fromAddress: string;
+  toAddress: string;
+  value: string;
+  erc721TokenId: string;
+  erc1155Metadata: string;
+  asset: string;
+  category: string;
+  address: string;
+}
