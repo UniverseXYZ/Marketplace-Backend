@@ -157,6 +157,37 @@ export class OrdersService {
       .getManyAndCount();
   }
 
+  /**
+   * used to find the order which
+   * @param contract nft token address
+   * @param tokenId nft token tokenId
+   * @param maker wallet address who is transfer the token out
+   * @returns order
+   */
+  public async queryOne(contract: string, tokenId: number, maker: string) {
+    const queryBuilder = this.orderRepository.createQueryBuilder();
+    queryBuilder.where('status = :status', { status: OrderStatus.CREATED });
+
+    queryBuilder.andWhere('side = :side', { side: OrderSide.SELL });
+
+    queryBuilder.andWhere('maker = :maker', { maker: maker });
+
+    const queryMake = `make->'assetType'->'contract' = :collection`;
+    const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
+    const queryForBoth = `((${queryMake}) OR (${queryMakeBundle}))`;
+    queryBuilder.andWhere(queryForBoth, {
+      collection: `"${contract}"`,
+      collections: `${contract}`,
+    });
+
+    const queryMakeTokenId = `make->'assetType'->'tokenId' = :tokenId`;
+    queryBuilder.andWhere(queryMakeTokenId, {
+      tokenId: `${tokenId}`,
+    });
+
+    return await queryBuilder.getOne();
+  }
+
   public async matchOrder(event: MatchOrderDto) {
     const order = await this.orderRepository.findOne({
       hash: event.leftOrderHash,
@@ -177,5 +208,12 @@ export class OrdersService {
     order.status = OrderStatus.FILLED;
     order.matchedTxHash = event.txHash;
     await this.orderRepository.save(order);
+  }
+
+  public async cancelOrder(orderHash: string) {
+    await this.orderRepository.update(
+      { hash: orderHash },
+      { status: OrderStatus.STALE },
+    );
   }
 }
