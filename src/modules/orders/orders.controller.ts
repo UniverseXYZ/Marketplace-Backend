@@ -46,6 +46,7 @@ export class OrdersController {
 
     const order = this.orderService.convertToOrder(body);
     const savedOrder = await this.orderService.saveOrder(order);
+    this.orderService.checkSubscribe(savedOrder);
     return savedOrder;
   }
 
