@@ -1,12 +1,15 @@
+import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import R from 'ramda';
 import {
   encodeAssetClass,
   encodeAssetData,
   encodeOrderData,
   hashOrderKey,
 } from 'src/utils/order-encoder';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { AppConfig } from '../configuration/configuration.service';
 import { MatchOrderDto, OrderDto, PrepareTxDto, QueryDto } from './order.dto';
 import { Order } from './order.entity';
 import { OrderSide, OrderStatus, NftTokens } from './order.types';
@@ -17,10 +20,19 @@ const DATA_TYPE = 'ORDER_DATA';
 
 @Injectable()
 export class OrdersService {
+  private watchdog_url;
   constructor(
+    private readonly appConfig: AppConfig,
+    private readonly httpService: HttpService,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-  ) {}
+  ) {
+    const watchdog_url = R.path(['watchdog', 'endpint'], appConfig.values);
+    if (R.isNil(watchdog_url)) {
+      throw new Error('Watchdog endpoint is missing');
+    }
+    this.watchdog_url = watchdog_url;
+  }
 
   public convertToOrder(orderDto: OrderDto) {
     const order = this.orderRepository.create({
@@ -215,5 +227,42 @@ export class OrdersService {
       { hash: orderHash },
       { status: OrderStatus.STALE },
     );
+  }
+
+  public async checkSubscribe(order: Order) {
+    // if it is already subscribed, that's ok.
+    this.httpService
+      .post(`${this.watchdog_url}/subscribe/`, {
+        addresses: [order.maker],
+        topic: 'NFT',
+      })
+      .subscribe({
+        next: (v) => console.log(v),
+        error: (e) => console.error(e),
+        complete: () => console.info('complete'),
+      });
+  }
+
+  public async checkUnsubscribe(order: Order) {
+    // if we are still interested in this address, don't unsubscribe
+    const pending_orders = await this.orderRepository.find({
+      where: {
+        hash: order.hash,
+        status: In([OrderStatus.CREATED, OrderStatus.PARTIALFILLED]),
+      },
+      take: 2,
+    });
+    if (pending_orders.length === 0) {
+      this.httpService
+        .post(`${this.watchdog_url}/unsubscribe/`, {
+          addresses: [order.maker],
+          topic: 'NFT',
+        })
+        .subscribe({
+          next: (v) => console.log(v),
+          error: (e) => console.error(e),
+          complete: () => console.info('complete'),
+        });
+    }
   }
 }
