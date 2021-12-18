@@ -12,7 +12,13 @@ import { In, Repository } from 'typeorm';
 import { AppConfig } from '../configuration/configuration.service';
 import { MatchOrderDto, OrderDto, PrepareTxDto, QueryDto } from './order.dto';
 import { Order } from './order.entity';
-import { OrderSide, OrderStatus, NftTokens } from './order.types';
+import {
+  OrderSide,
+  OrderStatus,
+  NftTokens,
+  IBundleType,
+  IAssetType,
+} from './order.types';
 
 const ZERO = '0x0000000000000000000000000000000000000000';
 const DATA_TYPE_0x = '0x';
@@ -27,7 +33,7 @@ export class OrdersService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
   ) {
-    const watchdog_url = R.path(['watchdog', 'endpint'], appConfig.values);
+    const watchdog_url = R.path(['watchdog', 'endpoint'], appConfig.values);
     if (R.isNil(watchdog_url)) {
       throw new Error('Watchdog endpoint is missing');
     }
@@ -192,12 +198,38 @@ export class OrdersService {
       collections: `${contract}`,
     });
 
-    const queryMakeTokenId = `make->'assetType'->'tokenId' = :tokenId`;
-    queryBuilder.andWhere(queryMakeTokenId, {
-      tokenId: `${tokenId}`,
-    });
+    // const queryMakeTokenId = `make->'assetType'->'tokenId' = :tokenId`;
+    // queryBuilder.andWhere(queryMakeTokenId, {
+    //   tokenId: `${tokenId}`,
+    // });
 
-    return await queryBuilder.getOne();
+    const results = await queryBuilder.getMany();
+
+    if (results.length <= 0) {
+      return null;
+    }
+
+    for (const order of results) {
+      if (order.make.assetType.assetClass === 'ERC721_BUNDLE') {
+        // in case of bundle
+
+        // 1. check collection index
+        // 2. find token ids array and check if tokenId is in the array
+
+        const assetType = order.make.assetType as IBundleType;
+        const collectionIndex = assetType.contracts.indexOf(contract);
+        const tokenIdArray = assetType.tokenIds[collectionIndex];
+        if (tokenIdArray.includes(tokenId)) {
+          return order;
+        }
+      } else {
+        const assetType = order.make.assetType as IAssetType;
+        // in case of ERC721
+        if (assetType.tokenId === tokenId) {
+          return order;
+        }
+      }
+    }
   }
 
   public async matchOrder(event: MatchOrderDto) {
@@ -211,12 +243,12 @@ export class OrdersService {
       );
       return;
     }
-    if (order.status !== OrderStatus.CREATED) {
-      console.log(
-        `The matched order is not in CREATED status. Order left hash: ${event.leftOrderHash}`,
-      );
-      return;
-    }
+    // if (order.status !== OrderStatus.CREATED) {
+    //   console.log(
+    //     `The matched order is not in CREATED status. Order left hash: ${event.leftOrderHash}`,
+    //   );
+    //   return;
+    // }
     order.status = OrderStatus.FILLED;
     order.matchedTxHash = event.txHash;
     await this.orderRepository.save(order);
@@ -232,7 +264,7 @@ export class OrdersService {
   public async checkSubscribe(order: Order) {
     // if it is already subscribed, that's ok.
     this.httpService
-      .post(`${this.watchdog_url}/subscribe/`, {
+      .post(`${this.watchdog_url}/v1/subscribe`, {
         addresses: [order.maker],
         topic: 'NFT',
       })

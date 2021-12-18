@@ -15,7 +15,7 @@ async function bootstrap() {
   const sessionSecret = R.path(['app', 'sessionSecret'], config.values);
 
   app.setGlobalPrefix('v1', {
-    exclude: ['internal/orders/:hash/match'],
+    exclude: ['internal/orders/:hash/match', 'internal/orders/track'],
   });
 
   // Middlewares
