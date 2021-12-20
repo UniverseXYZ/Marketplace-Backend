@@ -40,7 +40,7 @@ service:
   port: 8080
 
 ingress:
-  enabled: true
+  enabled: false
   annotations:
     external-dns.alpha.kubernetes.io/hostname: orderbook.marketplace-api.universe.xyz
     kubernetes.io/ingress.class: alb
