@@ -18,7 +18,14 @@ export class TypeOrmDefaultConfigService implements TypeOrmOptionsFactory {
       logging: false,
       namingStrategy: new SnakeNamingStrategy(),
       entities,
-      ...this.config.values.database,
+      database: this.config.values.DB_DATABASE_NAME,
+      host: this.config.values.DB_HOST,
+      port: this.config.values.DB_PORT,
+      ssl: this.config.values.DB_SSL,
+      synchronize: this.config.values.DB_SYNC,
+      migrationsRun: this.config.values.DB_MIGRATIONS,
+      username: this.config.values.DB_USERNAME,
+      password: this.config.values.DB_PASSWORD,
     };
   }
 }
