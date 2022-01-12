@@ -33,7 +33,7 @@ export class OrdersService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
   ) {
-    const watchdog_url = R.path(['watchdog', 'endpoint'], appConfig.values);
+    const watchdog_url = R.path(['WATCHDOG_URL'], appConfig.values);
     if (R.isNil(watchdog_url)) {
       throw new Error('Watchdog endpoint is missing');
     }
