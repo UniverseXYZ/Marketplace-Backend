@@ -1,7 +1,7 @@
 @testnet = https://orderbook.marketplace-api.universe.xyz
 @mainnethost = 
 @localhost = http://localhost:8080
-@hostname = {{testnet}}
+@hostname = {{localhost}}
 
 
 ### Health check
@@ -16,10 +16,10 @@ content-type: application/json
 
 
 ### Get Order by hash
-Get {{hostname}}/v1/orders/0x16e500a213c38172b7a87847dfb529a0cc436bf18b6145ba0c9c9316845024ce
+Get {{hostname}}/v1/orders/0x30aeb762c2b719c1c53ef82cf9ca5c45d34bac200e8a79a5bc179f1ac7945dd7
 
 ### Prepare Order Execution
-Post {{hostname}}/v1/orders/0x16e500a213c38172b7a87847dfb529a0cc436bf18b6145ba0c9c9316845024ce/prepare
+Post {{hostname}}/v1/orders/0x30aeb762c2b719c1c53ef82cf9ca5c45d34bac200e8a79a5bc179f1ac7945dd7/prepare
 Content-Type: application/json
 
 {
@@ -39,8 +39,8 @@ Content-Type: application/json
   "make": {
     "assetType": {
       "assetClass": "ERC721",
-      "contract": "0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE",
-      "tokenId": 8
+      "contract": "0x04dCA48CBFd79287686F3Db03DC4EFEbC5266677",
+      "tokenId": 9
     },
     "value": "1"
   },
@@ -50,7 +50,7 @@ Content-Type: application/json
     },
     "value": "100000000000000000"
   },
-  "salt": 12173,
+  "salt": 1,
   "start": 0,
   "end": 0,
   "data": {
@@ -62,7 +62,7 @@ Content-Type: application/json
       }
     ]
   },
-  "signature": "0x54136de65d4890519744b18eedee03ec1959c820ea03181562536635982f458938e03f955b9856675c190d9c331e2e2cecc4a0c07ef56bef8e2ada9815e5a7311c"
+  "signature": "0x1d8ab6fddf972cf57b7cfa5359690bd6541d33eb73cd866f1b573a117a49498758b8b79f03ccf819d4f191b27da34dff3adf8a2e7defa6bb287dec7dc4e5eaa91b"
 }
 
 ### Encode or Create Sell Bundle
