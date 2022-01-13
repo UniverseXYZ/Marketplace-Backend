@@ -12,11 +12,19 @@ services:
   #     POSTGRES_PASSWORD: postgres
   #     POSTGRES_USER: postgres
   #     POSTGRESQL_ENABLE_TLS: 'yes'
+  # api:
+  #   image: kunooo/marketplace-orderbook:20211210.1
+  #   volumes:
+  #     - ./appsettings/appsettings.json:/workdir/appsettings/appsettings.json
+  #     - ./secrets/secrets.json:/workdir/secrets/secrets.json
+  #   ports:
+  #     - 8080:8080
+  #   # depends_on:
+  #   #   - postgres
   api:
-    image: kunooo/marketplace-orderbook:20211210.1
-    volumes:
-      - ./appsettings/appsettings.json:/workdir/appsettings/appsettings.json
-      - ./secrets/secrets.json:/workdir/secrets/secrets.json
+    image: kunooo/marketplace-orderbook:20220112.1
+    env_file:
+      - .env
     ports:
       - 8080:8080
     # depends_on:
