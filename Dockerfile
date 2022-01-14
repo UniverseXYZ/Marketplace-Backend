@@ -6,6 +6,7 @@ RUN yarn install
 
 COPY tsconfig.json tsconfig.build.json ormconfig.ts ./
 COPY src ./src
+COPY migrations ./migrations
 RUN yarn build
 
 # production images
