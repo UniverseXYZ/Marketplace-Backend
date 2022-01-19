@@ -10,7 +10,6 @@ import {
 } from 'src/utils/order-encoder';
 import { In, Repository } from 'typeorm';
 import { AppConfig } from '../configuration/configuration.service';
-import web3 from 'web3';
 import { MatchOrderDto, OrderDto, PrepareTxDto, QueryDto } from './order.dto';
 import { Order } from './order.entity';
 import {
