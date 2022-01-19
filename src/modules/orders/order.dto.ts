@@ -4,9 +4,11 @@ import {
   IsNumberString,
   IsOptional,
   IsString,
+  Matches,
   ValidateNested,
 } from 'class-validator';
 import { IAsset, IOrderData, IPart } from './order.types';
+import { constants } from '../../common/constants';
 
 // TODO: more defence code for DTO. e.g. assetType
 export class OrderDto {
@@ -231,4 +233,15 @@ export class CancelOrderDto {
   asset: string;
   category: string;
   address: string;
+}
+
+export class GetSaltParamsDto {
+  @IsString()
+  @ApiProperty({
+    example: '0xE1d7a59AB392EA29b059dAE31c5A573e2fEcC5A8',
+    description: 'Wallet address',
+    required: true,
+  })
+  @Matches(constants.REGEXP_ETHEREUM_ADDRESS, {message: 'Please provide a valid wallet address.'})
+  walletAddress: string;
 }
