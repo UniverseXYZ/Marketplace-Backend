@@ -6,7 +6,13 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { IAsset, IOrderData, IPart } from './order.types';
+import { Transform, Type } from 'class-transformer';
+import { 
+  // IAsset, 
+  Asset, 
+  IOrderData, 
+  IPart 
+} from './order.types';
 
 // TODO: more defence code for DTO. e.g. assetType
 export class OrderDto {
@@ -38,8 +44,10 @@ export class OrderDto {
     description: 'asset info you want to give out',
     required: true,
   })
-  @ValidateNested()
-  make: IAsset;
+  @ValidateNested({ each: true })
+  @Type(() => Asset)
+  // make: IAsset;
+  make: Asset;
 
   @IsString()
   @ApiProperty({
@@ -60,7 +68,8 @@ export class OrderDto {
     description: 'Asset Info you want to get back',
     required: true,
   })
-  take: IAsset;
+  // take: IAsset;
+  take: Asset;
 
   @IsNumber()
   @ApiProperty({
@@ -99,7 +108,6 @@ export class OrderDto {
     description: 'order data, for now only for the revenue splits',
     required: true,
   })
-  @ValidateNested()
   data: IOrderData;
 
   @ApiProperty({
@@ -109,6 +117,20 @@ export class OrderDto {
     required: false,
   })
   signature: string;
+
+  @ApiProperty({
+    description: 'Bundle name for ERC721_BUNDLE orders',
+    required: false,
+  })
+  @IsOptional()
+  bundleName?: string;
+
+  @ApiProperty({
+    description: 'Bundle description for ERC721_BUNDLE orders',
+    required: false,
+  })
+  @IsOptional()
+  bundleDescription?: string;
 }
 
 export class PrepareTxDto {

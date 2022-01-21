@@ -1,7 +1,36 @@
-export interface IBundleType {
+import {
+  IsNumber,
+  IsNumberString,
+  IsOptional,
+  IsString,
+  ValidateNested,
+  Matches,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+
+// export interface IBundleType {
+//   assetClass: string;
+//   contracts: string[];
+//   tokenIds: number[][];
+// }
+export class BundleType {
   assetClass: string;
   contracts: string[];
   tokenIds: number[][];
+
+  @Matches(/^[^%&<>;=\+\*\'\"\0\\]*$/, {
+    message: 'Forbidden characters.',
+  })
+  @IsOptional()
+  @IsString()
+  bundleName?: string;
+
+  @Matches(/^[^%&<>;=\+\*\'\"\0\\]*$/, {
+    message: 'Forbidden characters.',
+  })
+  @IsOptional()
+  @IsString()
+  bundleDescription?: string;
 }
 
 export interface IAssetType {
@@ -10,8 +39,14 @@ export interface IAssetType {
   tokenId?: number;
 }
 
-export interface IAsset {
-  assetType: IAssetType | IBundleType;
+// export interface IAsset {
+//   assetType: IAssetType | IBundleType;
+//   value: string; // have to use string for token decimal
+// }
+export class Asset {
+  @ValidateNested({ each: true })
+  @Type(() => BundleType)
+  assetType: IAssetType & BundleType;
   value: string; // have to use string for token decimal
 }
 
@@ -22,7 +57,7 @@ export interface IPart {
 
 export interface IOrderData {
   dataType?: string;
-  revenueSplits?: IPart[];
+  revenueSplits?: IPart[]; 
 }
 
 export enum AssetClass {

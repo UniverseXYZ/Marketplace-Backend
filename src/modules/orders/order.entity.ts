@@ -6,7 +6,13 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { IAsset, IOrderData, OrderSide, OrderStatus } from './order.types';
+import { 
+  // IAsset, 
+  Asset, 
+  IOrderData, 
+  OrderSide, 
+  OrderStatus 
+} from './order.types';
 
 @Entity('orders')
 export class Order {
@@ -39,13 +45,14 @@ export class Order {
 
   @Column('jsonb')
   @Index({ unique: false })
-  make: IAsset;
+  // make: IAsset;
+  make: Asset;
 
   @Column('varchar')
   taker: string;
 
   @Column('jsonb')
-  take: IAsset;
+  take: Asset;
 
   @Column('numeric')
   salt: number;

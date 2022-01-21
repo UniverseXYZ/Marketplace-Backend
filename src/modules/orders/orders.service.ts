@@ -16,8 +16,10 @@ import {
   OrderSide,
   OrderStatus,
   NftTokens,
-  IBundleType,
+  // IBundleType,
   IAssetType,
+  AssetClass,
+  BundleType,
 } from './order.types';
 
 const ZERO = '0x0000000000000000000000000000000000000000';
@@ -27,6 +29,7 @@ const DATA_TYPE = 'ORDER_DATA';
 @Injectable()
 export class OrdersService {
   private watchdog_url;
+  
   constructor(
     private readonly appConfig: AppConfig,
     private readonly httpService: HttpService,
@@ -38,6 +41,34 @@ export class OrdersService {
       throw new Error('Watchdog endpoint is missing');
     }
     this.watchdog_url = watchdog_url;
+  }
+
+  /**
+   * This method creates an order and calls this.checkSubscribe().
+   * Returns the newly created order data.
+   * @param data - order data
+   * @returns {Object}
+   */
+  public async createOrderAndCheckSubscribe(data: OrderDto) {
+    // TODO: Potential Defense code
+
+    // TODO: check signature
+    if (!data.signature) {
+      throw new Error('Signature is missing');
+    }
+
+    // TODO: verifySignature
+
+    // TODO: check salt along with the signature. e.g. one maker should use a different salt for different signature
+
+    // TODO: verify make token Allowance
+    // e.g. 1. if NFT getApproved to the exchange contract
+    // e.g. 2. if maker is the owener of NFT. maybe frontend should do the check as its from makers' wallet
+
+    const order = this.convertToOrder(data);
+    const savedOrder = await this.orderRepository.save(order);
+    this.checkSubscribe(savedOrder);
+    return savedOrder;
   }
 
   public convertToOrder(orderDto: OrderDto) {
@@ -57,17 +88,30 @@ export class OrdersService {
       makeStock: orderDto.make.value,
       status: OrderStatus.CREATED,
     });
+    if (NftTokens.includes(order.make.assetType.assetClass)) {
+      order.side = OrderSide.SELL;
+    } else if (NftTokens.includes(order.take.assetType.assetClass)) {
+      order.side = OrderSide.BUY;
+    }
+    // a selling order might have the bundle name and description.
+    // @TODO find a better solution to validate existence of properties in dto.
+    // or move it into createOrderAndCheckSubscribe()
+    if(AssetClass.ERC721_BUNDLE === order.make.assetType.assetClass) {
+      delete order.make.assetType.contract;
+      delete order.make.assetType.tokenId;
+    } else {
+      delete order.make.assetType.contracts;
+      delete order.make.assetType.tokenIds;
+      delete order.make.assetType.bundleName;
+      delete order.make.assetType.bundleDescription;
+    }
     order.hash = hashOrderKey(
       order.maker,
       order.make.assetType,
       order.take.assetType,
       order.salt,
     );
-    if (NftTokens.includes(order.make.assetType.assetClass)) {
-      order.side = OrderSide.SELL;
-    } else if (NftTokens.includes(order.take.assetType.assetClass)) {
-      order.side = OrderSide.BUY;
-    }
+  
     return order;
   }
 
@@ -87,10 +131,6 @@ export class OrdersService {
       },
     });
     return rightOrder;
-  }
-
-  public async saveOrder(order: Order) {
-    return await this.orderRepository.save(order);
   }
 
   // Encode Order and ready to sign
@@ -216,7 +256,7 @@ export class OrdersService {
         // 1. check collection index
         // 2. find token ids array and check if tokenId is in the array
 
-        const assetType = order.make.assetType as IBundleType;
+        const assetType = order.make.assetType as BundleType;
         const collectionIndex = assetType.contracts.indexOf(contract);
         const tokenIdArray = assetType.tokenIds[collectionIndex];
         if (tokenIdArray.includes(tokenId)) {
@@ -261,20 +301,6 @@ export class OrdersService {
     );
   }
 
-  public async checkSubscribe(order: Order) {
-    // if it is already subscribed, that's ok.
-    this.httpService
-      .post(`${this.watchdog_url}/v1/subscribe`, {
-        addresses: [order.maker],
-        topic: 'NFT',
-      })
-      .subscribe({
-        next: (v) => console.log(v),
-        error: (e) => console.error(e),
-        complete: () => console.info('complete'),
-      });
-  }
-
   public async checkUnsubscribe(order: Order) {
     // if we are still interested in this address, don't unsubscribe
     const pending_orders = await this.orderRepository.find({
@@ -296,5 +322,19 @@ export class OrdersService {
           complete: () => console.info('complete'),
         });
     }
+  }
+
+  private async checkSubscribe(order: Order) {
+    // if it is already subscribed, that's ok.
+    this.httpService
+      .post(`${this.watchdog_url}/v1/subscribe`, {
+        addresses: [order.maker],
+        topic: 'NFT',
+      })
+      .subscribe({
+        next: (v) => console.log(v),
+        error: (e) => console.error(e),
+        complete: () => console.info('complete'),
+      });
   }
 }
