@@ -1,10 +1,22 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { 
-  ApiTags,
+  Body, 
+  Controller, 
+  Get, 
+  Param, 
+  Post, 
+  Query,
+} from '@nestjs/common';
+import { 
+  ApiTags, 
   ApiOperation,
 } from '@nestjs/swagger';
 import { EthereumService } from '../ethereum/ethereum.service';
-import { OrderDto, PrepareTxDto, QueryDto } from './order.dto';
+import { 
+  OrderDto, 
+  PrepareTxDto, 
+  QueryDto,
+  GetSaltParamsDto,
+} from './order.dto';
 import { OrderStatus } from './order.types';
 import { OrdersService } from './orders.service';
 
@@ -70,5 +82,11 @@ export class OrdersController {
       value.toString(),
     );
     return tx;
+  }
+
+  @Get('salt/:walletAddress')
+  @ApiOperation({ summary: 'Get the salt for a wallet address.' })
+  async getSalt(@Param() params: GetSaltParamsDto) {
+    return await this.orderService.getSaltByWalletAddress(params.walletAddress);
   }
 }

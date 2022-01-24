@@ -7,6 +7,7 @@ import {
   Matches,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+import { constants } from 'src/common/constants';
 
 // export interface IBundleType {
 //   assetClass: string;
@@ -18,14 +19,14 @@ export class BundleType {
   contracts: string[];
   tokenIds: number[][];
 
-  @Matches(/^[^%&<>;=\+\*\'\"\0\\]*$/, {
+  @Matches(constants.REGEX_JS_INSENSITIVE, {
     message: 'Forbidden characters.',
   })
   @IsOptional()
   @IsString()
   bundleName?: string;
 
-  @Matches(/^[^%&<>;=\+\*\'\"\0\\]*$/, {
+  @Matches(constants.REGEX_JS_INSENSITIVE, {
     message: 'Forbidden characters.',
   })
   @IsOptional()

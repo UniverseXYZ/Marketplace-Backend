@@ -74,7 +74,7 @@ export class OrdersService {
   public convertToOrder(orderDto: OrderDto) {
     const order = this.orderRepository.create({
       type: orderDto.type,
-      maker: orderDto.maker,
+      maker: orderDto.maker.toLowerCase(),
       taker: orderDto.taker,
       make: orderDto.make,
       take: orderDto.take,
@@ -106,7 +106,7 @@ export class OrdersService {
       delete order.make.assetType.bundleDescription;
     }
     order.hash = hashOrderKey(
-      order.maker,
+      order.maker.toLowerCase(),
       order.make.assetType,
       order.take.assetType,
       order.salt,
@@ -118,7 +118,7 @@ export class OrdersService {
   public convertToRightOrder(prepareDto: PrepareTxDto, leftOrder: Order) {
     const rightOrder = this.orderRepository.create({
       type: leftOrder.type,
-      maker: prepareDto.maker,
+      maker: prepareDto.maker.toLowerCase(),
       taker: ZERO,
       make: leftOrder.take,
       take: leftOrder.make,
@@ -136,7 +136,7 @@ export class OrdersService {
   // Encode Order and ready to sign
   public encode(order: Order) {
     return {
-      maker: order.maker,
+      maker: order.maker.toLowerCase(),
       makeAsset: {
         assetType: {
           assetClass: encodeAssetClass(order.make.assetType.assetClass),
@@ -176,7 +176,7 @@ export class OrdersService {
     }
 
     if (query.maker) {
-      queryBuilder.andWhere('maker = :maker', { maker: query.maker });
+      queryBuilder.andWhere('maker = :maker', { maker: query.maker.toLowerCase() });
     }
 
     if (query.assetClass) {
@@ -228,7 +228,7 @@ export class OrdersService {
 
     queryBuilder.andWhere('side = :side', { side: OrderSide.SELL });
 
-    queryBuilder.andWhere('maker = :maker', { maker: maker });
+    queryBuilder.andWhere('maker = :maker', { maker: maker.toLowerCase() });
 
     const queryMake = `make->'assetType'->'contract' = :collection`;
     const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
@@ -301,6 +301,25 @@ export class OrdersService {
     );
   }
 
+  /**
+   * Returns the "salt" for a wallet address.
+   * Salt equals the number of orders in the orders table for this wallet plus 1.
+   * This method does not do walletAddress validation check.
+   * @param walletAddress 
+   * @returns {Object} {salt: Number}
+   */
+   public async getSaltByWalletAddress(walletAddress: string): Promise<Object> {
+    
+    const count = await this.orderRepository.count({
+      maker: walletAddress.toLowerCase(),
+    });
+    const salt = 1 + count;
+  
+    return {
+      salt: salt,
+    };
+  }
+
   public async checkUnsubscribe(order: Order) {
     // if we are still interested in this address, don't unsubscribe
     const pending_orders = await this.orderRepository.find({
@@ -313,7 +332,7 @@ export class OrdersService {
     if (pending_orders.length === 0) {
       this.httpService
         .post(`${this.watchdog_url}/unsubscribe/`, {
-          addresses: [order.maker],
+          addresses: [order.maker.toLowerCase()],
           topic: 'NFT',
         })
         .subscribe({
@@ -337,4 +356,5 @@ export class OrdersService {
         complete: () => console.info('complete'),
       });
   }
+  
 }
