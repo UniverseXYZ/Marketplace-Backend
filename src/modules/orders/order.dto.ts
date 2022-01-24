@@ -108,6 +108,7 @@ export class OrderDto {
     description: 'order data, for now only for the revenue splits',
     required: true,
   })
+  @ValidateNested()
   data: IOrderData;
 
   @ApiProperty({

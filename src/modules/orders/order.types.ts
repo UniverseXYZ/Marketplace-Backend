@@ -57,7 +57,7 @@ export interface IPart {
 
 export interface IOrderData {
   dataType?: string;
-  revenueSplits?: IPart[]; 
+  revenueSplits?: IPart[];
 }
 
 export enum AssetClass {
