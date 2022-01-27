@@ -1,4 +1,4 @@
-import { IAsset } from 'src/modules/orders/order.types';
+import { IAsset } from '../modules/orders/order.types';
 import {
   encodeAsset,
   encodeAssetClass,

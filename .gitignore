@@ -1,6 +1,11 @@
 # compiled output
 /dist
 /node_modules
+.openzeppelin
+
+#Hardhat files
+cache
+artifacts
 
 # Logs
 logs
