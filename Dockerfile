@@ -4,7 +4,7 @@ WORKDIR /workdir
 COPY package.json yarn.lock ./
 RUN yarn install
 
-COPY tsconfig.json tsconfig.build.json ormconfig.ts ./
+COPY tsconfig.json tsconfig.build.json ormconfig.ts hardhat.config.ts ./
 COPY src ./src
 COPY migrations ./migrations
 RUN yarn build
