@@ -10,6 +10,7 @@
     "target": "es2017",
     "sourceMap": true,
     "outDir": "./dist",
+    // "rootDirs": ["./src", "./test"],
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
@@ -22,9 +23,13 @@
   },
   "include": [
     "src/**/*",
+    "test/**/*"
   ],
   "exclude": [
     "node_modules",
     "**/*.spec.ts"
+  ],
+  "files": [
+    "./hardhat.config.ts"
   ]
 }

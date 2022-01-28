@@ -5,7 +5,7 @@ import {
   IAssetType,
   IBundleType,
   IPart,
-} from 'src/modules/orders/order.types';
+} from '../modules/orders/order.types';
 
 export const encodeAsset = (token?: string, tokenId?: number) => {
   if (tokenId) {
