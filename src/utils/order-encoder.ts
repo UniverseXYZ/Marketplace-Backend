@@ -1,9 +1,11 @@
 import { utils } from 'ethers';
 import {
   AssetClass,
-  IAsset,
+  // IAsset,
+  Asset,
   IAssetType,
-  IBundleType,
+  // IBundleType,
+  BundleType,
   IPart,
 } from '../modules/orders/order.types';
 
@@ -30,9 +32,9 @@ export const encodeBundle = (tokenAddresses: string[], tokenIds: any) => {
   );
 };
 
-export const encodeAssetData = (assetType: IAssetType | IBundleType) => {
+export const encodeAssetData = (assetType: IAssetType | BundleType) => {
   if (assetType.assetClass === AssetClass.ERC721_BUNDLE) {
-    const type = assetType as IBundleType;
+    const type = assetType as BundleType;
     return encodeBundle(type.contracts, type.tokenIds);
   }
   const type = assetType as IAssetType;
@@ -75,7 +77,7 @@ export const hashAssetType = (assetType: IAssetType) => {
   return utils.keccak256(encodedAssetType);
 };
 
-export const hashAsset = (asset: IAsset) => {
+export const hashAsset = (asset: Asset) => {
   const encodedAsset = utils.defaultAbiCoder.encode(
     ['bytes32', 'bytes32', 'uint256'],
     [
@@ -93,8 +95,8 @@ export const hashAsset = (asset: IAsset) => {
 
 export const hashOrderKey = (
   maker: string,
-  makeAssetType: IAssetType | IBundleType,
-  takeAssetType: IAssetType | IBundleType,
+  makeAssetType: IAssetType | BundleType,
+  takeAssetType: IAssetType | BundleType,
   salt: number,
 ) => {
   const encodedOrder = utils.defaultAbiCoder.encode(

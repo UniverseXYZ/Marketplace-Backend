@@ -7,7 +7,13 @@ import {
   Matches,
   ValidateNested,
 } from 'class-validator';
-import { IAsset, IOrderData, IPart } from './order.types';
+import { Transform, Type } from 'class-transformer';
+import { 
+  // IAsset, 
+  Asset, 
+  IOrderData, 
+  IPart 
+} from './order.types';
 import { constants } from '../../common/constants';
 
 // TODO: more defence code for DTO. e.g. assetType
@@ -40,8 +46,10 @@ export class OrderDto {
     description: 'asset info you want to give out',
     required: true,
   })
-  @ValidateNested()
-  make: IAsset;
+  @ValidateNested({ each: true })
+  @Type(() => Asset)
+  // make: IAsset;
+  make: Asset;
 
   @IsString()
   @ApiProperty({
@@ -62,7 +70,8 @@ export class OrderDto {
     description: 'Asset Info you want to get back',
     required: true,
   })
-  take: IAsset;
+  // take: IAsset;
+  take: Asset;
 
   @IsNumber()
   @ApiProperty({
@@ -111,6 +120,20 @@ export class OrderDto {
     required: false,
   })
   signature: string;
+
+  @ApiProperty({
+    description: 'Bundle name for ERC721_BUNDLE orders',
+    required: false,
+  })
+  @IsOptional()
+  bundleName?: string;
+
+  @ApiProperty({
+    description: 'Bundle description for ERC721_BUNDLE orders',
+    required: false,
+  })
+  @IsOptional()
+  bundleDescription?: string;
 }
 
 export class PrepareTxDto {
@@ -242,6 +265,8 @@ export class GetSaltParamsDto {
     description: 'Wallet address',
     required: true,
   })
-  @Matches(constants.REGEXP_ETHEREUM_ADDRESS, {message: 'Please provide a valid wallet address.'})
+  @Matches(constants.REGEX_ETHEREUM_ADDRESS, {
+    message: 'Please provide a valid wallet address.'
+  })
   walletAddress: string;
 }

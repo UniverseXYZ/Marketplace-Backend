@@ -43,26 +43,9 @@ export class OrdersController {
   }
 
   @Post('order')
+  @ApiOperation({ summary: 'Create an order.' })
   async createOrder(@Body() body: OrderDto) {
-    // TODO: Potential Defense code
-
-    // TODO: check signature
-    if (!body.signature) {
-      throw new Error('Signature is missing');
-    }
-
-    // TODO: verifySignature
-
-    // TODO: check salt along with the signature. e.g. one maker should use a different salt for different signature
-
-    // TODO: verify make token Allowance
-    // e.g. 1. if NFT getApproved to the exchange contract
-    // e.g. 2. if maker is the owener of NFT. maybe frontend should do the check as its from makers' wallet
-
-    const order = this.orderService.convertToOrder(body);
-    const savedOrder = await this.orderService.saveOrder(order);
-    this.orderService.checkSubscribe(savedOrder);
-    return savedOrder;
+    return await this.orderService.createOrderAndCheckSubscribe(body);
   }
 
   @Post(':hash/prepare')
