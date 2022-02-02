@@ -5,6 +5,8 @@ import {
   Param, 
   Post, 
   Query,
+  Logger,
+  UsePipes
 } from '@nestjs/common';
 import { 
   ApiTags, 
@@ -19,74 +21,77 @@ import {
 } from './order.dto';
 import { OrderStatus } from './order.types';
 import { OrdersService } from './orders.service';
+import { BaseController } from '../../common/base.controller';
+import { MarketplaceValidationPipe } from '../../common/pipes/marketplace-validation.pipe';
 
 @Controller('orders')
 @ApiTags('Orderbook')
-export class OrdersController {
+export class OrdersController extends BaseController {
+  
   constructor(
     private orderService: OrdersService,
     private ethereumService: EthereumService,
-  ) {}
+  ) {
+    super(OrdersController.name);
+  }
 
   @Get('')
   async fetchAll(@Query() query: QueryDto) {
-    query.page = query.page || 1;
-    query.limit = query.limit || 10;
-    const orders = await this.orderService.queryAll(query);
-    return orders;
+    try {
+      return await this.orderService.queryAll(query);
+    } catch(e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    }
   }
 
   @Get(':hash')
+  @ApiOperation({ summary: 'Get order data by hash.' })
   async getOrder(@Param('hash') hash: string) {
-    const order = await this.orderService.getOrderByHash(hash);
-    return order;
+    try {
+      return await this.orderService.getOrderByHash(hash);
+    } catch(e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    } 
   }
 
   @Post('order')
+  @UsePipes(MarketplaceValidationPipe)
   @ApiOperation({ summary: 'Create an order.' })
   async createOrder(@Body() body: OrderDto) {
-    return await this.orderService.createOrderAndCheckSubscribe(body);
+    try {
+      return await this.orderService.createOrderAndCheckSubscribe(body);
+    } catch(e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    }
   }
 
   @Post(':hash/prepare')
+  @UsePipes(MarketplaceValidationPipe)
   async prepareOrderExecution(
     @Param('hash') hash: string,
     @Body() body: PrepareTxDto,
   ) {
-    // 1. get sell/left order
-    const leftOrder = await this.orderService.getOrderByHash(hash);
-
-    if (leftOrder.status !== OrderStatus.CREATED) {
-      // TODO: Return badrequest
-      throw new Error('Order has been filled');
+    try {
+      return await this.orderService.prepareOrderExecution(hash, body);
+    } catch(e) {
+      this.logger.error(e);
+      this.errorResponse(e);
     }
-    // TODO: verify if maker's token got approved to transfer proxy
-    // TODO: check if the left order is a buy eth-order. We won't support the seller to send a eth-order.
-
-    // 2. generate the oppsite right order
-    const rightOrder = this.orderService.convertToRightOrder(body, leftOrder);
-
-    // 3. generate the match tx
-    const value = this.ethereumService.calculateTxValue(
-      leftOrder.make.assetType.assetClass,
-      leftOrder.make.value,
-      leftOrder.take.assetType.assetClass,
-      leftOrder.take.value,
-    );
-
-    const tx = await this.ethereumService.prepareMatchTx(
-      this.orderService.encode(leftOrder),
-      leftOrder.signature,
-      this.orderService.encode(rightOrder),
-      body.maker,
-      value.toString(),
-    );
-    return tx;
   }
 
   @Get('salt/:walletAddress')
   @ApiOperation({ summary: 'Get the salt for a wallet address.' })
   async getSalt(@Param() params: GetSaltParamsDto) {
-    return await this.orderService.getSaltByWalletAddress(params.walletAddress);
+    try {
+      return {
+        salt: await this.orderService.getSaltByWalletAddress(params.walletAddress)
+      }
+    } catch(e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    }
   }
 }
