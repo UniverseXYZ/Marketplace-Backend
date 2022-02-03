@@ -1,24 +1,28 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsNotEmpty,
   IsNumber,
   IsNumberString,
   IsOptional,
   IsString,
   Matches,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { 
   // IAsset, 
   Asset, 
-  IOrderData, 
-  IPart 
+  // IOrderData, 
+  OrderData, 
+  IPart,
+  Part,
 } from './order.types';
 import { constants } from '../../common/constants';
 
-// TODO: more defence code for DTO. e.g. assetType
 export class OrderDto {
   @IsString()
+  @IsNotEmpty()
   @ApiProperty({
     example: 'UNIVERSE_V1',
     description: '',
@@ -27,6 +31,9 @@ export class OrderDto {
   type: string;
 
   @IsString()
+  @Matches(constants.REGEX_ETHEREUM_ADDRESS, {
+    message: constants.WALLET_ADDRESS_ERROR,
+  })
   @ApiProperty({
     example: '0xE1d7a59AB392EA29b059dAE31c5A573e2fEcC5A8',
     description: 'The wallet address who is going to give asset',
@@ -40,6 +47,8 @@ export class OrderDto {
         assetClass: 'ERC721',
         contract: '0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE',
         tokenId: 6,
+        bundleName: 'Optional. Max length 100. Bundle name for ERC721_BUNDLE orders.',
+        bundleDescription: 'Optional. Max length 1024. Bundle description for ERC721_BUNDLE orders.',
       },
       value: '1',
     },
@@ -48,7 +57,6 @@ export class OrderDto {
   })
   @ValidateNested({ each: true })
   @Type(() => Asset)
-  // make: IAsset;
   make: Asset;
 
   @IsString()
@@ -59,7 +67,6 @@ export class OrderDto {
   })
   taker?: string;
 
-  @ValidateNested()
   @ApiProperty({
     example: {
       assetType: {
@@ -70,16 +77,18 @@ export class OrderDto {
     description: 'Asset Info you want to get back',
     required: true,
   })
-  // take: IAsset;
+  @ValidateNested({each: true})
+  @Type(() => Asset)
   take: Asset;
 
   @IsNumber()
+  @IsNotEmpty()
   @ApiProperty({
     example: 1,
     description: 'nonce for signatures submitted with the order',
-    required: false,
+    required: true,
   })
-  salt?: number;
+  salt: number;
 
   @IsNumber()
   @ApiProperty({
@@ -110,34 +119,27 @@ export class OrderDto {
     description: 'order data, for now only for the revenue splits',
     required: true,
   })
-  @ValidateNested()
-  data: IOrderData;
+  @ValidateNested({each: true})
+  @Type(() => OrderData)
+  data: OrderData;
 
+  @IsString()
+  @IsNotEmpty()
   @ApiProperty({
     example:
       '0xad47f02925ffbd0bbc6a53846b0f499ca74ec8a176e4e1420eb1dcbb21d05a3d1e3f20957f2f7f8c99586e9ed92d2aeb2c85ea54afd39b49c4a1d20bd639d2e41c',
     description: 'signature of the order info',
-    required: false,
+    required: true,
   })
   signature: string;
-
-  @ApiProperty({
-    description: 'Bundle name for ERC721_BUNDLE orders',
-    required: false,
-  })
-  @IsOptional()
-  bundleName?: string;
-
-  @ApiProperty({
-    description: 'Bundle description for ERC721_BUNDLE orders',
-    required: false,
-  })
-  @IsOptional()
-  bundleDescription?: string;
 }
 
 export class PrepareTxDto {
   @IsString()
+  @IsNotEmpty()
+  @Matches(constants.REGEX_ETHEREUM_ADDRESS, {
+    message: constants.WALLET_ADDRESS_ERROR,
+  })
   @ApiProperty({
     example: '0x67b93857317462775666a310ac292D61dEE4bbb9',
     description: 'The wallet address who is going to give asset',
@@ -150,23 +152,23 @@ export class PrepareTxDto {
     description: 'The amount you want to buy',
     required: true,
   })
-  @IsString()
+  @IsNumberString()
+  @IsNotEmpty()
   amount: string;
 
   @ApiProperty({
-    example: {
-      dataType: 'ORDER_DATA',
-      revenueSplits: [
-        {
-          account: '0x3bB0dE46c6B1501aF5921Fb7EDBc15dFD998Fadd',
-          value: '5000',
-        },
-      ],
-    },
+    example: [
+      {
+        account: '0x3bB0dE46c6B1501aF5921Fb7EDBc15dFD998Fadd',
+        value: '5000',
+      },
+    ],
     description: 'Possible revenue splits',
     required: false,
   })
-  revenueSplits?: IPart[];
+  @ValidateNested({each: true})
+  @Type(() => Part)
+  revenueSplits?: Part[];
 }
 
 export class MatchOrderDto {
@@ -260,13 +262,14 @@ export class CancelOrderDto {
 
 export class GetSaltParamsDto {
   @IsString()
+  @IsNotEmpty()
   @ApiProperty({
     example: '0xE1d7a59AB392EA29b059dAE31c5A573e2fEcC5A8',
     description: 'Wallet address',
     required: true,
   })
   @Matches(constants.REGEX_ETHEREUM_ADDRESS, {
-    message: 'Please provide a valid wallet address.'
+    message: constants.WALLET_ADDRESS_ERROR,
   })
   walletAddress: string;
 }

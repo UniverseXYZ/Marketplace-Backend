@@ -5,10 +5,10 @@ import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { waffle, ethers, upgrades } from 'hardhat';
 import { Order, Asset, sign } from './helpers/order';
+import { constants } from '../src/common/constants';
 
 const DAO_FEE = 2500;
 const DAO_ADDRESS = "0x67b93852482113375666a310ac292D61dDD4bbb9";
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const MAX_BUNDLE_SIZE = 10;
 
 describe('End to end Match Orders tests', () => {
@@ -142,7 +142,7 @@ describe('End to end Match Orders tests', () => {
         },
         value: erc721Qunatity,
       },
-      taker: ZERO_ADDRESS,
+      taker: constants.ZERO_ADDRESS,
       take: {
         assetType: {
           assetClass: 'ETH'
@@ -152,7 +152,6 @@ describe('End to end Match Orders tests', () => {
       salt: leftOrderSaltResponse.body.salt,
       start: 0,
       end: 0,
-      // dataType: '0x0b35c423', // @TODO find out what is it
       data: {
         dataType: 'ORDER_DATA',
         revenueSplits: [
@@ -223,7 +222,7 @@ describe('End to end Match Orders tests', () => {
         },
         value: 200
       },
-      taker: ZERO_ADDRESS,
+      taker: constants.ZERO_ADDRESS,
       take: {
         assetType: {
           assetClass: 'ERC721_BUNDLE',
@@ -241,7 +240,6 @@ describe('End to end Match Orders tests', () => {
       salt: rightOrderSaltResponse.body.salt,
       start: 0,
       end: 0,
-      // dataType: '0xffffffff',
       data: {
         dataType: '0x',
       }

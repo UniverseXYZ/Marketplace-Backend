@@ -4,7 +4,6 @@ import { AppConfig } from '../configuration/configuration.service';
 import { Order } from '../orders/order.entity';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
-// TODO: Add all db entities
 const entities = [Order];
 
 @Injectable()

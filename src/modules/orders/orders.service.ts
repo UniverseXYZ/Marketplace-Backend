@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import R from 'ramda';
 import {
@@ -21,26 +21,32 @@ import {
   AssetClass,
   BundleType,
 } from './order.types';
-
-const ZERO = '0x0000000000000000000000000000000000000000';
-const DATA_TYPE_0x = '0x';
-const DATA_TYPE = 'ORDER_DATA';
+import { EthereumService } from '../ethereum/ethereum.service';
+import { MarketplaceException } from '../../common/exceptions/MarketplaceException';
+import { constants } from '../../common/constants';
+import { createTypeData } from '../../common/utils/EIP712';
+import { Utils } from '../../common/utils';
+// import { sign } from '../../common/helpers/order';
 
 @Injectable()
 export class OrdersService {
-  private watchdog_url;
+  
+  private watchdogUrl;
+  private logger;
   
   constructor(
     private readonly appConfig: AppConfig,
     private readonly httpService: HttpService,
+    private readonly ethereumService: EthereumService,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
   ) {
-    const watchdog_url = R.path(['WATCHDOG_URL'], appConfig.values);
-    if (R.isNil(watchdog_url)) {
+    const watchdogUrl = R.path(['WATCHDOG_URL'], appConfig.values);
+    if (R.isNil(watchdogUrl)) {
       throw new Error('Watchdog endpoint is missing');
     }
-    this.watchdog_url = watchdog_url;
+    this.watchdogUrl = watchdogUrl;
+    this.logger = new Logger(OrdersService.name);
   }
 
   /**
@@ -50,27 +56,108 @@ export class OrdersService {
    * @returns {Object}
    */
   public async createOrderAndCheckSubscribe(data: OrderDto) {
-    // TODO: Potential Defense code
 
-    // TODO: check signature
-    if (!data.signature) {
-      throw new Error('Signature is missing');
+    if(!data.type || !constants.ORDER_TYPES.includes(data.type)) {
+      throw new MarketplaceException(constants.INVALID_ORDER_TYPE_ERROR);
     }
 
-    // TODO: verifySignature
+    // DTO does validate unexpected properties but if it's validating a value of multiple
+    // types, i didn't find the way how to account for unexpected properties of the other type.
+    // This has to happen before verifying the signature!
+    if(AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass) {
+      delete data.make.assetType.contract;
+      delete data.make.assetType.tokenId;
+    } else {
+      delete data.make.assetType.contracts;
+      delete data.make.assetType.tokenIds;
+      delete data.make.assetType.bundleName;
+      delete data.make.assetType.bundleDescription;
+    }
 
-    // TODO: check salt along with the signature. e.g. one maker should use a different salt for different signature
+    // verify signature
+    let order = this.convertToOrder(data);
+    const encodedOrder = this.encode(order);
+    const signerAddress = this.ethereumService.verifyTypedData({
+      name: 'Exchange',
+      version: '2',
+      chainId: await this.ethereumService.getChainId(),
+      verifyingContract: this.appConfig.values.MARKETPLACE_CONTRACT,
+    }, Utils.types, encodedOrder, data.signature);
+    if(signerAddress.toLowerCase() !== data.maker.toLowerCase()) {
+      throw new MarketplaceException(constants.INVALID_SIGNATURE_ERROR);
+    }
 
-    // TODO: verify make token Allowance
-    // e.g. 1. if NFT getApproved to the exchange contract
-    // e.g. 2. if maker is the owener of NFT. maybe frontend should do the check as its from makers' wallet
+    // check salt along with the signature (just in case)
+    const salt = await this.getSaltByWalletAddress(data.maker);
+    if(salt !== data.salt) {
+      throw new MarketplaceException(constants.INVALID_SALT_ERROR);
+    }
 
-    const order = this.convertToOrder(data);
+    // verify that  NFT is approved for transfer to the exchange contract
+    // and that the maker is the owner of the NFT  
+    if(OrderSide.SELL === order.side && !await this.ethereumService.verifyAllowance(
+      data.maker,
+      AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass ? data.make.assetType.contracts : [data.make.assetType.contract], 
+      AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass ? data.make.assetType.tokenIds : [[data.make.assetType.tokenId]]
+    )) {
+      throw new MarketplaceException(constants.NFT_ALLOWANCE_ERROR);
+    } 
+
     const savedOrder = await this.orderRepository.save(order);
     this.checkSubscribe(savedOrder);
     return savedOrder;
   }
 
+  public async prepareOrderExecution(hash: string, data: PrepareTxDto) {
+    // 1. get sell/left order
+    const leftOrder = await this.getOrderByHash(hash);
+    if (leftOrder.status !== OrderStatus.CREATED) {
+      throw new MarketplaceException(constants.ORDER_ALREADY_FILLED_ERROR);
+    }
+
+    // verify if maker's token got approved to transfer proxy
+    if(!await this.ethereumService.verifyAllowance(
+      leftOrder.maker,
+      AssetClass.ERC721_BUNDLE === leftOrder.make.assetType.assetClass ? leftOrder.make.assetType.contracts : [leftOrder.make.assetType.contract], 
+      AssetClass.ERC721_BUNDLE === leftOrder.make.assetType.assetClass ? leftOrder.make.assetType.tokenIds : [[leftOrder.make.assetType.tokenId]]
+    )) {
+      throw new MarketplaceException(constants.NFT_ALLOWANCE_ERROR);
+    }
+
+    // check if the left order is a buy eth-order. We won't support the seller to send a eth-order.
+    // @TODO check with Ryan and @Stan if it's not a bug but feature!
+    if(AssetClass.ETH === leftOrder.make.assetType.assetClass) {
+      throw new MarketplaceException('Invalid sell order asset.');
+    }
+
+    // 2. generate the oppsite right order
+    const rightOrder = this.convertToRightOrder(data, leftOrder);
+
+    // 3. generate the match tx
+    const value = this.ethereumService.calculateTxValue(
+      leftOrder.make.assetType.assetClass,
+      leftOrder.make.value,
+      leftOrder.take.assetType.assetClass,
+      leftOrder.take.value,
+    );
+
+    const tx = await this.ethereumService.prepareMatchTx(
+      this.encode(leftOrder),
+      leftOrder.signature,
+      this.encode(rightOrder),
+      data.maker,
+      value.toString(),
+    );
+    return tx;
+  }
+
+  /**
+   * Converts the payload order data into the Order object.
+   * Returns an Order object.
+   * @param orderDto 
+   * @returns {Order}
+   * @throws {MarketplaceException}
+   */
   public convertToOrder(orderDto: OrderDto) {
     const order = this.orderRepository.create({
       type: orderDto.type,
@@ -92,18 +179,8 @@ export class OrdersService {
       order.side = OrderSide.SELL;
     } else if (NftTokens.includes(order.take.assetType.assetClass)) {
       order.side = OrderSide.BUY;
-    }
-    // a selling order might have the bundle name and description.
-    // @TODO find a better solution to validate existence of properties in dto.
-    // or move it into createOrderAndCheckSubscribe()
-    if(AssetClass.ERC721_BUNDLE === order.make.assetType.assetClass) {
-      delete order.make.assetType.contract;
-      delete order.make.assetType.tokenId;
     } else {
-      delete order.make.assetType.contracts;
-      delete order.make.assetType.tokenIds;
-      delete order.make.assetType.bundleName;
-      delete order.make.assetType.bundleDescription;
+      throw new MarketplaceException('Invalid asset class.');
     }
     order.hash = hashOrderKey(
       order.maker.toLowerCase(),
@@ -119,14 +196,14 @@ export class OrdersService {
     const rightOrder = this.orderRepository.create({
       type: leftOrder.type,
       maker: prepareDto.maker.toLowerCase(),
-      taker: ZERO,
+      taker: constants.ZERO_ADDRESS,
       make: leftOrder.take,
       take: leftOrder.make,
       salt: leftOrder.salt,
       start: leftOrder.start,
       end: leftOrder.end,
       data: {
-        dataType: prepareDto.revenueSplits?.length ? DATA_TYPE : DATA_TYPE_0x,
+        dataType: prepareDto.revenueSplits?.length ? constants.ORDER_DATA : constants.DATA_TYPE_0X,
         revenueSplits: prepareDto.revenueSplits,
       },
     });
@@ -166,6 +243,9 @@ export class OrdersService {
   }
 
   public async queryAll(query: QueryDto) {
+    query.page = query.page || 1;
+    query.limit = query.limit || 10;
+    
     const skippedItems = (query.page - 1) * query.limit;
 
     const queryBuilder = this.orderRepository.createQueryBuilder();
@@ -250,14 +330,12 @@ export class OrdersService {
     }
 
     for (const order of results) {
-      if (order.make.assetType.assetClass === 'ERC721_BUNDLE') {
+      if (order.make.assetType.assetClass === AssetClass.ERC721_BUNDLE) {
         // in case of bundle
-
         // 1. check collection index
-        // 2. find token ids array and check if tokenId is in the array
-
         const assetType = order.make.assetType as BundleType;
         const collectionIndex = assetType.contracts.indexOf(contract);
+        // 2. find token ids array and check if tokenId is in the array
         const tokenIdArray = assetType.tokenIds[collectionIndex];
         if (tokenIdArray.includes(tokenId)) {
           return order;
@@ -275,20 +353,13 @@ export class OrdersService {
   public async matchOrder(event: MatchOrderDto) {
     const order = await this.orderRepository.findOne({
       hash: event.leftOrderHash,
+      status: OrderStatus.CREATED,
     });
-    // TODO: refactor to use logger
     if (!order) {
-      console.log(
-        `The matched order is not found in database. Order left hash: ${event.leftOrderHash}`,
-      );
+      this.logger.error(`The matched order is not found in database. Order left hash: ${event.leftOrderHash}`);
       return;
     }
-    // if (order.status !== OrderStatus.CREATED) {
-    //   console.log(
-    //     `The matched order is not in CREATED status. Order left hash: ${event.leftOrderHash}`,
-    //   );
-    //   return;
-    // }
+    
     order.status = OrderStatus.FILLED;
     order.matchedTxHash = event.txHash;
     await this.orderRepository.save(order);
@@ -306,18 +377,17 @@ export class OrdersService {
    * Salt equals the number of orders in the orders table for this wallet plus 1.
    * This method does not do walletAddress validation check.
    * @param walletAddress 
-   * @returns {Object} {salt: Number}
+   * @returns {Promise<number>}
    */
-   public async getSaltByWalletAddress(walletAddress: string): Promise<Object> {
+   public async getSaltByWalletAddress(walletAddress: string): Promise<number> {
     
+    let value = 1;
     const count = await this.orderRepository.count({
       maker: walletAddress.toLowerCase(),
     });
-    const salt = 1 + count;
+    value = value + count;
   
-    return {
-      salt: salt,
-    };
+    return value;
   }
 
   public async checkUnsubscribe(order: Order) {
@@ -331,7 +401,7 @@ export class OrdersService {
     });
     if (pending_orders.length === 0) {
       this.httpService
-        .post(`${this.watchdog_url}/unsubscribe/`, {
+        .post(`${this.watchdogUrl}/unsubscribe/`, {
           addresses: [order.maker.toLowerCase()],
           topic: 'NFT',
         })
@@ -346,7 +416,7 @@ export class OrdersService {
   private async checkSubscribe(order: Order) {
     // if it is already subscribed, that's ok.
     this.httpService
-      .post(`${this.watchdog_url}/v1/subscribe`, {
+      .post(`${this.watchdogUrl}/v1/subscribe`, {
         addresses: [order.maker],
         topic: 'NFT',
       })
@@ -355,6 +425,26 @@ export class OrdersService {
         error: (e) => console.error(e),
         complete: () => console.info('complete'),
       });
+  }
+
+  /**
+   * @Deprecated
+   * Returns order side based on order's asset class.
+   * The returning valus is either 0 (left or sell order) or 1 (right or bid order).
+   * @param orderDto 
+   * @returns order side
+   * @throws {MarketplaceException}
+   */
+  private getOrderSide(orderDto: OrderDto): number {
+    let value = null;
+    if (NftTokens.includes(orderDto.make.assetType.assetClass)) {
+      value = OrderSide.SELL;
+    } else if (NftTokens.includes(orderDto.take.assetType.assetClass)) {
+      value = OrderSide.BUY;
+    } else {
+      throw new MarketplaceException('Invalid asset class.');
+    }
+    return value;
   }
   
 }

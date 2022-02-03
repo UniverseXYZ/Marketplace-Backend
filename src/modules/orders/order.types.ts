@@ -5,18 +5,46 @@ import {
   IsString,
   ValidateNested,
   Matches,
+  MaxLength,
+  IsArray,
+  ValidateIf,
+  IsEnum,
+  IsNotEmpty,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { constants } from 'src/common/constants';
+import { constants } from '../../common/constants';
 
-// export interface IBundleType {
-//   assetClass: string;
-//   contracts: string[];
-//   tokenIds: number[][];
-// }
-export class BundleType {
-  assetClass: string;
+export enum AssetClass {
+  ETH = 'ETH',
+  ERC20 = 'ERC20',
+  ERC721 = 'ERC721',
+  ERC721_BUNDLE = 'ERC721_BUNDLE',
+  ERC1155 = 'ERC1155',
+}
+
+export abstract class AbstractAssetType {
+  @IsEnum(AssetClass)
+  assetClass: AssetClass;
+
+  @IsString()
+  @IsOptional()
+  @ValidateIf(o => o.assetClass !== AssetClass.ERC721_BUNDLE)
+  contract?: string;
+  
+  @IsNumber()
+  @IsOptional()
+  @ValidateIf(o => o.assetClass !== AssetClass.ERC721_BUNDLE)
+  tokenId?: number;
+
+  @IsArray()
+  @IsString({
+    each: true,
+  })
+  @ValidateIf(o => o.assetClass === AssetClass.ERC721_BUNDLE)
   contracts: string[];
+
+  @IsArray()
+  @ValidateIf(o => o.assetClass === AssetClass.ERC721_BUNDLE)
   tokenIds: number[][];
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
@@ -24,6 +52,8 @@ export class BundleType {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
+  @ValidateIf(o => o.assetClass === AssetClass.ERC721_BUNDLE)
   bundleName?: string;
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
@@ -31,12 +61,61 @@ export class BundleType {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(1024)
+  @ValidateIf(o => o.assetClass === AssetClass.ERC721_BUNDLE)
+  bundleDescription?: string;
+}
+
+// export interface IBundleType {
+//   assetClass: string;
+//   contracts: string[];
+//   tokenIds: number[][];
+// }
+export class BundleType {
+  @IsString()
+  assetClass: string;
+  
+  @IsArray()
+  @IsString({
+    each: true,
+  })
+  contracts: string[];
+
+  @IsArray()
+  tokenIds: number[][];
+
+  @Matches(constants.REGEX_JS_INSENSITIVE, {
+    message: 'Forbidden characters.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  bundleName?: string;
+
+  @Matches(constants.REGEX_JS_INSENSITIVE, {
+    message: 'Forbidden characters.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1024)
   bundleDescription?: string;
 }
 
 export interface IAssetType {
   assetClass: string;
   contract?: string;
+  tokenId?: number;
+}
+export class AssetType {
+  @IsString()
+  assetClass: string;
+  
+  @IsString()
+  @IsOptional()
+  contract?: string;
+  
+  @IsNumber()
+  @IsOptional()
   tokenId?: number;
 }
 
@@ -46,8 +125,10 @@ export interface IAssetType {
 // }
 export class Asset {
   @ValidateNested({ each: true })
-  @Type(() => BundleType)
-  assetType: IAssetType & BundleType;
+  @Type(() => AbstractAssetType)
+  assetType: AbstractAssetType;
+
+  @IsNumberString()
   value: string; // have to use string for token decimal
 }
 
@@ -55,18 +136,30 @@ export interface IPart {
   account: string;
   value: string;
 }
+export class Part {
+  @IsString()
+  @Matches(constants.REGEX_ETHEREUM_ADDRESS, {
+    message: constants.WALLET_ADDRESS_ERROR,
+  })
+  account: string;
+
+  @IsNumberString()
+  @IsNotEmpty()
+  value: string;
+}
 
 export interface IOrderData {
   dataType?: string;
   revenueSplits?: IPart[];
 }
+export class OrderData {
+  @IsString()
+  @IsOptional()
+  dataType?: string;
 
-export enum AssetClass {
-  ETH = 'ETH',
-  ERC20 = 'ERC20',
-  ERC721 = 'ERC721',
-  ERC721_BUNDLE = 'ERC721_BUNDLE',
-  ERC1155 = 'ERC1155',
+  @IsArray()
+  @IsOptional()
+  revenueSplits?: IPart[];
 }
 
 export const NftTokens = ['ERC721', 'ERC721_BUNDLE', 'ERC1155'];
