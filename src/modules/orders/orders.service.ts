@@ -281,11 +281,11 @@ export class OrdersService {
     }
 
     if (query.tokenId) {
-      const queryMake = `make->'assetType'->'tokenId' = :tokenId`;
-      const queryTake = `take->'assetType'->'tokenId' = :tokenId`;
+      const queryMake = `make->'assetType'->>'tokenId' = :tokenId`;
+      const queryTake = `take->'assetType'->>'tokenId' = :tokenId`;
       const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
       queryBuilder.andWhere(queryForBoth, {
-        tokenId: `${query.tokenId}`,
+        tokenId: query.tokenId,
       });
     }
 
