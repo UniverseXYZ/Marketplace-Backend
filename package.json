@@ -48,7 +48,6 @@
     "ethers": "^5.4.7",
     "express-session": "^1.17.2",
     "hardhat-deploy": "^0.9.13",
-    "hardhat-gas-reporter": "^1.0.4",
     "helmet": "^4.6.0",
     "pg": "^8.7.1",
     "ramda": "^0.27.1",
