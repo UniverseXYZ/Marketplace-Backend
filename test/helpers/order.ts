@@ -1,4 +1,4 @@
-const EIP712 = require("./EIP712");
+const EIP712 = require('../../src/common/utils/EIP712');
 import { web3 } from 'hardhat';
 
 function AssetType(assetClass, data) {

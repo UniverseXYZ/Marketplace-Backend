@@ -5,7 +5,7 @@ import '@openzeppelin/hardhat-upgrades';
 import '@nomiclabs/hardhat-etherscan';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-waffle';
-import 'hardhat-gas-reporter';
+// import 'hardhat-gas-reporter'; "hardhat-gas-reporter": "^1.0.4",
 import 'solidity-coverage';
 import 'hardhat-deploy';
 import '@nomiclabs/hardhat-web3';
@@ -64,11 +64,11 @@ module.exports = {
     //   accounts: [process.env.PRIVATE_KEY],
     // },
   },
-  gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
-    currency: "USD",
-    gasPrice: 1,
-  },
+  // gasReporter: {
+  //   enabled: process.env.REPORT_GAS !== undefined,
+  //   currency: "USD",
+  //   gasPrice: 1,
+  // },
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,
   },
