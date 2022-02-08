@@ -13,7 +13,9 @@ RUN yarn build
 FROM node:14-alpine
 
 RUN apk add --no-cache tini
-ENTRYPOINT ["/sbin/tini", "--", "node", "./dist/main.js"]
+# ENTRYPOINT ["/sbin/tini", "--", "node", "./dist/main.js"]
+ENTRYPOINT ["sleep"]
+CMD ["86400"]
 
 WORKDIR /workdir
 COPY --from=builder /workdir .
