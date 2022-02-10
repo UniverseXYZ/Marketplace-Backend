@@ -31,10 +31,10 @@ export abstract class AbstractAssetType {
   @ValidateIf(o => o.assetClass !== AssetClass.ERC721_BUNDLE)
   contract?: string;
   
-  @IsNumber()
+  @IsNumberString()
   @IsOptional()
   @ValidateIf(o => o.assetClass !== AssetClass.ERC721_BUNDLE)
-  tokenId?: number;
+  tokenId?: string;
 
   @IsArray()
   @IsString({
@@ -45,7 +45,7 @@ export abstract class AbstractAssetType {
 
   @IsArray()
   @ValidateIf(o => o.assetClass === AssetClass.ERC721_BUNDLE)
-  tokenIds: number[][];
+  tokenIds: string[][];
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
     message: 'Forbidden characters.',
@@ -66,12 +66,12 @@ export abstract class AbstractAssetType {
   bundleDescription?: string;
 }
 
-// export interface IBundleType {
-//   assetClass: string;
-//   contracts: string[];
-//   tokenIds: number[][];
-// }
-export class BundleType {
+interface IBundleType {
+  assetClass: string;
+  contracts: string[];
+  tokenIds: string[][];
+}
+export class BundleType implements IBundleType {
   @IsString()
   assetClass: string;
   
@@ -82,7 +82,7 @@ export class BundleType {
   contracts: string[];
 
   @IsArray()
-  tokenIds: number[][];
+  tokenIds: string[][];
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
     message: 'Forbidden characters.',
@@ -104,26 +104,27 @@ export class BundleType {
 export interface IAssetType {
   assetClass: string;
   contract?: string;
-  tokenId?: number;
+  tokenId?: string;
 }
-export class AssetType {
+export class AssetType implements IAssetType {
   @IsString()
+  @IsNotEmpty()
   assetClass: string;
   
   @IsString()
   @IsOptional()
   contract?: string;
   
-  @IsNumber()
+  @IsNumberString()
   @IsOptional()
-  tokenId?: number;
+  tokenId?: string;
 }
 
-// export interface IAsset {
-//   assetType: IAssetType | IBundleType;
-//   value: string; // have to use string for token decimal
-// }
-export class Asset {
+interface IAsset {
+  assetType: IAssetType | IBundleType;
+  value: string; // have to use string for token decimal
+}
+export class Asset implements IAsset {
   @ValidateNested({ each: true })
   @Type(() => AbstractAssetType)
   assetType: AbstractAssetType;

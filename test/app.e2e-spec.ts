@@ -3,8 +3,8 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { expect } from 'chai';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
-import { waffle, ethers, upgrades } from 'hardhat';
-import { Order, Asset, sign } from './helpers/order';
+import { waffle, ethers, upgrades, web3 } from 'hardhat';
+import { Utils } from '../src/common/utils';
 import { constants } from '../src/common/constants';
 
 const DAO_FEE = 2500;
@@ -178,10 +178,11 @@ describe('End to end Match Orders tests', () => {
       .expect(201); // 201 - Created response
 
     // sign encoded left order
-    const leftOrderSignature = await sign(
+    const leftOrderSignature = await Utils.sign(
       encodeLeftOrderResponse.body,
       accounts[1],
-      universeMarketplace.address
+      universeMarketplace.address,
+      web3
     );
 
     // submit left order to backend

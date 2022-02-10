@@ -22,8 +22,7 @@ export class OrderEncodersController extends BaseController {
   @UsePipes(MarketplaceValidationPipe)
   async encodeOrder(@Body() body: OrderDto) {
     try {
-      const order = this.orderService.convertToOrder(body);
-      const encodedOrder = this.orderService.encode(order);
+      const encodedOrder = this.orderService.encode(body);
       return encodedOrder;
     } catch(e) {
       this.logger.error(e);

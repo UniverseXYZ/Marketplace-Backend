@@ -17,9 +17,10 @@ export const constants = {
     GENERIC_ERROR: 'We had an error processing your request.',
     INVALID_SIGNATURE_ERROR: 'Invalid signature.',
     INVALID_ORDER_TYPE_ERROR: 'Invalid order type.',
+    INVALID_SELL_ORDER_ASSET_ERROR: 'Invalid sell order asset.',
     WALLET_ADDRESS_ERROR: 'Please provide a valid wallet address.',
     INVALID_SALT_ERROR: 'Invalid salt for the order.',
     ORDER_ALREADY_FILLED_ERROR: 'Order has been filled.',
-    NFT_ALLOWANCE_ERROR: 'Some NFTs are not approved to be transferred by or not awned by maker.',
+    NFT_ALLOWANCE_ERROR: 'Some NFTs are not approved to be transferred or not awned by maker.',
 
 };

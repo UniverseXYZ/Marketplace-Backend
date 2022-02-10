@@ -7,6 +7,10 @@ import Exchange from './exchange-contract';
 import { BigNumber, ethers } from 'ethers';
 import { constants } from '../../common/constants';
 import { Utils } from '../../common/utils';
+// import { MulticallService } from '../multicall/multicall.service';
+import { nftContractABI } from './abi/nft-contract';
+import { erc20ContractABI } from './abi/erc20-contract';
+import { AssetClass } from '../orders/order.types';
 
 @Injectable()
 export class EthereumService {
@@ -15,7 +19,10 @@ export class EthereumService {
   private logger;
   private chainId: number;
 
-  constructor(private config: AppConfig) {
+  constructor(
+    private config: AppConfig,
+    // private multicallService: MulticallService
+  ) {
     this.logger = new Logger(EthereumService.name);
 
     const key = <NetworkType>config.values.ETHEREUM_NETWORK;
@@ -48,7 +55,7 @@ export class EthereumService {
   public async getChainId(): Promise<number> {
     if(!this.chainId) {
       this.chainId = await this.web3.eth.getChainId();
-    }
+    } 
     return this.chainId;
   }
 
@@ -124,77 +131,57 @@ export class EthereumService {
     return value;
   }
 
-  // public async sign(order, walletAddress, verifyingContract) {
-  //   return await Utils.sign(order, walletAddress, verifyingContract, this.web3);
-  // }
+  /**
+   * This method calls allowance verification methods depending on the asset class (ERC721, ERC20 etc)
+   * @param assetClass - value of type AssetClass
+   * @param walletAddress 
+   * @param contractAddresses 
+   * @param tokenIds 
+   * @param amount - this is the order value for ERC20 orders
+   * @returns 
+   */
+  public async verifyAllowance(
+    assetClass: AssetClass, 
+    walletAddress: string, 
+    contractAddresses: string[], 
+    tokenIds: string[][],
+    amount = '0'
+  ): Promise<boolean> {
 
-  public async verifyAllowance(walletAddress: string, contractAddresses: string[], tokenIds: number[][]): Promise<boolean> {
     let value = false;
-
     walletAddress = walletAddress.toLowerCase();
-    const nftContractABI = [
-      {
-        inputs: [
-          {
-            internalType: 'uint256',
-            name: 'tokenId',
-            type: 'uint256',
-          }
-        ],
-        outputs: [
-          {
-            // internalType: '',
-            name: 'getApproved',
-            type: 'address',
-          }
-        ],
-        name: 'getApproved',
-        type: 'function',
-      },
-      {
-        inputs: [
-          {
-            internalType: 'address',
-            name: 'owner',
-            type: 'address',
-          },
-          {
-            internalType: 'address',
-            name: 'operator',
-            type: 'address',
-          }
-        ],
-        outputs: [
-          {
-            // internalType: '',
-            name: 'isApprovedForAll',
-            type: 'bool',
-          }
-        ],
-        name: 'isApprovedForAll',
-        type: 'function',
-      },
-      {
-        inputs: [
-          {
-            internalType: 'uint256',
-            name: 'tokenId',
-            type: 'uint256',
-          }
-        ],
-        outputs: [
-          {
-            // internalType: '',
-            name: 'ownerOf',
-            type: 'address',
-          }
-        ],
-        name: 'ownerOf',
-        type: 'function',
-      }
-    ] as any;
-    let nftContracts = {};
 
+    switch(assetClass) {
+      case AssetClass.ERC721:
+      case AssetClass.ERC721_BUNDLE:
+        value = await this.verifyAllowanceERC721(walletAddress, contractAddresses, tokenIds);
+        break;
+      case AssetClass.ERC20:
+        value = await this.verifyAllowanceERC20(walletAddress, contractAddresses[0], amount);
+        break;
+      case AssetClass.ERC1155:
+        // @TODO unleash hell here please
+        value = false;
+        break;
+    }
+
+    return value;
+  }
+
+  /**
+   * This method verifies "allowance" of the walletAddress on a ERC721 (or ERC721_BUNDLE) contracts
+   * by calling isApprovedForAll(), getApproved() and ownerOf() o the contract to verify that 
+   * the Marketplace contract is approved to make transfers and the walletAddress actually owns
+   * the token.
+   * @param walletAddress 
+   * @param contractAddresses 
+   * @param tokenIds 
+   * @returns {Promise<boolean>}
+   */
+  private async verifyAllowanceERC721(walletAddress: string, contractAddresses: string[], tokenIds: string[][]): Promise<boolean> {
+    let value = false;
+    let nftContracts = {};
+    
     try {
       for(let i = 0 ; i < contractAddresses.length ; i++) {
         const contractAddress = contractAddresses[i];
@@ -206,24 +193,28 @@ export class EthereumService {
         if(!nftContracts[contractAddress]) {
           nftContracts[contractAddress] = new this.web3.eth.Contract(nftContractABI, contractAddress);
         }
+
+        this.logger.log(`Calling isApprovedForAll() on contract ${contractAddress}.`);
+        const isApprovedForAll = await nftContracts[contractAddress].methods.isApprovedForAll(walletAddress, this.config.values.MARKETPLACE_CONTRACT).call();
         
         for(let j = 0 ; j < tokenIds[i].length ; j++) {
-          const tokenId = Math.floor(tokenIds[i][j]); // force integer
+          const tokenId = tokenIds[i][j]; // tokenId is a string!
+          if(isNaN(Number(tokenId))) {
+            throw new Error(`tokenId ${tokenId} is invalid.`);
+          }
+
+          if(!isApprovedForAll) {
+            this.logger.log(`Calling getApproved() on contract ${contractAddress} with tokenId ${tokenId}.`);
+            const approvedAddress = await nftContracts[contractAddress].methods.getApproved(tokenId).call();             
+            if(approvedAddress.toLowerCase() !== this.config.values.MARKETPLACE_CONTRACT.toLowerCase()) {
+              throw new Error(`Token id ${tokenId} on contract ${contractAddress} is not approved to be transferred to the Marketplace contract.`);
+            }
+          }
 
           this.logger.log(`Calling ownerOf() on contract ${contractAddress} with tokenId ${tokenId}.`);
           const owner = await nftContracts[contractAddress].methods.ownerOf(tokenId).call();
           if(owner.toLowerCase() !== walletAddress) {
             throw new Error(`Wallet ${walletAddress} is not the owner of token id ${tokenId} on contract ${contractAddress}.`);
-          }
-          
-          this.logger.log(`Calling isApprovedForAll() on contract ${contractAddress}.`);
-          const isApprovedForAll = await nftContracts[contractAddress].methods.isApprovedForAll(walletAddress, this.config.values.MARKETPLACE_CONTRACT).call();           
-          if(!isApprovedForAll) {
-            this.logger.log(`Calling getApproved() on contract ${contractAddress} with tokenId ${tokenId}.`);
-            const approvedAddress = await nftContracts[contractAddress].methods.getApproved(tokenId).call();             
-            if(approvedAddress.toLowerCase() !== this.config.values.MARKETPLACE_CONTRACT) {
-              throw new Error(`Token id ${tokenId} on contract ${contractAddress} is not approved to be transferred to the Marketplace contract.`);
-            }
           }
         }
       }
@@ -236,6 +227,52 @@ export class EthereumService {
       this.logger.error(`Unable to verify allowance for wallet ${walletAddress}`);
     }
       
+    return value;
+  }
+
+  /**
+   * This method verifies "allowance" of the walletAddress on a ERC20 contract by calling
+   * allowance() and balanceOf() methods on the contract contractAddress to see if the 
+   * Marketplace contract is allowed to make transfers of tokens on this contract and 
+   * that the walletAddress actually owns at least the amount of tokens on this contract.
+   * @param walletAddress 
+   * @param contractAddress 
+   * @param amount 
+   * @returns {Promise<boolean>}
+   */
+  private async verifyAllowanceERC20(walletAddress: string, contractAddress: string, amount: string): Promise<boolean> {
+    let value = false;
+
+    try {
+      if(!constants.REGEX_ETHEREUM_ADDRESS.test(contractAddress)) {
+        throw new Error(`Invalid contract address ${contractAddress}.`);
+      }
+      if(Number(amount) <= 0) {
+        throw new Error(`Invalid amount value ${amount}`);
+      }
+
+      const erc20Contract = new this.web3.eth.Contract(erc20ContractABI, contractAddress);
+
+      this.logger.log(`Calling allowance() on contract ${contractAddress} with wallet address ${walletAddress} and Marketplace contract.`);
+      const allowance = await erc20Contract.methods.allowance(walletAddress, this.config.values.MARKETPLACE_CONTRACT).call();
+      if(BigInt(amount) > allowance) {
+        throw new Error(`Marketplace contract does not have enough allowance of ${amount}, got ${allowance}`);
+      }
+
+      this.logger.log(`Calling balanceOf() on contract ${contractAddress} with wallet ${walletAddress}.`);
+      const balance = await erc20Contract.methods.balanceOf(walletAddress);
+      if(BigInt(amount) > balance) {
+        throw new Error(`Wallet ${walletAddress} does not have enough balance of ${amount}, got ${balance}`);
+      }
+
+      value = true;
+
+    } catch(e) {
+      value = false;
+      this.logger.error(e);
+      this.logger.error(`Unable to verify allowance for wallet ${walletAddress}`);
+    }
+
     return value;
   }
 }
