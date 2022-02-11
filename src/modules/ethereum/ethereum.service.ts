@@ -10,6 +10,7 @@ import { Utils } from '../../common/utils';
 // import { MulticallService } from '../multicall/multicall.service';
 import { nftContractABI } from './abi/nft-contract';
 import { erc20ContractABI } from './abi/erc20-contract';
+import { erc1155ContractABI } from './abi/erc1155-contract';
 import { AssetClass } from '../orders/order.types';
 
 @Injectable()
@@ -160,8 +161,7 @@ export class EthereumService {
         value = await this.verifyAllowanceERC20(walletAddress, contractAddresses[0], amount);
         break;
       case AssetClass.ERC1155:
-        // @TODO unleash hell here please
-        value = false;
+        value = await this.verifyAllowanceERC1155(walletAddress, contractAddresses[0], tokenIds[0][0], amount);
         break;
     }
 
@@ -194,7 +194,7 @@ export class EthereumService {
           nftContracts[contractAddress] = new this.web3.eth.Contract(nftContractABI, contractAddress);
         }
 
-        this.logger.log(`Calling isApprovedForAll() on contract ${contractAddress}.`);
+        this.logger.log(`Calling isApprovedForAll() on ERC721 contract ${contractAddress}.`);
         const isApprovedForAll = await nftContracts[contractAddress].methods.isApprovedForAll(walletAddress, this.config.values.MARKETPLACE_CONTRACT).call();
         
         for(let j = 0 ; j < tokenIds[i].length ; j++) {
@@ -203,15 +203,15 @@ export class EthereumService {
             throw new Error(`tokenId ${tokenId} is invalid.`);
           }
 
-          if(!isApprovedForAll) {
-            this.logger.log(`Calling getApproved() on contract ${contractAddress} with tokenId ${tokenId}.`);
+          if(true !== isApprovedForAll) {
+            this.logger.log(`Calling getApproved() on ERC721 contract ${contractAddress} with tokenId ${tokenId}.`);
             const approvedAddress = await nftContracts[contractAddress].methods.getApproved(tokenId).call();             
             if(approvedAddress.toLowerCase() !== this.config.values.MARKETPLACE_CONTRACT.toLowerCase()) {
               throw new Error(`Token id ${tokenId} on contract ${contractAddress} is not approved to be transferred to the Marketplace contract.`);
             }
           }
 
-          this.logger.log(`Calling ownerOf() on contract ${contractAddress} with tokenId ${tokenId}.`);
+          this.logger.log(`Calling ownerOf() on ERC721 contract ${contractAddress} with tokenId ${tokenId}.`);
           const owner = await nftContracts[contractAddress].methods.ownerOf(tokenId).call();
           if(owner.toLowerCase() !== walletAddress) {
             throw new Error(`Wallet ${walletAddress} is not the owner of token id ${tokenId} on contract ${contractAddress}.`);
@@ -248,18 +248,18 @@ export class EthereumService {
         throw new Error(`Invalid contract address ${contractAddress}.`);
       }
       if(Number(amount) <= 0) {
-        throw new Error(`Invalid amount value ${amount}`);
+        throw new Error(`Invalid amount value ${amount}.`);
       }
 
       const erc20Contract = new this.web3.eth.Contract(erc20ContractABI, contractAddress);
 
-      this.logger.log(`Calling allowance() on contract ${contractAddress} with wallet address ${walletAddress} and Marketplace contract.`);
+      this.logger.log(`Calling allowance() on ERC20 contract ${contractAddress} with wallet address ${walletAddress} and Marketplace contract.`);
       const allowance = await erc20Contract.methods.allowance(walletAddress, this.config.values.MARKETPLACE_CONTRACT).call();
       if(BigInt(amount) > allowance) {
         throw new Error(`Marketplace contract does not have enough allowance of ${amount}, got ${allowance}`);
       }
 
-      this.logger.log(`Calling balanceOf() on contract ${contractAddress} with wallet ${walletAddress}.`);
+      this.logger.log(`Calling balanceOf() on ERC20 contract ${contractAddress} with wallet ${walletAddress}.`);
       const balance = await erc20Contract.methods.balanceOf(walletAddress);
       if(BigInt(amount) > balance) {
         throw new Error(`Wallet ${walletAddress} does not have enough balance of ${amount}, got ${balance}`);
@@ -270,7 +270,55 @@ export class EthereumService {
     } catch(e) {
       value = false;
       this.logger.error(e);
-      this.logger.error(`Unable to verify allowance for wallet ${walletAddress}`);
+      this.logger.error(`Unable to verify allowance for wallet ${walletAddress} on ERC20 contract ${contractAddress}.`);
+    }
+
+    return value;
+  }
+
+  /**
+   * This method verifies "allowance" of the walletAddress on a ERC1155 contract by calling
+   * isApprovedForAll() and balanceOf() methods on the contract contractAddress to see if the 
+   * Marketplace contract is allowed to make transfers of tokenId on this contract and 
+   * that the walletAddress actually owns at least the amount of tokenId on this contract.
+   * @param walletAddress 
+   * @param contractAddress 
+   * @param tokenId 
+   * @param amount 
+   * @returns {Promise<boolean>}
+   */
+  private async verifyAllowanceERC1155(walletAddress: string, contractAddress: string, tokenId: string, amount: string): Promise<boolean> {
+    let value = false;
+    
+    try {
+      if(!constants.REGEX_ETHEREUM_ADDRESS.test(contractAddress)) {
+        throw new Error(`Invalid contract address ${contractAddress}.`);
+      }
+      if(Number(amount) <= 0) {
+        throw new Error(`Invalid amount value ${amount}.`);
+      }
+      if(isNaN(Number(tokenId))) {
+        throw new Error(`tokenId ${tokenId} is invalid.`);
+      }
+
+      const erc1155Contract = new this.web3.eth.Contract(erc1155ContractABI, contractAddress);
+      
+      this.logger.log(`Calling isApprovedForAll() on ERC1155 contract ${contractAddress} with wallet address ${walletAddress} and Marketplace contract.`);
+      const isApprovedForAll = await erc1155Contract.methods.isApprovedForAll(walletAddress, this.config.values.MARKETPLACE_CONTRACT).call();
+      if(true !== isApprovedForAll) {
+        throw new Error(`Marketplace contract is not approved to transfer token ${tokenId} on contract ${contractAddress}.`);
+      }
+
+      this.logger.log(`Calling balanceOf() on ERC1155 contract ${contractAddress} with wallet ${walletAddress} and token ${tokenId}.`);
+      const balance = await erc1155Contract.methods.balanceOf(walletAddress, tokenId).call();
+      if(BigInt(amount) > balance) {
+        throw new Error(`Wallet ${walletAddress} does not have enough balance of ${amount} on token ${tokenId}, got ${balance}`);
+      }
+
+    } catch(e) {
+      value = false;
+      this.logger.error(e);
+      this.logger.error(`Unable to verify allowance for wallet ${walletAddress} on ERC1155 contract ${contractAddress}.`);
     }
 
     return value;
