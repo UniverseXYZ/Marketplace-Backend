@@ -29,18 +29,14 @@ export class OrdersInternalController extends BaseController {
       const { fromAddress, toAddress, address, erc721TokenId } = body;
       const matchedOne = await this.orderService.queryOne(
         address,
-        parseInt(erc721TokenId, 16),
+        erc721TokenId,
         fromAddress,
       );
       if (!matchedOne) {
-        console.log(
-          `Failed to find this order: nft: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
-        );
+        this.logger.error(`Failed to find this order: nft: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`);
         return 'OK';
       }
-      console.log(
-        `kun debug: find the matching order by alchemy: ${matchedOne.hash}`,
-      );
+      this.logger.log(`Found matching order by alchemy: ${matchedOne.hash}`);
       await this.orderService.cancelOrder(matchedOne.hash);
       return 'OK';
     } catch(e) {

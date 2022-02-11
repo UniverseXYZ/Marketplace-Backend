@@ -46,7 +46,7 @@ export class OrderDto {
       assetType: {
         assetClass: 'ERC721',
         contract: '0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE',
-        tokenId: 6,
+        tokenId: '6837465522200555559822',
         bundleName: 'Optional. Max length 100. Bundle name for ERC721_BUNDLE orders.',
         bundleDescription: 'Optional. Max length 1024. Bundle description for ERC721_BUNDLE orders.',
       },
@@ -122,7 +122,9 @@ export class OrderDto {
   @ValidateNested({each: true})
   @Type(() => OrderData)
   data: OrderData;
+}
 
+export class CreateOrderDto extends OrderDto {
   @IsString()
   @IsNotEmpty()
   @ApiProperty({

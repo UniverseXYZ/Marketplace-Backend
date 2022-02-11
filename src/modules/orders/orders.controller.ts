@@ -14,7 +14,8 @@ import {
 } from '@nestjs/swagger';
 import { EthereumService } from '../ethereum/ethereum.service';
 import { 
-  OrderDto, 
+  OrderDto,
+  CreateOrderDto,
   PrepareTxDto, 
   QueryDto,
   GetSaltParamsDto,
@@ -59,7 +60,7 @@ export class OrdersController extends BaseController {
   @Post('order')
   @UsePipes(MarketplaceValidationPipe)
   @ApiOperation({ summary: 'Create an order.' })
-  async createOrder(@Body() body: OrderDto) {
+  async createOrder(@Body() body: CreateOrderDto) {
     try {
       return await this.orderService.createOrderAndCheckSubscribe(body);
     } catch(e) {

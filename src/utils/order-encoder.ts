@@ -9,7 +9,7 @@ import {
   IPart,
 } from '../modules/orders/order.types';
 
-export const encodeAsset = (token?: string, tokenId?: number) => {
+export const encodeAsset = (token?: string, tokenId?: string) => {
   if (tokenId) {
     return utils.defaultAbiCoder.encode(
       ['address', 'uint256'],
