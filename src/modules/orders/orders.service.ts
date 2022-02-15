@@ -433,7 +433,7 @@ export class OrdersService {
           topic: 'NFT',
         })
         .subscribe({
-          next: (v) => this.logger.log(v),
+          next: (v) => this.logger.log(v.data),
           error: (e) => this.logger.error(e),
           complete: () => this.logger.log('complete'),
         });
@@ -448,7 +448,7 @@ export class OrdersService {
         topic: 'NFT',
       })
       .subscribe({
-        next: (v) => this.logger.log(v),
+        next: (v) => this.logger.log(v.data),
         error: (e) => this.logger.error(e),
         complete: () => this.logger.log('complete'),
       });
