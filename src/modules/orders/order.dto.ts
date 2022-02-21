@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsBooleanString,
   IsNotEmpty,
   IsNumber,
   IsNumberString,
@@ -285,6 +286,24 @@ export class QueryDto {
   @IsNumberString()
   @IsOptional()
   maxPrice: string;
+
+  @ApiProperty({
+    example: '0.9',
+    description: 'Max price of the order',
+    required: false,
+  })
+  @IsNumberString()
+  @IsOptional()
+  sortBy: string;
+
+  @ApiProperty({
+    example: true,
+    description: 'Order has oofers',
+    required: false,
+  })
+  @IsOptional()
+  @IsBooleanString()
+  hasOffers: boolean;
 }
 
 export class CancelOrderDto {

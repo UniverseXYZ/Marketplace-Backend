@@ -35,6 +35,7 @@ import { createTypeData } from '../../common/utils/EIP712';
 import { Utils } from '../../common/utils';
 // import { sign } from '../../common/helpers/order';
 import web3 from 'web3';
+import { SortOrderOptionsEnum } from './order.sort';
 @Injectable()
 export class OrdersService {
   private watchdogUrl;
@@ -298,11 +299,34 @@ export class OrdersService {
 
     const skippedItems = (query.page - 1) * query.limit;
 
-    const queryBuilder = this.orderRepository.createQueryBuilder();
+    const queryBuilder = this.orderRepository.createQueryBuilder('order');
     queryBuilder.where('status = :status', { status: OrderStatus.CREATED });
 
     if (query.side) {
       queryBuilder.andWhere('side = :side', { side: query.side });
+    }
+
+    if (!!query.hasOffers) {
+      // Get all buy orders(offers)
+      const offers = await this.orderRepository.find({
+        where: {
+          side: 0,
+        },
+      });
+
+      let queryText = '';
+
+      // Search for any sell orders that have offers
+      offers.forEach((offer) => {
+        if (offer.make.assetType.tokenId && offer.make.assetType.contract) {
+          queryText += `${queryText ? 'OR' : ''}`;
+          queryText += `take->'assetType'->>'tokenId' = '${offer.make.assetType.tokenId}' AND take->'assetType'->>'contract' = '${offer.make.assetType.contract}'`;
+        }
+      });
+
+      if (queryText) {
+        queryBuilder.andWhere(queryText);
+      }
     }
 
     if (query.maker) {
@@ -344,56 +368,72 @@ export class OrdersService {
 
     if (query.beforeTimestamp) {
       const milisecTimestamp = Number(query.beforeTimestamp) * 1000;
-      const date = new Date(milisecTimestamp);
+      const utcDate = new Date(milisecTimestamp);
 
-      console.log(date.toDateString());
-      const timestampQuery = `'createdAt' <= :date`;
+      console.log(utcDate.toDateString());
+      const timestampQuery = `order.createdAt >= :date`;
       queryBuilder.andWhere(timestampQuery, {
-        date: date.toDateString(),
+        date: utcDate.toDateString(),
       });
     }
 
     if (query.token) {
       console.log(query.token);
 
-      const queryMake = `make->'assetType'->>'assetClass' = :token`;
       const queryTake = `take->'assetType'->>'assetClass' = :token`;
-      const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
 
-      queryBuilder.andWhere(queryForBoth, {
+      queryBuilder.andWhere(queryTake, {
         token: query.token,
       });
     }
 
-    // TODO: Price filters don't work well because price is a string in the database
-    // Not sure how to convert it to number at time of querying
-    // Maybe query using a bigint library somehow
-
     if (query.minPrice) {
-      console.log(query.minPrice);
-      console.log(Number(web3.utils.toWei(query.minPrice)));
+      const weiPrice = web3.utils.toWei(query.minPrice);
 
-      const queryMake = `CAST(make->>'value' as DECIMAL) >= :price`;
-      const queryTake = `CAST(take->>'value' as DECIMAL) >= :price`;
-      const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
+      const queryTake = `CAST(take->>'value' as DECIMAL) >= CAST(:minPrice as DECIMAL)`;
 
-      queryBuilder.andWhere(queryForBoth, {
-        price: Number(web3.utils.toWei(query.minPrice)),
+      queryBuilder.andWhere(queryTake, {
+        minPrice: weiPrice,
       });
     }
 
     if (query.maxPrice) {
-      console.log(query.maxPrice);
-      console.log(Number(web3.utils.toWei(query.maxPrice)));
+      const weiPrice = web3.utils.toWei(query.maxPrice);
 
-      const queryMake = `CAST(make->>'value' as DECIMAL) <= :price`;
-      const queryTake = `CAST(take->>'value' as DECIMAL) <= :price`;
-      const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
-      queryBuilder.andWhere(queryForBoth, {
-        price: Number(web3.utils.toWei(query.maxPrice)),
+      const queryTake = `CAST(take->>'value' as DECIMAL) <= CAST(:maxPrice as DECIMAL)`;
+
+      queryBuilder.andWhere(queryTake, {
+        maxPrice: weiPrice,
       });
     }
 
+    switch (Number(query.sortBy)) {
+      case SortOrderOptionsEnum.EndingSoon:
+        const utcTimestamp = Math.floor(new Date().getTime() / 1000);
+        queryBuilder.orderBy(
+          `(case when order.end - ${utcTimestamp} >= 0 then 1 else 2 end)`,
+        );
+        break;
+      case SortOrderOptionsEnum.HighestPrice:
+        queryBuilder
+          .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
+          .orderBy('value_decimal', 'DESC');
+        break;
+      case SortOrderOptionsEnum.LowestPrice:
+        queryBuilder
+          .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
+          .orderBy('value_decimal', 'ASC');
+        break;
+      case SortOrderOptionsEnum.RecentlyListed:
+        queryBuilder.orderBy('order.createdAt', 'DESC');
+        break;
+      default:
+        queryBuilder.orderBy('order.createdAt', 'DESC');
+        break;
+    }
+
+    queryBuilder.addOrderBy('order.createdAt', 'DESC');
+    console.log(queryBuilder.getSql());
     const items = await queryBuilder
       .offset(skippedItems)
       .limit(query.limit)
