@@ -1,22 +1,19 @@
-import { 
-  Body, 
-  Controller, 
-  Get, 
-  Param, 
-  Post, 
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
   Query,
   Logger,
-  UsePipes
+  UsePipes,
 } from '@nestjs/common';
-import { 
-  ApiTags, 
-  ApiOperation,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { EthereumService } from '../ethereum/ethereum.service';
-import { 
+import {
   OrderDto,
   CreateOrderDto,
-  PrepareTxDto, 
+  PrepareTxDto,
   QueryDto,
   GetSaltParamsDto,
 } from './order.dto';
@@ -28,7 +25,6 @@ import { MarketplaceValidationPipe } from '../../common/pipes/marketplace-valida
 @Controller('orders')
 @ApiTags('Orderbook')
 export class OrdersController extends BaseController {
-  
   constructor(
     private orderService: OrdersService,
     private ethereumService: EthereumService,
@@ -40,7 +36,7 @@ export class OrdersController extends BaseController {
   async fetchAll(@Query() query: QueryDto) {
     try {
       return await this.orderService.queryAll(query);
-    } catch(e) {
+    } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
     }
@@ -51,10 +47,10 @@ export class OrdersController extends BaseController {
   async getOrder(@Param('hash') hash: string) {
     try {
       return await this.orderService.getOrderByHash(hash);
-    } catch(e) {
+    } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
-    } 
+    }
   }
 
   @Post('order')
@@ -63,7 +59,7 @@ export class OrdersController extends BaseController {
   async createOrder(@Body() body: CreateOrderDto) {
     try {
       return await this.orderService.createOrderAndCheckSubscribe(body);
-    } catch(e) {
+    } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
     }
@@ -77,7 +73,7 @@ export class OrdersController extends BaseController {
   ) {
     try {
       return await this.orderService.prepareOrderExecution(hash, body);
-    } catch(e) {
+    } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
     }
@@ -88,9 +84,11 @@ export class OrdersController extends BaseController {
   async getSalt(@Param() params: GetSaltParamsDto) {
     try {
       return {
-        salt: await this.orderService.getSaltByWalletAddress(params.walletAddress)
-      }
-    } catch(e) {
+        salt: await this.orderService.getSaltByWalletAddress(
+          params.walletAddress,
+        ),
+      };
+    } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
     }

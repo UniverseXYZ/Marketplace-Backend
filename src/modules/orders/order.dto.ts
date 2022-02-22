@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsBooleanString,
   IsNotEmpty,
   IsNumber,
   IsNumberString,
@@ -10,11 +11,11 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { 
-  // IAsset, 
-  Asset, 
-  // IOrderData, 
-  OrderData, 
+import {
+  // IAsset,
+  Asset,
+  // IOrderData,
+  OrderData,
   IPart,
   Part,
 } from './order.types';
@@ -47,8 +48,10 @@ export class OrderDto {
         assetClass: 'ERC721',
         contract: '0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE',
         tokenId: '6837465522200555559822',
-        bundleName: 'Optional. Max length 100. Bundle name for ERC721_BUNDLE orders.',
-        bundleDescription: 'Optional. Max length 1024. Bundle description for ERC721_BUNDLE orders.',
+        bundleName:
+          'Optional. Max length 100. Bundle name for ERC721_BUNDLE orders.',
+        bundleDescription:
+          'Optional. Max length 1024. Bundle description for ERC721_BUNDLE orders.',
       },
       value: '1',
     },
@@ -77,7 +80,7 @@ export class OrderDto {
     description: 'Asset Info you want to get back',
     required: true,
   })
-  @ValidateNested({each: true})
+  @ValidateNested({ each: true })
   @Type(() => Asset)
   take: Asset;
 
@@ -119,7 +122,7 @@ export class OrderDto {
     description: 'order data, for now only for the revenue splits',
     required: true,
   })
-  @ValidateNested({each: true})
+  @ValidateNested({ each: true })
   @Type(() => OrderData)
   data: OrderData;
 }
@@ -168,7 +171,7 @@ export class PrepareTxDto {
     description: 'Possible revenue splits',
     required: false,
   })
-  @ValidateNested({each: true})
+  @ValidateNested({ each: true })
   @Type(() => Part)
   revenueSplits?: Part[];
 }
@@ -235,7 +238,6 @@ export class QueryDto {
     description: 'Asset address',
     required: false,
   })
-  @IsString()
   @IsOptional()
   collection: string;
 
@@ -247,6 +249,60 @@ export class QueryDto {
   @IsNumberString()
   @IsOptional()
   tokenId: number;
+
+  @ApiProperty({
+    example: 1645177895,
+    description: 'Order timestamp',
+    required: false,
+  })
+  @IsNumberString()
+  @IsOptional()
+  beforeTimestamp: number;
+
+  @ApiProperty({
+    example: 'USDC',
+    description: 'ERC20 Token',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  token: string;
+
+  @ApiProperty({
+    example: '0.2',
+    description: 'Min price of the order',
+    required: false,
+  })
+  @IsNumberString()
+  @IsOptional()
+  minPrice: string;
+
+  @ApiProperty({
+    example: '0.9',
+    description: 'Max price of the order',
+    required: false,
+  })
+  @IsNumberString()
+  @IsOptional()
+  maxPrice: string;
+
+  @ApiProperty({
+    example: '1',
+    description: 'Sort key for the query (1,2,3,4)',
+    required: false,
+  })
+  @IsNumberString()
+  @IsOptional()
+  sortBy: string;
+
+  @ApiProperty({
+    example: true,
+    description: 'Order has offers',
+    required: false,
+  })
+  @IsOptional()
+  @IsBooleanString()
+  hasOffers: boolean;
 }
 
 export class CancelOrderDto {

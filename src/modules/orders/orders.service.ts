@@ -10,12 +10,12 @@ import {
 } from '../../utils/order-encoder';
 import { In, Repository } from 'typeorm';
 import { AppConfig } from '../configuration/configuration.service';
-import { 
-  MatchOrderDto, 
-  OrderDto, 
-  CreateOrderDto, 
-  PrepareTxDto, 
-  QueryDto 
+import {
+  MatchOrderDto,
+  OrderDto,
+  CreateOrderDto,
+  PrepareTxDto,
+  QueryDto,
 } from './order.dto';
 import { Order } from './order.entity';
 import {
@@ -34,13 +34,13 @@ import { constants } from '../../common/constants';
 import { createTypeData } from '../../common/utils/EIP712';
 import { Utils } from '../../common/utils';
 // import { sign } from '../../common/helpers/order';
-
+import web3 from 'web3';
+import { SortOrderOptionsEnum } from './order.sort';
 @Injectable()
 export class OrdersService {
-  
   private watchdogUrl;
   private logger;
-  
+
   constructor(
     private readonly appConfig: AppConfig,
     private readonly httpService: HttpService,
@@ -63,15 +63,14 @@ export class OrdersService {
    * @returns {Object}
    */
   public async createOrderAndCheckSubscribe(data: CreateOrderDto) {
-
-    if(!data.type || !constants.ORDER_TYPES.includes(data.type)) {
+    if (!data.type || !constants.ORDER_TYPES.includes(data.type)) {
       throw new MarketplaceException(constants.INVALID_ORDER_TYPE_ERROR);
     }
 
     // DTO does validate unexpected properties but if it's validating a value of multiple
     // types, i didn't find the way how to account for unexpected properties of the other type.
     // This has to happen before verifying the signature!
-    if(AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass) {
+    if (AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass) {
       delete data.make.assetType.contract;
       delete data.make.assetType.tokenId;
     } else {
@@ -81,49 +80,67 @@ export class OrdersService {
       delete data.make.assetType.bundleDescription;
     }
 
-    let order = this.convertToOrder(data);
+    const order = this.convertToOrder(data);
 
     // Sell orders cannot have ETH as the asset.
-    if(OrderSide.SELL === order.side && AssetClass.ETH === order.make.assetType.assetClass) {
+    if (
+      OrderSide.SELL === order.side &&
+      AssetClass.ETH === order.make.assetType.assetClass
+    ) {
       throw new MarketplaceException(constants.INVALID_SELL_ORDER_ASSET_ERROR);
     }
 
     // verify signature
     const encodedOrder = this.encode(order);
-    const signerAddress = this.ethereumService.verifyTypedData({
-      name: 'Exchange',
-      version: '2',
-      chainId: await this.ethereumService.getChainId(),
-      verifyingContract: this.appConfig.values.MARKETPLACE_CONTRACT,
-    }, Utils.types, encodedOrder, data.signature);
-    if(signerAddress.toLowerCase() !== data.maker.toLowerCase()) {
+    const signerAddress = this.ethereumService.verifyTypedData(
+      {
+        name: 'Exchange',
+        version: '2',
+        chainId: await this.ethereumService.getChainId(),
+        verifyingContract: this.appConfig.values.MARKETPLACE_CONTRACT,
+      },
+      Utils.types,
+      encodedOrder,
+      data.signature,
+    );
+    if (signerAddress.toLowerCase() !== data.maker.toLowerCase()) {
       throw new MarketplaceException(constants.INVALID_SIGNATURE_ERROR);
     }
 
     // check salt along with the signature (just in case)
     const salt = await this.getSaltByWalletAddress(data.maker);
-    if(salt !== data.salt) {
+    if (salt !== data.salt) {
       throw new MarketplaceException(constants.INVALID_SALT_ERROR);
     }
 
     // verify allowance for SELL orders
-    if(OrderSide.SELL === order.side && !await this.ethereumService.verifyAllowance(
-      data.make.assetType.assetClass,
-      data.maker,
-      AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass ? data.make.assetType.contracts : [data.make.assetType.contract], 
-      AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass ? data.make.assetType.tokenIds : [[data.make.assetType.tokenId]],
-      data.make.value
-    )) {
+    if (
+      OrderSide.SELL === order.side &&
+      !(await this.ethereumService.verifyAllowance(
+        data.make.assetType.assetClass,
+        data.maker,
+        AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass
+          ? data.make.assetType.contracts
+          : [data.make.assetType.contract],
+        AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass
+          ? data.make.assetType.tokenIds
+          : [[data.make.assetType.tokenId]],
+        data.make.value,
+      ))
+    ) {
       throw new MarketplaceException(constants.NFT_ALLOWANCE_ERROR);
-    } 
+    }
     // verify allowance for BUY orders.
-    if(OrderSide.BUY === order.side && !await this.ethereumService.verifyAllowance(
+    if (
+      OrderSide.BUY === order.side &&
+      !(await this.ethereumService.verifyAllowance(
         data.make.assetType.assetClass, //note that it's data.make !
         data.maker,
         [data.make.assetType.contract],
         [[]],
-        data.make.value
-    )) {
+        data.make.value,
+      ))
+    ) {
       throw new MarketplaceException(constants.NFT_ALLOWANCE_ERROR);
     }
 
@@ -140,19 +157,25 @@ export class OrdersService {
     }
 
     // verify if maker's token got approved to transfer proxy
-    if(!await this.ethereumService.verifyAllowance(
-      leftOrder.make.assetType.assetClass,
-      leftOrder.maker,
-      AssetClass.ERC721_BUNDLE === leftOrder.make.assetType.assetClass ? leftOrder.make.assetType.contracts : [leftOrder.make.assetType.contract], 
-      AssetClass.ERC721_BUNDLE === leftOrder.make.assetType.assetClass ? leftOrder.make.assetType.tokenIds : [[leftOrder.make.assetType.tokenId]],
-      leftOrder.make.value
-    )) {
+    if (
+      !(await this.ethereumService.verifyAllowance(
+        leftOrder.make.assetType.assetClass,
+        leftOrder.maker,
+        AssetClass.ERC721_BUNDLE === leftOrder.make.assetType.assetClass
+          ? leftOrder.make.assetType.contracts
+          : [leftOrder.make.assetType.contract],
+        AssetClass.ERC721_BUNDLE === leftOrder.make.assetType.assetClass
+          ? leftOrder.make.assetType.tokenIds
+          : [[leftOrder.make.assetType.tokenId]],
+        leftOrder.make.value,
+      ))
+    ) {
       throw new MarketplaceException(constants.NFT_ALLOWANCE_ERROR);
     }
 
     // check if the left order is a buy eth-order. We won't support the seller to send a eth-order.
     // @TODO check with Ryan and @Stan if it's not a bug but feature!
-    if(AssetClass.ETH === leftOrder.make.assetType.assetClass) {
+    if (AssetClass.ETH === leftOrder.make.assetType.assetClass) {
       throw new MarketplaceException(constants.INVALID_SELL_ORDER_ASSET_ERROR);
     }
 
@@ -180,7 +203,7 @@ export class OrdersService {
   /**
    * Converts the payload order data into the Order object.
    * Returns an Order object.
-   * @param orderDto 
+   * @param orderDto
    * @returns {Order}
    * @throws {MarketplaceException}
    */
@@ -214,7 +237,7 @@ export class OrdersService {
       order.take.assetType,
       order.salt,
     );
-  
+
     return order;
   }
 
@@ -229,7 +252,9 @@ export class OrdersService {
       start: leftOrder.start,
       end: leftOrder.end,
       data: {
-        dataType: prepareDto.revenueSplits?.length ? constants.ORDER_DATA : constants.DATA_TYPE_0X,
+        dataType: prepareDto.revenueSplits?.length
+          ? constants.ORDER_DATA
+          : constants.DATA_TYPE_0X,
         revenueSplits: prepareDto.revenueSplits,
       },
     });
@@ -271,18 +296,43 @@ export class OrdersService {
   public async queryAll(query: QueryDto) {
     query.page = query.page || 1;
     query.limit = query.limit || 10;
-    
+
     const skippedItems = (query.page - 1) * query.limit;
 
-    const queryBuilder = this.orderRepository.createQueryBuilder();
+    const queryBuilder = this.orderRepository.createQueryBuilder('order');
     queryBuilder.where('status = :status', { status: OrderStatus.CREATED });
 
     if (query.side) {
       queryBuilder.andWhere('side = :side', { side: query.side });
     }
 
+    if (!!query.hasOffers) {
+      // Get all buy orders(offers)
+      const offers = await this.orderRepository.find({
+        where: {
+          side: 0,
+        },
+      });
+
+      let queryText = '';
+
+      // Search for any sell orders that have offers
+      offers.forEach((offer) => {
+        if (offer.make.assetType.tokenId && offer.make.assetType.contract) {
+          queryText += `${queryText ? 'OR' : ''}`;
+          queryText += `take->'assetType'->>'tokenId' = '${offer.make.assetType.tokenId}' AND take->'assetType'->>'contract' = '${offer.make.assetType.contract}'`;
+        }
+      });
+
+      if (queryText) {
+        queryBuilder.andWhere(queryText);
+      }
+    }
+
     if (query.maker) {
-      queryBuilder.andWhere('maker = :maker', { maker: query.maker.toLowerCase() });
+      queryBuilder.andWhere('maker = :maker', {
+        maker: query.maker.toLowerCase(),
+      });
     }
 
     if (query.assetClass) {
@@ -316,10 +366,76 @@ export class OrdersService {
       });
     }
 
-    return await queryBuilder
+    if (query.beforeTimestamp) {
+      const milisecTimestamp = Number(query.beforeTimestamp) * 1000;
+      const utcDate = new Date(milisecTimestamp);
+
+      const timestampQuery = `order.createdAt >= :date`;
+      queryBuilder.andWhere(timestampQuery, {
+        date: utcDate.toDateString(),
+      });
+    }
+
+    if (query.token) {
+      const queryTake = `take->'assetType'->>'assetClass' = :token`;
+
+      queryBuilder.andWhere(queryTake, {
+        token: query.token,
+      });
+    }
+
+    if (query.minPrice) {
+      const weiPrice = web3.utils.toWei(query.minPrice);
+
+      const queryTake = `CAST(take->>'value' as DECIMAL) >= CAST(:minPrice as DECIMAL)`;
+
+      queryBuilder.andWhere(queryTake, {
+        minPrice: weiPrice,
+      });
+    }
+
+    if (query.maxPrice) {
+      const weiPrice = web3.utils.toWei(query.maxPrice);
+
+      const queryTake = `CAST(take->>'value' as DECIMAL) <= CAST(:maxPrice as DECIMAL)`;
+
+      queryBuilder.andWhere(queryTake, {
+        maxPrice: weiPrice,
+      });
+    }
+
+    switch (Number(query.sortBy)) {
+      case SortOrderOptionsEnum.EndingSoon:
+        const utcTimestamp = Math.floor(new Date().getTime() / 1000);
+        queryBuilder.orderBy(
+          `(case when order.end - ${utcTimestamp} >= 0 then 1 else 2 end)`,
+        );
+        break;
+      case SortOrderOptionsEnum.HighestPrice:
+        queryBuilder
+          .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
+          .orderBy('value_decimal', 'DESC');
+        break;
+      case SortOrderOptionsEnum.LowestPrice:
+        queryBuilder
+          .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
+          .orderBy('value_decimal', 'ASC');
+        break;
+      case SortOrderOptionsEnum.RecentlyListed:
+        queryBuilder.orderBy('order.createdAt', 'DESC');
+        break;
+      default:
+        queryBuilder.orderBy('order.createdAt', 'DESC');
+        break;
+    }
+
+    queryBuilder.addOrderBy('order.createdAt', 'DESC');
+    const items = await queryBuilder
       .offset(skippedItems)
       .limit(query.limit)
       .getManyAndCount();
+
+    return items;
   }
 
   /**
@@ -383,10 +499,12 @@ export class OrdersService {
       status: OrderStatus.CREATED,
     });
     if (!order) {
-      this.logger.error(`The matched order is not found in database. Order left hash: ${event.leftOrderHash}`);
+      this.logger.error(
+        `The matched order is not found in database. Order left hash: ${event.leftOrderHash}`,
+      );
       return;
     }
-    
+
     order.status = OrderStatus.FILLED;
     order.matchedTxHash = event.txHash;
     await this.orderRepository.save(order);
@@ -403,17 +521,16 @@ export class OrdersService {
    * Returns the "salt" for a wallet address.
    * Salt equals the number of orders in the orders table for this wallet plus 1.
    * This method does not do walletAddress validation check.
-   * @param walletAddress 
+   * @param walletAddress
    * @returns {Promise<number>}
    */
-   public async getSaltByWalletAddress(walletAddress: string): Promise<number> {
-    
+  public async getSaltByWalletAddress(walletAddress: string): Promise<number> {
     let value = 1;
     const count = await this.orderRepository.count({
       maker: walletAddress.toLowerCase(),
     });
     value = value + count;
-  
+
     return value;
   }
 
@@ -458,7 +575,7 @@ export class OrdersService {
    * @Deprecated
    * Returns order side based on order's asset class.
    * The returning valus is either 0 (left or sell order) or 1 (right or bid order).
-   * @param orderDto 
+   * @param orderDto
    * @returns order side
    * @throws {MarketplaceException}
    */
@@ -473,5 +590,4 @@ export class OrdersService {
   //   }
   //   return value;
   // }
-  
 }
