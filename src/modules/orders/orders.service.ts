@@ -370,7 +370,6 @@ export class OrdersService {
       const milisecTimestamp = Number(query.beforeTimestamp) * 1000;
       const utcDate = new Date(milisecTimestamp);
 
-      console.log(utcDate.toDateString());
       const timestampQuery = `order.createdAt >= :date`;
       queryBuilder.andWhere(timestampQuery, {
         date: utcDate.toDateString(),
@@ -378,8 +377,6 @@ export class OrdersService {
     }
 
     if (query.token) {
-      console.log(query.token);
-
       const queryTake = `take->'assetType'->>'assetClass' = :token`;
 
       queryBuilder.andWhere(queryTake, {
@@ -433,7 +430,6 @@ export class OrdersService {
     }
 
     queryBuilder.addOrderBy('order.createdAt', 'DESC');
-    console.log(queryBuilder.getSql());
     const items = await queryBuilder
       .offset(skippedItems)
       .limit(query.limit)

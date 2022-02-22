@@ -238,7 +238,6 @@ export class QueryDto {
     description: 'Asset address',
     required: false,
   })
-  @IsString()
   @IsOptional()
   collection: string;
 
@@ -288,8 +287,8 @@ export class QueryDto {
   maxPrice: string;
 
   @ApiProperty({
-    example: '0.9',
-    description: 'Max price of the order',
+    example: '1',
+    description: 'Sort key for the query (1,2,3,4)',
     required: false,
   })
   @IsNumberString()
@@ -298,7 +297,7 @@ export class QueryDto {
 
   @ApiProperty({
     example: true,
-    description: 'Order has oofers',
+    description: 'Order has offers',
     required: false,
   })
   @IsOptional()
