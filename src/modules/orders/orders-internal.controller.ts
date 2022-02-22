@@ -1,7 +1,7 @@
 import { Body, Controller, Put } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { BaseController } from '../../common/base.controller';
-import { CancelOrderDto, MatchOrderDto } from './order.dto';
+import { CancelOrderDto, MatchOrderDto, TrackOrderDto } from './order.dto';
 import { OrdersService } from './orders.service';
 
 @Controller('internal')
@@ -12,7 +12,7 @@ export class OrdersInternalController extends BaseController {
     super(OrdersInternalController.name);
   }
 
-  @Put('orders/:hash/match')
+  @Put('orders/match')
   async matchOrder(@Body() body: MatchOrderDto) {
     try {
       await this.orderService.matchOrder(body);
@@ -23,21 +23,21 @@ export class OrdersInternalController extends BaseController {
     }
   }
 
-  @Put('orders/track')
+  @Put('orders/cancel')
   async cancelOrder(@Body() body: CancelOrderDto) {
     try {
-      const { fromAddress, toAddress, address, erc721TokenId } = body;
-      const matchedOne = await this.orderService.queryOne(
-        address,
-        erc721TokenId,
-        fromAddress,
-      );
-      if (!matchedOne) {
-        this.logger.error(`Failed to find this order: nft: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`);
-        return 'OK';
-      }
-      this.logger.log(`Found matching order by alchemy: ${matchedOne.hash}`);
-      await this.orderService.cancelOrder(matchedOne.hash);
+      await this.orderService.cancelOrder(body);
+      return 'OK';
+    } catch (e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    }
+  }
+
+  @Put('orders/track')
+  async trackOrder(@Body() body: TrackOrderDto) {
+    try {
+      await this.orderService.staleOrder(body);
       return 'OK';
     } catch(e) {
       this.logger.error(e);

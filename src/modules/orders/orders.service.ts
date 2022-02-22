@@ -11,7 +11,9 @@ import {
 import { In, Repository } from 'typeorm';
 import { AppConfig } from '../configuration/configuration.service';
 import { 
-  MatchOrderDto, 
+  MatchOrderDto,
+  CancelOrderDto,
+  TrackOrderDto,
   OrderDto, 
   CreateOrderDto, 
   PrepareTxDto, 
@@ -392,9 +394,44 @@ export class OrdersService {
     await this.orderRepository.save(order);
   }
 
-  public async cancelOrder(orderHash: string) {
+  /**
+   * Marks an order as Cancelled and sets cancelledTxHash.
+   * This method is supposed to process the API call PUT /internal/orders/cancel
+   * which is called by the Marketplace-Indexer.
+   * @See https://github.com/UniverseXYZ/Marketplace-Indexer
+   * @param event - event data from the Indexer.
+   * @returns void
+   */
+  public async cancelOrder(event: CancelOrderDto) {
+    const order = await this.orderRepository.findOne({
+      hash: event.leftOrderHash,
+      maker: event.leftMaker, // just in case!
+      status: OrderStatus.CREATED,
+    });
+    if(order) {
+      order.status = OrderStatus.CANCELLED;
+      order.cancelledTxHash = event.txHash;
+      await this.orderRepository.save(order);
+    } else {
+      this.logger.error(`The Cancelled order is not found in database. Order left hash: ${event.leftOrderHash}`);
+    }
+  }
+
+  public async staleOrder(event: TrackOrderDto) {
+    const { fromAddress, toAddress, address, erc721TokenId } = event;
+    const matchedOne = await this.queryOne(
+      address,
+      erc721TokenId,
+      fromAddress,
+    );
+    if (!matchedOne) {
+      this.logger.error(`Failed to find this order: nft: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`);
+      return;
+    }
+
+    this.logger.log(`Found matching order by alchemy: ${matchedOne.hash}`);
     await this.orderRepository.update(
-      { hash: orderHash },
+      { hash: matchedOne.hash },
       { status: OrderStatus.STALE },
     );
   }
