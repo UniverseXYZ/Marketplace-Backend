@@ -8,7 +8,7 @@ import {
   encodeOrderData,
   hashOrderKey,
 } from '../../utils/order-encoder';
-import { In, Repository } from 'typeorm';
+import { In, Repository, getManager } from 'typeorm';
 import { AppConfig } from '../configuration/configuration.service';
 import { 
   MatchOrderDto,
@@ -403,11 +403,17 @@ export class OrdersService {
    * @returns void
    */
   public async cancelOrder(event: CancelOrderDto) {
-    const order = await this.orderRepository.findOne({
-      hash: event.leftOrderHash,
-      maker: event.leftMaker, // just in case!
-      status: OrderStatus.CREATED,
-    });
+    const order = await this.orderRepository.createQueryBuilder('mi')
+      .where(`
+        mi.hash = :hash AND 
+        mi.maker = :maker AND 
+        (mi.status = :status1 OR mi.status = :status2)
+      `, {
+        hash: event.leftOrderHash,
+        maker: event.leftMaker,
+        status1: OrderStatus.CREATED,
+        status2: OrderStatus.STALE,
+      }).getOne();
     if(order) {
       order.status = OrderStatus.CANCELLED;
       order.cancelledTxHash = event.txHash;
