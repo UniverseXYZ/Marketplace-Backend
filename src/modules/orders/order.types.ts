@@ -28,23 +28,23 @@ export abstract class AbstractAssetType {
 
   @IsString()
   @IsOptional()
-  @ValidateIf(o => o.assetClass !== AssetClass.ERC721_BUNDLE)
+  @ValidateIf((o) => o.assetClass !== AssetClass.ERC721_BUNDLE)
   contract?: string;
-  
+
   @IsNumberString()
   @IsOptional()
-  @ValidateIf(o => o.assetClass !== AssetClass.ERC721_BUNDLE)
+  @ValidateIf((o) => o.assetClass !== AssetClass.ERC721_BUNDLE)
   tokenId?: string;
 
   @IsArray()
   @IsString({
     each: true,
   })
-  @ValidateIf(o => o.assetClass === AssetClass.ERC721_BUNDLE)
+  @ValidateIf((o) => o.assetClass === AssetClass.ERC721_BUNDLE)
   contracts: string[];
 
   @IsArray()
-  @ValidateIf(o => o.assetClass === AssetClass.ERC721_BUNDLE)
+  @ValidateIf((o) => o.assetClass === AssetClass.ERC721_BUNDLE)
   tokenIds: string[][];
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
@@ -53,7 +53,7 @@ export abstract class AbstractAssetType {
   @IsOptional()
   @IsString()
   @MaxLength(100)
-  @ValidateIf(o => o.assetClass === AssetClass.ERC721_BUNDLE)
+  @ValidateIf((o) => o.assetClass === AssetClass.ERC721_BUNDLE)
   bundleName?: string;
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
@@ -62,7 +62,7 @@ export abstract class AbstractAssetType {
   @IsOptional()
   @IsString()
   @MaxLength(1024)
-  @ValidateIf(o => o.assetClass === AssetClass.ERC721_BUNDLE)
+  @ValidateIf((o) => o.assetClass === AssetClass.ERC721_BUNDLE)
   bundleDescription?: string;
 }
 
@@ -74,7 +74,7 @@ interface IBundleType {
 export class BundleType implements IBundleType {
   @IsString()
   assetClass: string;
-  
+
   @IsArray()
   @IsString({
     each: true,
@@ -110,11 +110,11 @@ export class AssetType implements IAssetType {
   @IsString()
   @IsNotEmpty()
   assetClass: string;
-  
+
   @IsString()
   @IsOptional()
   contract?: string;
-  
+
   @IsNumberString()
   @IsOptional()
   tokenId?: string;
