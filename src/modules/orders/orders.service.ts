@@ -413,7 +413,7 @@ export class OrdersService {
       order.cancelledTxHash = event.txHash;
       await this.orderRepository.save(order);
     } else {
-      this.logger.error(`The Cancelled order is not found in database. Order left hash: ${event.leftOrderHash}`);
+      this.logger.error(`The Cancelled order is not found in database. Request: ${JSON.stringify(event)}`);
     }
   }
 
