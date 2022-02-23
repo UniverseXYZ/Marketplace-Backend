@@ -93,4 +93,15 @@ export class OrdersController extends BaseController {
       this.errorResponse(e);
     }
   }
+
+  @Get('collection/:collection')
+  @ApiOperation({ summary: 'Get orders by collection' })
+  async getOrdersByCollection(@Param('collection') collectionAddress: string) {
+    try {
+      return await this.orderService.getOrderByCollection(collectionAddress);
+    } catch (e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    }
+  }
 }

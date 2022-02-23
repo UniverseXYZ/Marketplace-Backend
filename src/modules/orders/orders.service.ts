@@ -293,6 +293,15 @@ export class OrdersService {
     return order;
   }
 
+  public async getOrderByCollection(collectionAddress: string) {
+    return await this.orderRepository
+      .createQueryBuilder('orders')
+      .where(`make->'assetType'->>'contract' = :collection`, {
+        collection: collectionAddress,
+      })
+      .getMany();
+  }
+
   public async queryAll(query: QueryDto) {
     query.page = query.page || 1;
     query.limit = query.limit || 10;
