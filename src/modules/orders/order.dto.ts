@@ -176,17 +176,6 @@ export class PrepareTxDto {
   revenueSplits?: Part[];
 }
 
-export class MatchOrderDto {
-  txHash: string;
-
-  leftMaker: string;
-  rightMaker: string;
-  leftOrderHash: string;
-  rightOrderHash: string;
-  newLeftFill: string;
-  newRightFill: string;
-}
-
 export class QueryDto {
   @ApiProperty({
     example: 1,
@@ -305,7 +294,44 @@ export class QueryDto {
   hasOffers: boolean;
 }
 
+export class MatchOrderDto {
+  txHash: string;
+
+  leftMaker: string;
+  rightMaker: string;
+  leftOrderHash: string;
+  rightOrderHash: string;
+  newLeftFill: string;
+  newRightFill: string;
+}
+
 export class CancelOrderDto {
+  @ApiProperty({
+    example: '0xf6768c7be3133edf019685bc230e2a4e58b505d159508e87cfcdac8e0e017b99',
+    description: 'Cancel transaction hash.',
+    required: true,
+  })
+  @IsString()
+  txHash: string;
+
+  @ApiProperty({
+    example: '0xf3d5a5d72b0c5c68e75ce70836f23a9337643098',
+    description: 'Left order creator\'s wallet address.',
+    required: true,
+  })
+  @IsString()
+  leftMaker: string;
+
+  @ApiProperty({
+    example: '0xb562669668f03d229620e0c46378266a6d8c252b32d00bbdfffb5b6b14fae903.',
+    description: 'Left order hash',
+    required: true,
+  })
+  @IsString()
+  leftOrderHash: string;
+}
+
+export class TrackOrderDto {
   blockNum: string;
   hash: string;
   fromAddress: string;
