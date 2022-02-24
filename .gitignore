@@ -184,3 +184,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+.history
+.vscode
+yarn.lock
