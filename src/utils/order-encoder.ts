@@ -9,6 +9,11 @@ import {
   IPart,
 } from '../modules/orders/order.types';
 
+/**
+ * @TODO switch all other files to use the copy of this file in /src/common/utils
+ * Then delete this file.
+ */
+
 export const encodeAsset = (token?: string, tokenId?: string) => {
   if (tokenId) {
     return utils.defaultAbiCoder.encode(

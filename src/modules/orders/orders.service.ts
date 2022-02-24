@@ -8,7 +8,7 @@ import {
   encodeOrderData,
   hashOrderKey,
 } from '../../utils/order-encoder';
-import { In, Repository, getManager } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { AppConfig } from '../configuration/configuration.service';
 import { 
   MatchOrderDto,
@@ -147,6 +147,7 @@ export class OrdersService {
     }
 
     const savedOrder = await this.orderRepository.save(order);
+    await this.staleOrdersWithHigherPrice(savedOrder);
     this.checkSubscribe(savedOrder);
     return savedOrder;
   }
@@ -619,22 +620,54 @@ export class OrdersService {
   }
 
   /**
-   * @Deprecated
-   * Returns order side based on order's asset class.
-   * The returning valus is either 0 (left or sell order) or 1 (right or bid order).
-   * @param orderDto
-   * @returns order side
-   * @throws {MarketplaceException}
+   * This method marks an existing SELL order in the CREATED status 
+   * as STALE with higher price (take.value)
+   * if the new order orderWithLowerPrice for the same NFT 
+   * has a lower or equal price (take.value)
+   * @param orderWithLowerPrice 
+   * @returns void
    */
-  // private getOrderSide(orderDto: OrderDto): number {
-  //   let value = null;
-  //   if (NftTokens.includes(orderDto.make.assetType.assetClass)) {
-  //     value = OrderSide.SELL;
-  //   } else if (NftTokens.includes(orderDto.take.assetType.assetClass)) {
-  //     value = OrderSide.BUY;
-  //   } else {
-  //     throw new MarketplaceException('Invalid asset class.');
-  //   }
-  //   return value;
-  // }
+  private async staleOrdersWithHigherPrice(orderWithLowerPrice: Order) {
+    if(OrderSide.SELL === orderWithLowerPrice.side) {
+      
+      let ordersWithHigherPrice = [];
+
+      if(AssetClass.ERC721 === orderWithLowerPrice.make.assetType.assetClass ||
+        AssetClass.ERC1155 === orderWithLowerPrice.make.assetType.assetClass
+      ) {
+        ordersWithHigherPrice = await this.orderRepository.createQueryBuilder('o')
+          .where(`
+            id != :id AND
+            o.status = :status AND
+            o.side = :side AND
+            o.make->'assetType'->>'contract' = :contract AND
+            (
+              o.make->'assetType'->>'assetClass' = :assetClass1 OR 
+              o.make->'assetType'->>'assetClass' = :assetClass2 
+            ) AND
+            o.make->'assetType'->>'tokenId' = :tokenId AND
+            CAST(o.take->>'value' as DECIMAL) >= CAST(:newPrice as DECIMAL)
+          `, {
+            id: orderWithLowerPrice.id ?? constants.ZERO_UUID, // do not stale the new order itself
+            status: OrderStatus.CREATED,
+            side: OrderSide.SELL,
+            contract: orderWithLowerPrice.make.assetType.contract,
+            assetClass1: AssetClass.ERC721, 
+            assetClass2: AssetClass.ERC1155, 
+            tokenId: orderWithLowerPrice.make.assetType.tokenId,
+            // no conversion to wei as this method expects valid order data.
+            newPrice: orderWithLowerPrice.take.value,
+          })
+          .getMany(); //getMany just in case
+      } else if(AssetClass.ERC721_BUNDLE === orderWithLowerPrice.make.assetType.assetClass) {
+        // @TODO Add support for ERC721_BUNDLE
+      }
+      
+      for(let orderWithHigherPrice of ordersWithHigherPrice) {      
+        orderWithHigherPrice.status = OrderStatus.STALE;
+        await this.orderRepository.save(orderWithHigherPrice);
+      }
+    }
+  }
+
 }
