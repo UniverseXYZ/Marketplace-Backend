@@ -297,7 +297,7 @@ export class OrdersService {
 
   public async queryAll(query: QueryDto) {
     query.page = query.page || 1;
-    query.limit = query.limit || 10;
+    query.limit = query.limit || 12;
 
     const skippedItems = (query.page - 1) * query.limit;
 
@@ -309,7 +309,7 @@ export class OrdersService {
     }
 
     if (!!query.hasOffers) {
-      // Get all buy orders(offers)
+      // Get all buy orders
       const offers = await this.orderRepository.find({
         where: {
           side: 0,
@@ -320,9 +320,13 @@ export class OrdersService {
 
       // Search for any sell orders that have offers
       offers.forEach((offer) => {
-        if (offer.make.assetType.tokenId && offer.make.assetType.contract) {
-          queryText += `${queryText ? 'OR' : ''}`;
-          queryText += `take->'assetType'->>'tokenId' = '${offer.make.assetType.tokenId}' AND take->'assetType'->>'contract' = '${offer.make.assetType.contract}'`;
+        // Offers(buy orders) have the nft info in 'take'
+        const tokenId = offer.take.assetType.tokenId;
+        const contract = offer.take.assetType.contract;
+        if (tokenId && contract) {
+          queryText += `${queryText ? 'OR ' : ''}`;
+          // Sell orders have the nft info in 'make'
+          queryText += `make->'assetType'->>'tokenId' = '${tokenId}' AND make->'assetType'->>'contract' = '${contract}'`;
         }
       });
 
