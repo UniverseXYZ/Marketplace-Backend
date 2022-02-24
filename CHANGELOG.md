@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.1.0...v1.1.1) (2022-02-24)
+
+
+### Bug Fixes
+
+* **has-offers:** fix has offers filter ([f252048](https://github.com/UniverseXYZ/Marketplace-Backend/commit/f252048bbacc6aa06c879aefeaf5b259c3cb767f))
+
 # [1.1.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.0.0...v1.1.0) (2022-02-22)
 
 
