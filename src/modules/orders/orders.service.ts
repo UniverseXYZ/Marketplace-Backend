@@ -8,16 +8,16 @@ import {
   encodeOrderData,
   hashOrderKey,
 } from '../../utils/order-encoder';
-import { In, Repository } from 'typeorm';
+import { In, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
 import { AppConfig } from '../configuration/configuration.service';
-import { 
+import {
   MatchOrderDto,
   CancelOrderDto,
   TrackOrderDto,
-  OrderDto, 
-  CreateOrderDto, 
-  PrepareTxDto, 
-  QueryDto 
+  OrderDto,
+  CreateOrderDto,
+  PrepareTxDto,
+  QueryDto,
 } from './order.dto';
 import { Order } from './order.entity';
 import {
@@ -38,6 +38,7 @@ import { Utils } from '../../common/utils';
 // import { sign } from '../../common/helpers/order';
 import web3 from 'web3';
 import { SortOrderOptionsEnum } from './order.sort';
+import { orderBy } from 'lodash';
 @Injectable()
 export class OrdersService {
   private watchdogUrl;
@@ -413,7 +414,7 @@ export class OrdersService {
 
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
-        const utcTimestamp = Math.floor(new Date().getTime() / 1000);
+        const utcTimestamp = new Date().getTime();
         queryBuilder.orderBy(
           `(case when order.end - ${utcTimestamp} >= 0 then 1 else 2 end)`,
         );
@@ -443,6 +444,34 @@ export class OrdersService {
       .getManyAndCount();
 
     return items;
+  }
+
+  public async fetchLastAndBestOffer(contract: string, tokenId: string) {
+    const utcTimestamp = new Date().getTime();
+
+    const [bestOffer, lastOffer] = await Promise.all([
+      this.orderRepository
+        .createQueryBuilder('order')
+        .where(`take->'assetType'->>'tokenId' = '${tokenId}'`)
+        .andWhere(`take->'assetType'->>'contract' = '${contract}'`)
+        .andWhere(`order.side = 0`)
+        .andWhere(`order.end > ${utcTimestamp}`)
+        .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
+        .orderBy('value_decimal', 'DESC')
+        .getOne(),
+      this.orderRepository
+        .createQueryBuilder('order')
+        .where(`take->'assetType'->>'tokenId' = '${tokenId}'`)
+        .andWhere(`take->'assetType'->>'contract' = '${contract}'`)
+        .andWhere(`order.side = 0`)
+        .orderBy('order.createdAt', 'DESC')
+        .getOne(),
+    ]);
+
+    return {
+      bestOffer,
+      lastOffer,
+    };
   }
 
   /**
@@ -526,35 +555,42 @@ export class OrdersService {
    * @returns void
    */
   public async cancelOrder(event: CancelOrderDto) {
-    const order = await this.orderRepository.createQueryBuilder('mi')
-      .where(`
+    const order = await this.orderRepository
+      .createQueryBuilder('mi')
+      .where(
+        `
         mi.hash = :hash AND 
         mi.maker = :maker AND 
         (mi.status = :status1 OR mi.status = :status2)
-      `, {
-        hash: event.leftOrderHash,
-        maker: event.leftMaker,
-        status1: OrderStatus.CREATED,
-        status2: OrderStatus.STALE,
-      }).getOne();
-    if(order) {
+      `,
+        {
+          hash: event.leftOrderHash,
+          maker: event.leftMaker,
+          status1: OrderStatus.CREATED,
+          status2: OrderStatus.STALE,
+        },
+      )
+      .getOne();
+    if (order) {
       order.status = OrderStatus.CANCELLED;
       order.cancelledTxHash = event.txHash;
       await this.orderRepository.save(order);
     } else {
-      this.logger.error(`The Cancelled order is not found in database. Request: ${JSON.stringify(event)}`);
+      this.logger.error(
+        `The Cancelled order is not found in database. Request: ${JSON.stringify(
+          event,
+        )}`,
+      );
     }
   }
 
   public async staleOrder(event: TrackOrderDto) {
     const { fromAddress, toAddress, address, erc721TokenId } = event;
-    const matchedOne = await this.queryOne(
-      address,
-      erc721TokenId,
-      fromAddress,
-    );
+    const matchedOne = await this.queryOne(address, erc721TokenId, fromAddress);
     if (!matchedOne) {
-      this.logger.error(`Failed to find this order: nft: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`);
+      this.logger.error(
+        `Failed to find this order: nft: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
+      );
       return;
     }
 
@@ -620,23 +656,25 @@ export class OrdersService {
   }
 
   /**
-   * This method marks an existing SELL order in the CREATED status 
+   * This method marks an existing SELL order in the CREATED status
    * as STALE with higher price (take.value)
-   * if the new order orderWithLowerPrice for the same NFT 
+   * if the new order orderWithLowerPrice for the same NFT
    * has a lower or equal price (take.value)
-   * @param orderWithLowerPrice 
+   * @param orderWithLowerPrice
    * @returns void
    */
   private async staleOrdersWithHigherPrice(orderWithLowerPrice: Order) {
-    if(OrderSide.SELL === orderWithLowerPrice.side) {
-      
+    if (OrderSide.SELL === orderWithLowerPrice.side) {
       let ordersWithHigherPrice = [];
 
-      if(AssetClass.ERC721 === orderWithLowerPrice.make.assetType.assetClass ||
+      if (
+        AssetClass.ERC721 === orderWithLowerPrice.make.assetType.assetClass ||
         AssetClass.ERC1155 === orderWithLowerPrice.make.assetType.assetClass
       ) {
-        ordersWithHigherPrice = await this.orderRepository.createQueryBuilder('o')
-          .where(`
+        ordersWithHigherPrice = await this.orderRepository
+          .createQueryBuilder('o')
+          .where(
+            `
             id != :id AND
             o.status = :status AND
             o.side = :side AND
@@ -647,27 +685,31 @@ export class OrdersService {
             ) AND
             o.make->'assetType'->>'tokenId' = :tokenId AND
             CAST(o.take->>'value' as DECIMAL) >= CAST(:newPrice as DECIMAL)
-          `, {
-            id: orderWithLowerPrice.id ?? constants.ZERO_UUID, // do not stale the new order itself
-            status: OrderStatus.CREATED,
-            side: OrderSide.SELL,
-            contract: orderWithLowerPrice.make.assetType.contract,
-            assetClass1: AssetClass.ERC721, 
-            assetClass2: AssetClass.ERC1155, 
-            tokenId: orderWithLowerPrice.make.assetType.tokenId,
-            // no conversion to wei as this method expects valid order data.
-            newPrice: orderWithLowerPrice.take.value,
-          })
+          `,
+            {
+              id: orderWithLowerPrice.id ?? constants.ZERO_UUID, // do not stale the new order itself
+              status: OrderStatus.CREATED,
+              side: OrderSide.SELL,
+              contract: orderWithLowerPrice.make.assetType.contract,
+              assetClass1: AssetClass.ERC721,
+              assetClass2: AssetClass.ERC1155,
+              tokenId: orderWithLowerPrice.make.assetType.tokenId,
+              // no conversion to wei as this method expects valid order data.
+              newPrice: orderWithLowerPrice.take.value,
+            },
+          )
           .getMany(); //getMany just in case
-      } else if(AssetClass.ERC721_BUNDLE === orderWithLowerPrice.make.assetType.assetClass) {
+      } else if (
+        AssetClass.ERC721_BUNDLE ===
+        orderWithLowerPrice.make.assetType.assetClass
+      ) {
         // @TODO Add support for ERC721_BUNDLE
       }
-      
-      for(let orderWithHigherPrice of ordersWithHigherPrice) {      
+
+      for (const orderWithHigherPrice of ordersWithHigherPrice) {
         orderWithHigherPrice.status = OrderStatus.STALE;
         await this.orderRepository.save(orderWithHigherPrice);
       }
     }
   }
-
 }
