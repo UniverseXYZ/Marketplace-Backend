@@ -33,6 +33,9 @@ export class OrdersController extends BaseController {
   }
 
   @Get('')
+  @ApiOperation({
+    summary: 'Filter and return all kind of orders',
+  })
   async fetchAll(@Query() query: QueryDto) {
     try {
       return await this.orderService.queryAll(query);
@@ -49,6 +52,19 @@ export class OrdersController extends BaseController {
   ) {
     try {
       return await this.orderService.fetchLastAndBestOffer(collection, tokenId);
+    } catch (e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    }
+  }
+
+  @Get('browse')
+  @ApiOperation({
+    summary: 'Filter and return active sell orders',
+  })
+  async fetchBrowsePage(@Query() query: QueryDto) {
+    try {
+      return await this.orderService.queryBrowsePage(query);
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);

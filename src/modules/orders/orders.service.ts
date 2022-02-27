@@ -446,6 +446,159 @@ export class OrdersService {
     return items;
   }
 
+  // This endpoint should be will return active sell orders
+  public async queryBrowsePage(query: QueryDto) {
+    query.page = query.page || 1;
+    query.limit = query.limit || 12;
+
+    const skippedItems = (query.page - 1) * query.limit;
+    const utcTimestamp = new Date().getTime();
+
+    const queryBuilder = this.orderRepository.createQueryBuilder('order');
+    queryBuilder
+      .where('status = :status', { status: OrderStatus.CREATED })
+      .andWhere(`order.end = 0 OR order.end > ${utcTimestamp} `)
+      .andWhere(`order.side = 1`);
+
+    if (query.side) {
+      queryBuilder.andWhere('side = :side', { side: query.side });
+    }
+
+    if (!!query.hasOffers) {
+      // Get all buy orders
+      const offers = await this.orderRepository.find({
+        where: {
+          side: 0,
+        },
+      });
+
+      let queryText = '';
+
+      // Search for any sell orders that have offers
+      offers.forEach((offer) => {
+        // Offers(buy orders) have the nft info in 'take'
+        const tokenId = offer.take.assetType.tokenId;
+        const contract = offer.take.assetType.contract;
+        if (tokenId && contract) {
+          queryText += `${queryText ? 'OR ' : ''}`;
+          // Sell orders have the nft info in 'make'
+          queryText += `make->'assetType'->>'tokenId' = '${tokenId}' AND make->'assetType'->>'contract' = '${contract}'`;
+        }
+      });
+
+      if (queryText) {
+        queryBuilder.andWhere(queryText);
+      }
+    }
+
+    if (query.maker) {
+      queryBuilder.andWhere('maker = :maker', {
+        maker: query.maker.toLowerCase(),
+      });
+    }
+
+    if (query.assetClass) {
+      const queryMake = `make->'assetType'->'assetClass' = :assetClass`;
+      const queryTake = `take->'assetType'->'assetClass' = :assetClass`;
+      const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
+      queryBuilder.andWhere(queryForBoth, {
+        assetClass: `"${query.assetClass}"`,
+      });
+    }
+
+    if (query.collection) {
+      const queryMake = `make->'assetType'->'contract' = :collection`;
+      const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
+      const queryTake = `take->'assetType'->'contract' = :collection`;
+      const queryTakeBundle = `take->'assetType'->'contracts' ?| array[:collections]`;
+      const queryForBoth = `((${queryMake}) OR (${queryTake}) OR (${queryMakeBundle}) OR (${queryTakeBundle}))`;
+      queryBuilder.andWhere(queryForBoth, {
+        collection: `"${query.collection}"`,
+        collections: `${query.collection}`,
+      });
+    }
+
+    if (query.tokenId) {
+      // @TODO there is no filtering by tokenId for ERC721_BUNDLE orders supposedly because of array of arrays
+      const queryMake = `make->'assetType'->>'tokenId' = :tokenId`;
+      const queryTake = `take->'assetType'->>'tokenId' = :tokenId`;
+      const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
+      queryBuilder.andWhere(queryForBoth, {
+        tokenId: query.tokenId,
+      });
+    }
+
+    if (query.beforeTimestamp) {
+      const milisecTimestamp = Number(query.beforeTimestamp) * 1000;
+      const utcDate = new Date(milisecTimestamp);
+
+      const timestampQuery = `order.createdAt >= :date`;
+      queryBuilder.andWhere(timestampQuery, {
+        date: utcDate.toDateString(),
+      });
+    }
+
+    if (query.token) {
+      const queryTake = `take->'assetType'->>'assetClass' = :token`;
+
+      queryBuilder.andWhere(queryTake, {
+        token: query.token,
+      });
+    }
+
+    if (query.minPrice) {
+      const weiPrice = web3.utils.toWei(query.minPrice);
+
+      const queryTake = `CAST(take->>'value' as DECIMAL) >= CAST(:minPrice as DECIMAL)`;
+
+      queryBuilder.andWhere(queryTake, {
+        minPrice: weiPrice,
+      });
+    }
+
+    if (query.maxPrice) {
+      const weiPrice = web3.utils.toWei(query.maxPrice);
+
+      const queryTake = `CAST(take->>'value' as DECIMAL) <= CAST(:maxPrice as DECIMAL)`;
+
+      queryBuilder.andWhere(queryTake, {
+        maxPrice: weiPrice,
+      });
+    }
+
+    switch (Number(query.sortBy)) {
+      case SortOrderOptionsEnum.EndingSoon:
+        queryBuilder.orderBy(
+          `(case when order.end - ${utcTimestamp} >= 0 then 1 else 2 end)`,
+        );
+        break;
+      case SortOrderOptionsEnum.HighestPrice:
+        queryBuilder
+          .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
+          .orderBy('value_decimal', 'DESC');
+        break;
+      case SortOrderOptionsEnum.LowestPrice:
+        queryBuilder
+          .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
+          .orderBy('value_decimal', 'ASC');
+        break;
+      case SortOrderOptionsEnum.RecentlyListed:
+        queryBuilder.orderBy('order.createdAt', 'DESC');
+        break;
+      default:
+        queryBuilder.orderBy('order.createdAt', 'DESC');
+        break;
+    }
+
+    queryBuilder.addOrderBy('order.createdAt', 'DESC');
+    const items = await queryBuilder
+      .offset(skippedItems)
+      .limit(query.limit)
+      .getManyAndCount();
+
+    return items;
+  }
+
   public async fetchLastAndBestOffer(contract: string, tokenId: string) {
     const utcTimestamp = new Date().getTime();
 
