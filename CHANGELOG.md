@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.1.1...v1.2.0) (2022-02-27)
+
+
+### Features
+
+* **card-offer:** add best and last nft offer endpoint ([7c78c28](https://github.com/UniverseXYZ/Marketplace-Backend/commit/7c78c28fda31a0170d4887a8b1919fb5bd673cb4))
+
 ## [1.1.1](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.1.0...v1.1.1) (2022-02-24)
 
 
