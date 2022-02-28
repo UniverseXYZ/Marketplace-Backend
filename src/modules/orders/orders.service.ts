@@ -29,6 +29,7 @@ import {
   AssetType,
   AssetClass,
   BundleType,
+  Asset,
 } from './order.types';
 import { EthereumService } from '../ethereum/ethereum.service';
 import { MarketplaceException } from '../../common/exceptions/MarketplaceException';
@@ -682,21 +683,101 @@ export class OrdersService {
     }
   }
 
-  public async matchOrder(event: MatchOrderDto) {
-    const order = await this.orderRepository.findOne({
-      hash: event.leftOrderHash,
-      status: OrderStatus.CREATED,
+  public async matchOrder(matchEvent: MatchOrderDto) {
+    const leftOrder = await this.orderRepository.findOne({
+      hash: matchEvent.leftOrderHash,
     });
-    if (!order) {
+
+    if (!leftOrder) {
       this.logger.error(
-        `The matched order is not found in database. Order left hash: ${event.leftOrderHash}`,
+        `The matched order is not found in database. Order left hash: ${matchEvent.leftOrderHash}`,
       );
       return;
     }
 
-    order.status = OrderStatus.FILLED;
-    order.matchedTxHash = event.txHash;
-    await this.orderRepository.save(order);
+    if (leftOrder.status !== OrderStatus.CREATED) {
+      this.logger.log(
+        `The matched order's status is already "${
+          OrderStatus[leftOrder.status]
+        }"`,
+      );
+      return;
+    }
+
+    console.log(
+      `The matched order has been found. Order left hash: ${matchEvent.leftOrderHash}`,
+    );
+
+    leftOrder.status = OrderStatus.FILLED;
+    leftOrder.matchedTxHash = matchEvent.txHash;
+    await this.orderRepository.save(leftOrder);
+
+    await this.markRelatedOrdersAsStale(leftOrder, matchEvent);
+  }
+
+  private async markRelatedOrdersAsStale(
+    leftOrder: Order,
+    event: MatchOrderDto,
+  ) {
+    // Take nft info either from 'take' or 'make' depending on the tx maker.
+    let orderNftInfo: Asset = null;
+    let orderCreator = '';
+    if (event.txFrom === event.leftMaker) {
+      orderNftInfo = leftOrder.make;
+      orderCreator = leftOrder.maker.toLowerCase();
+    } else if (event.txFrom === event.rightMaker) {
+      orderNftInfo = leftOrder.take;
+      orderCreator = leftOrder.taker.toLowerCase();
+    }
+
+    // 1. Mark any buy offers as stale. They can't be executed anymore as the owner has changed
+    // 2. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
+    const [buyOffers, sellOffers] = await Promise.all([
+      this.orderRepository
+        .createQueryBuilder('order')
+        .where('order.side = 0')
+        .andWhere(`order.status = ${OrderStatus.CREATED}`)
+        .andWhere(`order.taker = '${orderCreator}'`)
+        .andWhere(
+          `take->'assetType'->>'contract' = '${orderNftInfo.assetType.contract}'`,
+        )
+        .andWhere(
+          `take->'assetType'->>'tokenId' = '${orderNftInfo.assetType.tokenId}'`,
+        )
+        .getMany(),
+      await this.orderRepository
+        .createQueryBuilder('order')
+        .where('order.side = 1')
+        .andWhere(`order.status = ${OrderStatus.CREATED}`)
+        .andWhere(`LOWER(order.maker) = '${orderCreator}'`)
+        .andWhere(
+          `make->'assetType'->>'contract' = '${orderNftInfo.assetType.contract}'`,
+        )
+        .andWhere(
+          `make->'assetType'->>'tokenId' = '${orderNftInfo.assetType.tokenId}'`,
+        )
+        .getMany(),
+    ]);
+
+    if (buyOffers.length) {
+      this.logger.log(
+        `Found ${buyOffers.length} buy offers related to an order match`,
+      );
+      buyOffers.forEach((offer) => {
+        offer.status = OrderStatus.STALE;
+      });
+      await this.orderRepository.save(buyOffers);
+    }
+
+    if (sellOffers.length) {
+      console.log(
+        `Found ${sellOffers.length} sell offers related to an order match`,
+      );
+      sellOffers.forEach((offer) => {
+        offer.status = OrderStatus.STALE;
+      });
+      await this.orderRepository.save(sellOffers);
+    }
   }
 
   /**
@@ -708,13 +789,13 @@ export class OrdersService {
    * @returns void
    */
   public async cancelOrder(event: CancelOrderDto) {
-    const order = await this.orderRepository
-      .createQueryBuilder('mi')
+    const cancelOrder = await this.orderRepository
+      .createQueryBuilder('order')
       .where(
         `
-        mi.hash = :hash AND 
-        mi.maker = :maker AND 
-        (mi.status = :status1 OR mi.status = :status2)
+        order.hash = :hash AND 
+        order.maker = :maker AND 
+        (order.status = :status1 OR order.status = :status2)
       `,
         {
           hash: event.leftOrderHash,
@@ -724,10 +805,14 @@ export class OrdersService {
         },
       )
       .getOne();
-    if (order) {
-      order.status = OrderStatus.CANCELLED;
-      order.cancelledTxHash = event.txHash;
-      await this.orderRepository.save(order);
+    if (cancelOrder) {
+      this.logger.log(
+        `The Canceled order has been found. Order left hash: ${event.leftOrderHash}`,
+      );
+
+      cancelOrder.status = OrderStatus.CANCELLED;
+      cancelOrder.cancelledTxHash = event.txHash;
+      await this.orderRepository.save(cancelOrder);
     } else {
       this.logger.error(
         `The Cancelled order is not found in database. Request: ${JSON.stringify(

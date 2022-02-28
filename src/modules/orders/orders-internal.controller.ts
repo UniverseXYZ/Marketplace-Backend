@@ -7,7 +7,6 @@ import { OrdersService } from './orders.service';
 @Controller('internal')
 @ApiTags('Orderbook')
 export class OrdersInternalController extends BaseController {
-  
   constructor(private orderService: OrdersService) {
     super(OrdersInternalController.name);
   }
@@ -17,7 +16,7 @@ export class OrdersInternalController extends BaseController {
     try {
       await this.orderService.matchOrder(body);
       return 'OK';
-    } catch(e) {
+    } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
     }
@@ -39,7 +38,7 @@ export class OrdersInternalController extends BaseController {
     try {
       await this.orderService.staleOrder(body);
       return 'OK';
-    } catch(e) {
+    } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
     }
