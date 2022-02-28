@@ -460,7 +460,7 @@ export class OrdersService {
     queryBuilder
       .where('status = :status', { status: OrderStatus.CREATED })
       .andWhere(`order.end = 0 OR order.end > ${utcTimestamp} `)
-      .andWhere(`order.side = 1`);
+      .andWhere(`order.side = ${OrderSide.SELL}`);
 
     if (query.side) {
       queryBuilder.andWhere('side = :side', { side: query.side });
@@ -614,7 +614,7 @@ export class OrdersService {
         .createQueryBuilder('order')
         .where(`take->'assetType'->>'tokenId' = '${tokenId}'`)
         .andWhere(`take->'assetType'->>'contract' = '${contract}'`)
-        .andWhere(`order.side = 0`)
+        .andWhere(`order.side = ${OrderSide.BUY}`)
         .andWhere(`order.end > ${utcTimestamp}`)
         .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
         .orderBy('value_decimal', 'DESC')
@@ -623,7 +623,7 @@ export class OrdersService {
         .createQueryBuilder('order')
         .where(`take->'assetType'->>'tokenId' = '${tokenId}'`)
         .andWhere(`take->'assetType'->>'contract' = '${contract}'`)
-        .andWhere(`order.side = 0`)
+        .andWhere(`order.side = ${OrderSide.BUY}`)
         .orderBy('order.createdAt', 'DESC')
         .getOne(),
     ]);
@@ -643,8 +643,8 @@ export class OrdersService {
     const utcTimestamp = new Date().getTime();
     const lowestOrder = await this.orderRepository
       .createQueryBuilder('order')
-      .where('order.side = 1')
-      .andWhere('order.status = 0')
+      .where(`order.side = ${OrderSide.SELL}`)
+      .andWhere(`order.status = ${OrderStatus.CREATED}`)
       .andWhere(`order.end = 0 OR order.end < ${utcTimestamp}`)
       .andWhere(`order.start = 0 OR order.start > ${utcTimestamp}`)
       .andWhere(
