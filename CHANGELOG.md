@@ -1,3 +1,11 @@
+## [1.2.1](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.2.0...v1.2.1) (2022-02-28)
+
+
+### Bug Fixes
+
+* **log:** replace console.log with logger.log ([008597a](https://github.com/UniverseXYZ/Marketplace-Backend/commit/008597a6505d520d52dadfc42fba83dc196b661e))
+* **pr-comments:** use OrderStatus enum and remove unnecessary await ([e59a255](https://github.com/UniverseXYZ/Marketplace-Backend/commit/e59a25598d3fa10e1535a02da5346b31f17265ed))
+
 # [1.2.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.1.1...v1.2.0) (2022-02-27)
 
 
