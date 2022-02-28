@@ -1,3 +1,15 @@
+# [1.3.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.2.1...v1.3.0) (2022-02-28)
+
+
+### Bug Fixes
+
+* **pr-comments:** use OrderStatus and OrderSide instead of numbers ([ac960ff](https://github.com/UniverseXYZ/Marketplace-Backend/commit/ac960fffc7fc5c9e56c1081d0c7515c4df8212ab))
+
+
+### Features
+
+* **floor-price-endpoint:** implement floor price endpoint ([2d5bf44](https://github.com/UniverseXYZ/Marketplace-Backend/commit/2d5bf4435579f68b2a02fbe3bcd77e4f97d20278))
+
 ## [1.2.1](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.2.0...v1.2.1) (2022-02-28)
 
 
