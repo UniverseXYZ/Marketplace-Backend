@@ -75,7 +75,9 @@ export class OrdersController extends BaseController {
   @ApiOperation({ summary: 'Get order data by hash.' })
   async getOrder(@Param('hash') hash: string) {
     try {
-      return await this.orderService.getOrderByHash(hash);
+      let result: any = await this.orderService.getOrderByHash(hash);
+      result.encoded = this.orderService.encode(result);
+      return result;
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);

@@ -7,8 +7,8 @@ import {
   encodeAssetData,
   encodeOrderData,
   hashOrderKey,
-} from '../../utils/order-encoder';
-import { In, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
+} from '../../common/utils/order-encoder';
+import { In, Repository } from 'typeorm';
 import { AppConfig } from '../configuration/configuration.service';
 import {
   MatchOrderDto,
