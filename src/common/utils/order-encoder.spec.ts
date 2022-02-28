@@ -1,4 +1,4 @@
-import { IAsset } from '../modules/orders/order.types';
+import { IAsset, Asset, AssetClass } from '../../modules/orders/order.types';
 import {
   encodeAsset,
   encodeAssetClass,
@@ -12,7 +12,7 @@ import {
 test('utils.orderEncoder -> encodeAsset(ERC721)', () => {
   const encodedAsset = encodeAsset(
     '0x04dCA48CBFd79287686F3Db03DC4EFEbC5266677',
-    5,
+    '5',
   );
   expect(encodedAsset).toBe(
     '0x00000000000000000000000004dca48cbfd79287686f3db03dc4efebc52666770000000000000000000000000000000000000000000000000000000000000005',
@@ -95,7 +95,7 @@ test('utils.orderEncoder -> hashOrder', () => {
     assetType: {
       assetClass: 'ERC721',
       contract: '0x04dCA48CBFd79287686F3Db03DC4EFEbC5266677',
-      tokenId: 4,
+      tokenId: '4',
     },
     value: '1',
   };
@@ -124,7 +124,7 @@ test('utils.orderEncoder -> hashOrder(ETH)', () => {
     assetType: {
       assetClass: 'ERC721',
       contract: '0x04dCA48CBFd79287686F3Db03DC4EFEbC5266677',
-      tokenId: 6,
+      tokenId: '6',
     },
     value: '1',
   };
@@ -151,7 +151,7 @@ test('utils.orderEncoder -> hashOrder(Bundle)', () => {
     assetType: {
       assetClass: 'ERC721_BUNDLE',
       contracts: ['0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE'],
-      tokenIds: [[3, 4]],
+      tokenIds: [['3', '4']],
     },
     value: '2',
   };
@@ -178,7 +178,7 @@ test('utils.orderEncoder -> hashAssetType', () => {
     assetType: {
       assetClass: 'ERC721',
       contract: '0x04dCA48CBFd79287686F3Db03DC4EFEbC5266677',
-      tokenId: 5,
+      tokenId: '5',
     },
     value: '1',
   };
@@ -192,14 +192,14 @@ test('utils.orderEncoder -> hashAssetType', () => {
 test('utils.orderEncoder -> hashAsset', () => {
   const makeAsset: IAsset = {
     assetType: {
-      assetClass: 'ERC721',
+      assetClass: AssetClass.ERC721,
       contract: '0x04dCA48CBFd79287686F3Db03DC4EFEbC5266677',
-      tokenId: 5,
+      tokenId: '5',
     },
     value: '1',
   };
 
-  const encoded = hashAsset(makeAsset);
+  const encoded = hashAsset(makeAsset as Asset);
   expect(encoded).toEqual(
     '0xb97ceaabaf68dfa55dcd7239443600869800a5a66e29cb57515fcfeccccd66d5',
   );

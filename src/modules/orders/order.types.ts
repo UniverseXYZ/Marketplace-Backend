@@ -12,6 +12,7 @@ import {
   IsNotEmpty,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+import 'reflect-metadata'; // this import is for tests
 import { constants } from '../../common/constants';
 
 export enum AssetClass {
@@ -120,7 +121,7 @@ export class AssetType implements IAssetType {
   tokenId?: string;
 }
 
-interface IAsset {
+export interface IAsset {
   assetType: IAssetType | IBundleType;
   value: string; // have to use string for token decimal
 }
