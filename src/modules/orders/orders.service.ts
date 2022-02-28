@@ -735,7 +735,7 @@ export class OrdersService {
     const [buyOffers, sellOffers] = await Promise.all([
       this.orderRepository
         .createQueryBuilder('order')
-        .where('order.side = 0')
+        .where(`order.side = ${OrderSide.BUY}`)
         .andWhere(`order.status = ${OrderStatus.CREATED}`)
         .andWhere(`order.taker = '${orderCreator}'`)
         .andWhere(
@@ -745,9 +745,9 @@ export class OrdersService {
           `take->'assetType'->>'tokenId' = '${orderNftInfo.assetType.tokenId}'`,
         )
         .getMany(),
-      await this.orderRepository
+      this.orderRepository
         .createQueryBuilder('order')
-        .where('order.side = 1')
+        .where(`order.side = ${OrderSide.SELL}`)
         .andWhere(`order.status = ${OrderStatus.CREATED}`)
         .andWhere(`LOWER(order.maker) = '${orderCreator}'`)
         .andWhere(
