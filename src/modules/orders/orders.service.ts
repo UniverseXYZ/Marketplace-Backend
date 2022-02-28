@@ -704,7 +704,7 @@ export class OrdersService {
       return;
     }
 
-    console.log(
+    this.logger.log(
       `The matched order has been found. Order left hash: ${matchEvent.leftOrderHash}`,
     );
 
@@ -770,7 +770,7 @@ export class OrdersService {
     }
 
     if (sellOffers.length) {
-      console.log(
+      this.logger.log(
         `Found ${sellOffers.length} sell offers related to an order match`,
       );
       sellOffers.forEach((offer) => {
