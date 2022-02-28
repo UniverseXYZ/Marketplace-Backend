@@ -18,7 +18,6 @@ export class EthereumService {
   public web3: Web3;
   public exchange: any;
   private logger;
-  private chainId: number;
 
   constructor(
     private config: AppConfig,
@@ -53,11 +52,8 @@ export class EthereumService {
    * Returns current ethereum chain id.
    * @returns
    */
-  public async getChainId(): Promise<number> {
-    if(!this.chainId) {
-      this.chainId = await this.web3.eth.getChainId();
-    } 
-    return this.chainId;
+  public getChainId(): number {
+    return Number(this.config.values.ETHEREUM_CHAIN_ID);
   }
 
   /**

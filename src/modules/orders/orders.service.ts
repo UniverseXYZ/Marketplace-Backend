@@ -45,13 +45,13 @@ export class OrdersService {
   private logger;
 
   constructor(
-    private readonly appConfig: AppConfig,
+    private readonly config: AppConfig,
     private readonly httpService: HttpService,
     private readonly ethereumService: EthereumService,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
   ) {
-    const watchdogUrl = R.path(['WATCHDOG_URL'], appConfig.values);
+    const watchdogUrl = R.path(['WATCHDOG_URL'], config.values);
     if (R.isNil(watchdogUrl)) {
       throw new Error('Watchdog endpoint is missing');
     }
@@ -93,14 +93,20 @@ export class OrdersService {
       throw new MarketplaceException(constants.INVALID_SELL_ORDER_ASSET_ERROR);
     }
 
+    // check salt along with the signature (just in case)
+    const salt = await this.getSaltByWalletAddress(data.maker);
+    if (salt !== data.salt) {
+      throw new MarketplaceException(constants.INVALID_SALT_ERROR);
+    }
+
     // verify signature
     const encodedOrder = this.encode(order);
     const signerAddress = this.ethereumService.verifyTypedData(
       {
         name: 'Exchange',
         version: '2',
-        chainId: await this.ethereumService.getChainId(),
-        verifyingContract: this.appConfig.values.MARKETPLACE_CONTRACT,
+        chainId: this.ethereumService.getChainId(),
+        verifyingContract: this.config.values.MARKETPLACE_CONTRACT,
       },
       Utils.types,
       encodedOrder,
@@ -108,12 +114,6 @@ export class OrdersService {
     );
     if (signerAddress.toLowerCase() !== data.maker.toLowerCase()) {
       throw new MarketplaceException(constants.INVALID_SIGNATURE_ERROR);
-    }
-
-    // check salt along with the signature (just in case)
-    const salt = await this.getSaltByWalletAddress(data.maker);
-    if (salt !== data.salt) {
-      throw new MarketplaceException(constants.INVALID_SALT_ERROR);
     }
 
     // verify allowance for SELL orders
