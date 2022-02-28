@@ -70,12 +70,24 @@ export class OrdersController extends BaseController {
       this.errorResponse(e);
     }
   }
+  @Get('floor-price/:collection')
+  @ApiOperation({
+    summary: 'Fetch floor price of a specific collection',
+  })
+  async fetchFloorPice(@Param('collection') collection: string) {
+    try {
+      return await this.orderService.getCollectionFloorPrice(collection);
+    } catch (e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    }
+  }
 
   @Get(':hash')
   @ApiOperation({ summary: 'Get order data by hash.' })
   async getOrder(@Param('hash') hash: string) {
     try {
-      let result: any = await this.orderService.getOrderByHash(hash);
+      const result: any = await this.orderService.getOrderByHash(hash);
       result.encoded = this.orderService.encode(result);
       return result;
     } catch (e) {

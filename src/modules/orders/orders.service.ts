@@ -33,12 +33,10 @@ import {
 import { EthereumService } from '../ethereum/ethereum.service';
 import { MarketplaceException } from '../../common/exceptions/MarketplaceException';
 import { constants } from '../../common/constants';
-import { createTypeData } from '../../common/utils/EIP712';
 import { Utils } from '../../common/utils';
 // import { sign } from '../../common/helpers/order';
 import web3 from 'web3';
 import { SortOrderOptionsEnum } from './order.sort';
-import { orderBy } from 'lodash';
 @Injectable()
 export class OrdersService {
   private watchdogUrl;
@@ -446,7 +444,11 @@ export class OrdersService {
     return items;
   }
 
-  // This endpoint should be will return active sell orders
+  /**
+   * Returns active sell orders
+   * @param query QueryDto
+   * @returns [Order[], number]
+   */
   public async queryBrowsePage(query: QueryDto) {
     query.page = query.page || 1;
     query.limit = query.limit || 12;
@@ -599,6 +601,11 @@ export class OrdersService {
     return items;
   }
 
+  /**
+   *
+   * @param contract nft token address
+   * @param tokenId nft token tokenId
+   */
   public async fetchLastAndBestOffer(contract: string, tokenId: string) {
     const utcTimestamp = new Date().getTime();
 
@@ -625,6 +632,33 @@ export class OrdersService {
       bestOffer,
       lastOffer,
     };
+  }
+
+  /**
+   *
+   * @param collection Nft token address
+   * @returns string represantation of the floor price in wei
+   */
+  public async getCollectionFloorPrice(collection: string) {
+    const utcTimestamp = new Date().getTime();
+    const lowestOrder = await this.orderRepository
+      .createQueryBuilder('order')
+      .where('order.side = 1')
+      .andWhere('order.status = 0')
+      .andWhere(`order.end = 0 OR order.end < ${utcTimestamp}`)
+      .andWhere(`order.start = 0 OR order.start > ${utcTimestamp}`)
+      .andWhere(
+        `LOWER(make->'assetType'->>'contract') = '${collection.toLowerCase()}'`,
+      )
+      .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
+      .orderBy('value_decimal', 'ASC')
+      .getOne();
+
+    if (!lowestOrder) {
+      return { floorPrice: '0' };
+    }
+
+    return { floorPrice: lowestOrder.make.value };
   }
 
   /**
