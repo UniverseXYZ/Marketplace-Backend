@@ -337,7 +337,7 @@ export class OrdersService {
         if (tokenId && contract) {
           queryText += `${queryText ? 'OR ' : ''}`;
           // Sell orders have the nft info in 'make'
-          queryText += `make->'assetType'->>'tokenId' = '${tokenId}' AND make->'assetType'->>'contract' = '${contract}'`;
+          queryText += `make->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(make->'assetType'->>'contract') = '${contract.toLowerCase()}'`;
         }
       });
 
@@ -494,7 +494,7 @@ export class OrdersService {
         if (tokenId && contract) {
           queryText += `${queryText ? 'OR ' : ''}`;
           // Sell orders have the nft info in 'make'
-          queryText += `make->'assetType'->>'tokenId' = '${tokenId}' AND make->'assetType'->>'contract' = '${contract}'`;
+          queryText += `make->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(make->'assetType'->>'contract') = '${contract.toLowerCase()}'`;
         }
       });
 
@@ -632,8 +632,8 @@ export class OrdersService {
         .where(`take->'assetType'->>'tokenId' = :tokenId`, {
           tokenId: tokenId,
         })
-        .andWhere(`take->'assetType'->>'contract' = :contract`, {
-          contract: contract,
+        .andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
+          contract: contract.toLowerCase(),
         })
         .andWhere(`order.side = ${OrderSide.BUY}`)
         .andWhere(`order.end > ${utcTimestamp}`)
@@ -645,8 +645,8 @@ export class OrdersService {
         .where(`take->'assetType'->>'tokenId' = :tokenId`, {
           tokenId: tokenId,
         })
-        .andWhere(`take->'assetType'->>'contract' = :contract`, {
-          contract: contract,
+        .andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
+          contract: contract.toLowerCase(),
         })
         .andWhere(`order.side = ${OrderSide.BUY}`)
         .orderBy('order.createdAt', 'DESC')
@@ -801,7 +801,7 @@ export class OrdersService {
         .andWhere(`order.status = ${OrderStatus.CREATED}`)
         .andWhere(`order.taker = '${orderCreator}'`)
         .andWhere(
-          `take->'assetType'->>'contract' = '${orderNftInfo.assetType.contract}'`,
+          `LOWER(take->'assetType'->>'contract') = '${orderNftInfo.assetType.contract.toLowerCase()}'`,
         )
         .andWhere(
           `take->'assetType'->>'tokenId' = '${orderNftInfo.assetType.tokenId}'`,
@@ -813,7 +813,7 @@ export class OrdersService {
         .andWhere(`order.status = ${OrderStatus.CREATED}`)
         .andWhere(`LOWER(order.maker) = '${orderCreator}'`)
         .andWhere(
-          `make->'assetType'->>'contract' = '${orderNftInfo.assetType.contract}'`,
+          `LOWER(make->'assetType'->>'contract') = '${orderNftInfo.assetType.contract.toLowerCase()}'`,
         )
         .andWhere(
           `make->'assetType'->>'tokenId' = '${orderNftInfo.assetType.tokenId}'`,
@@ -978,7 +978,7 @@ export class OrdersService {
             id != :id AND
             o.status = :status AND
             o.side = :side AND
-            o.make->'assetType'->>'contract' = :contract AND
+            LOWER(o.make->'assetType'->>'contract') = :contract AND
             (
               o.make->'assetType'->>'assetClass' = :assetClass1 OR 
               o.make->'assetType'->>'assetClass' = :assetClass2 
@@ -990,7 +990,8 @@ export class OrdersService {
               id: orderWithLowerPrice.id ?? constants.ZERO_UUID, // do not stale the new order itself
               status: OrderStatus.CREATED,
               side: OrderSide.SELL,
-              contract: orderWithLowerPrice.make.assetType.contract,
+              contract:
+                orderWithLowerPrice.make.assetType.contract.toLowerCase(),
               assetClass1: AssetClass.ERC721,
               assetClass2: AssetClass.ERC1155,
               tokenId: orderWithLowerPrice.make.assetType.tokenId,
