@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsBooleanString,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsNumberString,
@@ -18,6 +19,7 @@ import {
   OrderData,
   IPart,
   Part,
+  AssetClass,
 } from './order.types';
 import { constants } from '../../common/constants';
 
@@ -202,6 +204,9 @@ export class QueryDto {
   })
   @IsString()
   @IsOptional()
+  @Matches(constants.REGEX_ETHEREUM_ADDRESS, {
+    message: 'Invalid maker.',
+  })
   maker: string;
 
   @ApiProperty({
@@ -218,9 +223,9 @@ export class QueryDto {
     description: 'Asset class of the order. e.g. ERC721, ERC721_BUNDLE',
     required: false,
   })
-  @IsString()
+  @IsEnum(AssetClass)
   @IsOptional()
-  assetClass: string;
+  assetClass: AssetClass;
 
   @ApiProperty({
     example: '0x78c3E13fdDC49f89feEB54C3FC47d7df611FA9BE',
@@ -228,6 +233,9 @@ export class QueryDto {
     required: false,
   })
   @IsOptional()
+  @Matches(constants.REGEX_ETHEREUM_ADDRESS, {
+    message: 'Invalid collection.',
+  })
   collection: string;
 
   @ApiProperty({

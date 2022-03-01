@@ -36,6 +36,7 @@ export class OrdersController extends BaseController {
   @ApiOperation({
     summary: 'Filter and return all kind of orders',
   })
+  @UsePipes(MarketplaceValidationPipe)
   async fetchAll(@Query() query: QueryDto) {
     try {
       return await this.orderService.queryAll(query);
@@ -62,6 +63,7 @@ export class OrdersController extends BaseController {
   @ApiOperation({
     summary: 'Filter and return active sell orders',
   })
+  @UsePipes(MarketplaceValidationPipe)
   async fetchBrowsePage(@Query() query: QueryDto) {
     try {
       return await this.orderService.queryBrowsePage(query);
@@ -70,6 +72,7 @@ export class OrdersController extends BaseController {
       this.errorResponse(e);
     }
   }
+
   @Get('floor-price/:collection')
   @ApiOperation({
     summary: 'Fetch floor price of a specific collection',
@@ -88,7 +91,9 @@ export class OrdersController extends BaseController {
   async getOrder(@Param('hash') hash: string) {
     try {
       const result: any = await this.orderService.getOrderByHash(hash);
-      result.encoded = this.orderService.encode(result);
+      if(result) {
+        result.encoded = this.orderService.encode(result);
+      }
       return result;
     } catch (e) {
       this.logger.error(e);

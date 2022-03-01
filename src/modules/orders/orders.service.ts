@@ -155,52 +155,59 @@ export class OrdersService {
   public async prepareOrderExecution(hash: string, data: PrepareTxDto) {
     // 1. get sell/left order
     const leftOrder = await this.getOrderByHash(hash);
-    if (leftOrder.status !== OrderStatus.CREATED) {
-      throw new MarketplaceException(constants.ORDER_ALREADY_FILLED_ERROR);
-    }
+    if (leftOrder) {
+      if (leftOrder.status !== OrderStatus.CREATED) {
+        throw new MarketplaceException(constants.ORDER_ALREADY_FILLED_ERROR);
+      }
 
-    // verify if maker's token got approved to transfer proxy
-    if (
-      !(await this.ethereumService.verifyAllowance(
+      // verify if maker's token got approved to transfer proxy
+      if (
+        !(await this.ethereumService.verifyAllowance(
+          leftOrder.make.assetType.assetClass,
+          leftOrder.maker,
+          AssetClass.ERC721_BUNDLE === leftOrder.make.assetType.assetClass
+            ? leftOrder.make.assetType.contracts
+            : [leftOrder.make.assetType.contract],
+          AssetClass.ERC721_BUNDLE === leftOrder.make.assetType.assetClass
+            ? leftOrder.make.assetType.tokenIds
+            : [[leftOrder.make.assetType.tokenId]],
+          leftOrder.make.value,
+        ))
+      ) {
+        throw new MarketplaceException(constants.NFT_ALLOWANCE_ERROR);
+      }
+
+      // check if the left order is a buy eth-order. We won't support the seller to send a eth-order.
+      // @TODO check with Ryan and @Stan if it's not a bug but feature!
+      if (AssetClass.ETH === leftOrder.make.assetType.assetClass) {
+        throw new MarketplaceException(
+          constants.INVALID_SELL_ORDER_ASSET_ERROR,
+        );
+      }
+
+      // 2. generate the oppsite right order
+      const rightOrder = this.convertToRightOrder(data, leftOrder);
+
+      // 3. generate the match tx
+      const value = this.ethereumService.calculateTxValue(
         leftOrder.make.assetType.assetClass,
-        leftOrder.maker,
-        AssetClass.ERC721_BUNDLE === leftOrder.make.assetType.assetClass
-          ? leftOrder.make.assetType.contracts
-          : [leftOrder.make.assetType.contract],
-        AssetClass.ERC721_BUNDLE === leftOrder.make.assetType.assetClass
-          ? leftOrder.make.assetType.tokenIds
-          : [[leftOrder.make.assetType.tokenId]],
         leftOrder.make.value,
-      ))
-    ) {
-      throw new MarketplaceException(constants.NFT_ALLOWANCE_ERROR);
+        leftOrder.take.assetType.assetClass,
+        leftOrder.take.value,
+      );
+
+      const tx = await this.ethereumService.prepareMatchTx(
+        this.encode(leftOrder),
+        leftOrder.signature,
+        this.encode(rightOrder),
+        data.maker,
+        value.toString(),
+      );
+
+      return tx;
+    } else {
+      return '';
     }
-
-    // check if the left order is a buy eth-order. We won't support the seller to send a eth-order.
-    // @TODO check with Ryan and @Stan if it's not a bug but feature!
-    if (AssetClass.ETH === leftOrder.make.assetType.assetClass) {
-      throw new MarketplaceException(constants.INVALID_SELL_ORDER_ASSET_ERROR);
-    }
-
-    // 2. generate the oppsite right order
-    const rightOrder = this.convertToRightOrder(data, leftOrder);
-
-    // 3. generate the match tx
-    const value = this.ethereumService.calculateTxValue(
-      leftOrder.make.assetType.assetClass,
-      leftOrder.make.value,
-      leftOrder.take.assetType.assetClass,
-      leftOrder.take.value,
-    );
-
-    const tx = await this.ethereumService.prepareMatchTx(
-      this.encode(leftOrder),
-      leftOrder.signature,
-      this.encode(rightOrder),
-      data.maker,
-      value.toString(),
-    );
-    return tx;
   }
 
   /**
@@ -297,8 +304,12 @@ export class OrdersService {
   }
 
   public async queryAll(query: QueryDto) {
-    query.page = query.page || 1;
-    query.limit = query.limit || 12;
+    query.page = parseInt('' + query.page) > 1 ? parseInt('' + query.page) : 1;
+    query.limit =
+      parseInt('' + query.limit) > 0 &&
+      Number(query.limit) <= constants.OFFSET_LIMIT
+        ? parseInt('' + query.limit)
+        : 12;
 
     const skippedItems = (query.page - 1) * query.limit;
 
@@ -306,7 +317,7 @@ export class OrdersService {
     queryBuilder.where('status = :status', { status: OrderStatus.CREATED });
 
     if (query.side) {
-      queryBuilder.andWhere('side = :side', { side: query.side });
+      queryBuilder.andWhere('side = :side', { side: Number(query.side) });
     }
 
     if (!!query.hasOffers) {
@@ -451,8 +462,11 @@ export class OrdersService {
    * @returns [Order[], number]
    */
   public async queryBrowsePage(query: QueryDto) {
-    query.page = query.page || 1;
-    query.limit = query.limit || 12;
+    query.page = parseInt('' + query.page) > 1 ? parseInt('' + query.page) : 1;
+    query.limit =
+      Number(query.limit) > 0 && Number(query.limit) <= constants.OFFSET_LIMIT
+        ? parseInt('' + query.limit)
+        : 12;
 
     const skippedItems = (query.page - 1) * query.limit;
     const utcTimestamp = new Date().getTime();
@@ -604,13 +618,24 @@ export class OrdersService {
    * @param tokenId nft token tokenId
    */
   public async fetchLastAndBestOffer(contract: string, tokenId: string) {
+    if (!constants.REGEX_ETHEREUM_ADDRESS.test(contract)) {
+      throw new MarketplaceException(constants.INVALID_CONTRACT_ADDRESS);
+    }
+    if (!constants.REGEX_TOKEN_ID.test(tokenId)) {
+      throw new MarketplaceException(constants.INVALID_TOKEN_ID);
+    }
+
     const utcTimestamp = new Date().getTime();
 
     const [bestOffer, lastOffer] = await Promise.all([
       this.orderRepository
         .createQueryBuilder('order')
-        .where(`take->'assetType'->>'tokenId' = '${tokenId}'`)
-        .andWhere(`take->'assetType'->>'contract' = '${contract}'`)
+        .where(`take->'assetType'->>'tokenId' = :tokenId`, {
+          tokenId: tokenId,
+        })
+        .andWhere(`take->'assetType'->>'contract' = :contract`, {
+          contract: contract,
+        })
         .andWhere(`order.side = ${OrderSide.BUY}`)
         .andWhere(`order.end > ${utcTimestamp}`)
         .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
@@ -618,8 +643,12 @@ export class OrdersService {
         .getOne(),
       this.orderRepository
         .createQueryBuilder('order')
-        .where(`take->'assetType'->>'tokenId' = '${tokenId}'`)
-        .andWhere(`take->'assetType'->>'contract' = '${contract}'`)
+        .where(`take->'assetType'->>'tokenId' = :tokenId`, {
+          tokenId: tokenId,
+        })
+        .andWhere(`take->'assetType'->>'contract' = :contract`, {
+          contract: contract,
+        })
         .andWhere(`order.side = ${OrderSide.BUY}`)
         .orderBy('order.createdAt', 'DESC')
         .getOne(),
@@ -637,6 +666,10 @@ export class OrdersService {
    * @returns string represantation of the floor price in wei
    */
   public async getCollectionFloorPrice(collection: string) {
+    if (!constants.REGEX_ETHEREUM_ADDRESS.test(collection)) {
+      throw new MarketplaceException(constants.INVALID_CONTRACT_ADDRESS);
+    }
+
     const utcTimestamp = new Date().getTime();
     const lowestOrder = await this.orderRepository
       .createQueryBuilder('order')
@@ -644,9 +677,9 @@ export class OrdersService {
       .andWhere(`order.status = ${OrderStatus.CREATED}`)
       .andWhere(`order.end = 0 OR order.end < ${utcTimestamp}`)
       .andWhere(`order.start = 0 OR order.start > ${utcTimestamp}`)
-      .andWhere(
-        `LOWER(make->'assetType'->>'contract') = '${collection.toLowerCase()}'`,
-      )
+      .andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
+        contract: collection.toLowerCase(),
+      })
       .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
       .orderBy('value_decimal', 'ASC')
       .getOne();
