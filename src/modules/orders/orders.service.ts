@@ -304,11 +304,11 @@ export class OrdersService {
   }
 
   public async queryAll(query: QueryDto) {
-    query.page = parseInt('' + query.page) > 1 ? parseInt('' + query.page) : 1;
+    query.page = Math.floor(query.page) > 1 ? Math.floor(query.page) : 1;
     query.limit =
-      parseInt('' + query.limit) > 0 &&
-      Number(query.limit) <= constants.OFFSET_LIMIT
-        ? parseInt('' + query.limit)
+      Math.floor(query.limit) > 0 &&
+      Math.floor(query.limit) <= constants.OFFSET_LIMIT
+        ? Math.floor(query.limit)
         : 12;
 
     const skippedItems = (query.page - 1) * query.limit;
@@ -462,10 +462,11 @@ export class OrdersService {
    * @returns [Order[], number]
    */
   public async queryBrowsePage(query: QueryDto) {
-    query.page = parseInt('' + query.page) > 1 ? parseInt('' + query.page) : 1;
+    query.page = Math.floor(query.page) > 1 ? Math.floor(query.page) : 1;
     query.limit =
-      Number(query.limit) > 0 && Number(query.limit) <= constants.OFFSET_LIMIT
-        ? parseInt('' + query.limit)
+      Math.floor(query.limit) > 0 &&
+      Math.floor(query.limit) <= constants.OFFSET_LIMIT
+        ? Math.floor(query.limit)
         : 12;
 
     const skippedItems = (query.page - 1) * query.limit;
