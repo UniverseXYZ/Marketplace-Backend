@@ -460,12 +460,8 @@ export class OrdersService {
     const queryBuilder = this.orderRepository.createQueryBuilder('order');
     queryBuilder
       .where('status = :status', { status: OrderStatus.CREATED })
-      .andWhere(`order.end = 0 OR order.end > ${utcTimestamp} `)
+      .andWhere(`(order.end = 0 OR order.end > ${utcTimestamp} )`)
       .andWhere(`order.side = ${OrderSide.SELL}`);
-
-    if (query.side) {
-      queryBuilder.andWhere('side = :side', { side: query.side });
-    }
 
     if (!!query.hasOffers) {
       // Get all buy orders
@@ -520,6 +516,8 @@ export class OrdersService {
         collections: `${query.collection}`,
       });
     }
+
+    console.log(queryBuilder.getQuery());
 
     if (query.tokenId) {
       // @TODO there is no filtering by tokenId for ERC721_BUNDLE orders supposedly because of array of arrays
