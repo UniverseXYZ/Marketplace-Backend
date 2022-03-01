@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.1...v1.3.2) (2022-03-01)
+
+
+### Bug Fixes
+
+* **regex:** fix tokenId regex ([7784f3e](https://github.com/UniverseXYZ/Marketplace-Backend/commit/7784f3e6d254b05084bd22bb45106d7d082be871))
+
 ## [1.3.1](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.0...v1.3.1) (2022-03-01)
 
 
