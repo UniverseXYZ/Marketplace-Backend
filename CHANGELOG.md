@@ -1,3 +1,11 @@
+## [1.3.1](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.0...v1.3.1) (2022-03-01)
+
+
+### Bug Fixes
+
+* **orders:** Fix sell query ([dfad639](https://github.com/UniverseXYZ/Marketplace-Backend/commit/dfad63962e0dbe2ecb1cc304bc4dc7d8a8b1e75f))
+* remove console log ([962fc4e](https://github.com/UniverseXYZ/Marketplace-Backend/commit/962fc4e4fc6ef5d86898ff30488c7147f753a803))
+
 # [1.3.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.2.1...v1.3.0) (2022-02-28)
 
 
