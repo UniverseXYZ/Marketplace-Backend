@@ -517,8 +517,6 @@ export class OrdersService {
       });
     }
 
-    console.log(queryBuilder.getQuery());
-
     if (query.tokenId) {
       // @TODO there is no filtering by tokenId for ERC721_BUNDLE orders supposedly because of array of arrays
       const queryMake = `make->'assetType'->>'tokenId' = :tokenId`;
