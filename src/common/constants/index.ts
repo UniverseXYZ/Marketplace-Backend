@@ -11,6 +11,7 @@ export const constants = {
   ORDER_TYPES: ['UNIVERSE_V1'],
 
   OFFSET_LIMIT: 100, // max number of items per page (for pagination)
+  DEFAULT_LIMIT: 12, // default number of items per page (for pagination)
 
   GENERIC_ERROR: 'We had an error processing your request.',
   INVALID_SIGNATURE_ERROR: 'Invalid signature.',
@@ -19,6 +20,7 @@ export const constants = {
   WALLET_ADDRESS_ERROR: 'Please provide a valid wallet address.',
   INVALID_SALT_ERROR: 'Invalid salt for the order.',
   INVALID_CONTRACT_ADDRESS: 'Invalid contract address.',
+  INVALID_ORDER_SIDE: 'Invalid order side.',
   INVALID_TOKEN_ID: 'Invalid token id.',
   INVALID_ASSET_CLASS: 'Invalid asset class.',
   ORDER_ALREADY_FILLED_ERROR: 'Order has been filled.',
