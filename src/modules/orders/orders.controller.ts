@@ -73,7 +73,25 @@ export class OrdersController extends BaseController {
     }
   }
 
+  @Get('listing/:collectionAddress/:tokenId')
+  @ApiOperation({
+    summary: 'Find active sell order for a specific NFT',
+  })
+  @UsePipes(MarketplaceValidationPipe)
+  async fetchSingleListing(
+    @Param('collectionAddress') collectionAddress,
+    @Param('tokenId') tokenId,
+  ) {
+    try {
+      return await this.orderService.queryOne(collectionAddress, tokenId);
+    } catch (e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    }
+  }
+
   @Get('floor-price/:collection')
+  @UsePipes(MarketplaceValidationPipe)
   @ApiOperation({
     summary: 'Fetch floor price of a specific collection',
   })
@@ -91,7 +109,7 @@ export class OrdersController extends BaseController {
   async getOrder(@Param('hash') hash: string) {
     try {
       const result: any = await this.orderService.getOrderByHash(hash);
-      if(result) {
+      if (result) {
         result.encoded = this.orderService.encode(result);
       }
       return result;

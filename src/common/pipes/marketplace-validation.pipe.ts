@@ -1,4 +1,9 @@
-import { ArgumentMetadata, BadRequestException, Logger, PipeTransform } from '@nestjs/common';
+import {
+  ArgumentMetadata,
+  BadRequestException,
+  Logger,
+  PipeTransform,
+} from '@nestjs/common';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
 
@@ -11,12 +16,12 @@ export class MarketplaceValidationPipe implements PipeTransform<any> {
     }
 
     const object = plainToClass(metadata.metatype, value);
-    const errors = await validate(object, { 
-        validationError: { 
-            target: false 
-        },
-        whitelist: true, 
-        forbidNonWhitelisted: true, // explicitly returning an error
+    const errors = await validate(object, {
+      validationError: {
+        target: false,
+      },
+      whitelist: true,
+      forbidNonWhitelisted: true, // explicitly returning an error
     });
 
     if (errors.length > 0) {

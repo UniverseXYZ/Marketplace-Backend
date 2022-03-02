@@ -697,13 +697,15 @@ export class OrdersService {
    * @param maker wallet address who is transfer the token out
    * @returns order
    */
-  public async queryOne(contract: string, tokenId: string, maker: string) {
+  public async queryOne(contract: string, tokenId: string, maker = '') {
     const queryBuilder = this.orderRepository.createQueryBuilder();
     queryBuilder.where('status = :status', { status: OrderStatus.CREATED });
 
     queryBuilder.andWhere('side = :side', { side: OrderSide.SELL });
 
-    queryBuilder.andWhere('maker = :maker', { maker: maker.toLowerCase() });
+    if (maker) {
+      queryBuilder.andWhere('maker = :maker', { maker: maker.toLowerCase() });
+    }
 
     const queryMake = `make->'assetType'->'contract' = :collection`;
     const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
