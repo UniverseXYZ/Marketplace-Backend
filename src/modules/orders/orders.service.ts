@@ -305,10 +305,11 @@ export class OrdersService {
 
   public async queryAll(query: QueryDto) {
     query.page = Number(query.page) || 1;
-    query.limit =
-      Number(query.limit) && Number(query.limit) <= constants.OFFSET_LIMIT
-        ? Number(query.limit)
-        : 12;
+    query.limit = !Number(query.limit)
+      ? constants.DEFAULT_LIMIT
+      : Number(query.limit) <= constants.OFFSET_LIMIT
+      ? Number(query.limit)
+      : constants.OFFSET_LIMIT;
 
     const skippedItems = (query.page - 1) * query.limit;
 
@@ -316,7 +317,11 @@ export class OrdersService {
     queryBuilder.where('status = :status', { status: OrderStatus.CREATED });
 
     if (query.side) {
-      queryBuilder.andWhere('side = :side', { side: Number(query.side) });
+      const numberSide = Number(query.side);
+      if (numberSide !== OrderSide.BUY && numberSide !== OrderSide.SELL) {
+        throw new MarketplaceException(constants.INVALID_ORDER_SIDE);
+      }
+      queryBuilder.andWhere('side = :side', { side: numberSide });
     }
 
     if (!!query.hasOffers) {
@@ -424,9 +429,9 @@ export class OrdersService {
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
         const utcTimestamp = new Date().getTime();
-        queryBuilder.orderBy(
-          `(case when order.end - ${utcTimestamp} >= 0 then 1 else 2 end)`,
-        );
+        queryBuilder
+          .orderBy(`(case when order.end - :endingSoon >= 0 then 1 else 2 end)`)
+          .setParameters({ endingSoon: utcTimestamp });
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
@@ -462,10 +467,11 @@ export class OrdersService {
    */
   public async queryBrowsePage(query: QueryDto) {
     query.page = Number(query.page) || 1;
-    query.limit =
-      Number(query.limit) && Number(query.limit) <= constants.OFFSET_LIMIT
-        ? Number(query.limit)
-        : 12;
+    query.limit = !Number(query.limit)
+      ? constants.DEFAULT_LIMIT
+      : Number(query.limit) <= constants.OFFSET_LIMIT
+      ? Number(query.limit)
+      : constants.OFFSET_LIMIT;
 
     const skippedItems = (query.page - 1) * query.limit;
     const utcTimestamp = new Date().getTime();
@@ -473,8 +479,12 @@ export class OrdersService {
     const queryBuilder = this.orderRepository.createQueryBuilder('order');
     queryBuilder
       .where('status = :status', { status: OrderStatus.CREATED })
-      .andWhere(`(order.end = 0 OR order.end > ${utcTimestamp} )`)
-      .andWhere(`order.side = ${OrderSide.SELL}`);
+      .andWhere(`(order.end = 0 OR order.end > :end )`, {
+        end: utcTimestamp,
+      })
+      .andWhere(`order.side = :side`, {
+        side: OrderSide.SELL,
+      });
 
     if (!!query.hasOffers) {
       // Get all buy orders
@@ -580,9 +590,9 @@ export class OrdersService {
 
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
-        queryBuilder.orderBy(
-          `(case when order.end - ${utcTimestamp} >= 0 then 1 else 2 end)`,
-        );
+        queryBuilder
+          .orderBy(`(case when order.end - :endingSoon >= 0 then 1 else 2 end)`)
+          .setParameters({ endingSoon: utcTimestamp });
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
@@ -635,8 +645,8 @@ export class OrdersService {
         .andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
           contract: contract.toLowerCase(),
         })
-        .andWhere(`order.side = ${OrderSide.BUY}`)
-        .andWhere(`order.end > ${utcTimestamp}`)
+        .andWhere(`order.side = :side`, { side: OrderSide.BUY })
+        .andWhere(`order.end > :end`, { end: utcTimestamp })
         .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
         .orderBy('value_decimal', 'DESC')
         .getOne(),
@@ -648,7 +658,7 @@ export class OrdersService {
         .andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
           contract: contract.toLowerCase(),
         })
-        .andWhere(`order.side = ${OrderSide.BUY}`)
+        .andWhere(`order.side = :side`, { side: OrderSide.BUY })
         .orderBy('order.createdAt', 'DESC')
         .getOne(),
     ]);
@@ -672,10 +682,14 @@ export class OrdersService {
     const utcTimestamp = new Date().getTime();
     const lowestOrder = await this.orderRepository
       .createQueryBuilder('order')
-      .where(`order.side = ${OrderSide.SELL}`)
-      .andWhere(`order.status = ${OrderStatus.CREATED}`)
-      .andWhere(`order.end = 0 OR order.end < ${utcTimestamp}`)
-      .andWhere(`order.start = 0 OR order.start > ${utcTimestamp}`)
+      .where(`order.side = :side`, {
+        side: OrderSide.SELL,
+      })
+      .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
+      .andWhere(`(order.end = 0 OR order.end < :end)`, { end: utcTimestamp })
+      .andWhere(`(order.start = 0 OR order.start > :start)`, {
+        start: utcTimestamp,
+      })
       .andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
         contract: collection.toLowerCase(),
       })
@@ -799,27 +813,27 @@ export class OrdersService {
     const [buyOffers, sellOffers] = await Promise.all([
       this.orderRepository
         .createQueryBuilder('order')
-        .where(`order.side = ${OrderSide.BUY}`)
-        .andWhere(`order.status = ${OrderStatus.CREATED}`)
-        .andWhere(`order.taker = '${orderCreator}'`)
-        .andWhere(
-          `LOWER(take->'assetType'->>'contract') = '${orderNftInfo.assetType.contract.toLowerCase()}'`,
-        )
-        .andWhere(
-          `take->'assetType'->>'tokenId' = '${orderNftInfo.assetType.tokenId}'`,
-        )
+        .where(`order.side = :side`, { side: OrderSide.BUY })
+        .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
+        .andWhere(`order.taker = ':taker'`, { taker: orderCreator })
+        .andWhere(`LOWER(take->'assetType'->>'contract') = ':contract'`, {
+          contract: orderNftInfo.assetType.contract.toLowerCase(),
+        })
+        .andWhere(`take->'assetType'->>'tokenId' = ':tokenId'`, {
+          tokenId: orderNftInfo.assetType.tokenId,
+        })
         .getMany(),
       this.orderRepository
         .createQueryBuilder('order')
-        .where(`order.side = ${OrderSide.SELL}`)
-        .andWhere(`order.status = ${OrderStatus.CREATED}`)
-        .andWhere(`LOWER(order.maker) = '${orderCreator}'`)
-        .andWhere(
-          `LOWER(make->'assetType'->>'contract') = '${orderNftInfo.assetType.contract.toLowerCase()}'`,
-        )
-        .andWhere(
-          `make->'assetType'->>'tokenId' = '${orderNftInfo.assetType.tokenId}'`,
-        )
+        .where(`order.side = :side`, { side: OrderSide.SELL })
+        .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
+        .andWhere(`LOWER(order.maker) = ':maker'`, { maker: orderCreator })
+        .andWhere(`LOWER(make->'assetType'->>'contract') = ':contract'`, {
+          contract: orderNftInfo.assetType.contract.toLowerCase(),
+        })
+        .andWhere(`make->'assetType'->>'tokenId' = ':tokenId'`, {
+          tokenId: orderNftInfo.assetType.tokenId,
+        })
         .getMany(),
     ]);
 
