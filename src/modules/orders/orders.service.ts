@@ -428,7 +428,7 @@ export class OrdersService {
 
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
-        const utcTimestamp = new Date().getTime();
+        const utcTimestamp = this.getUtcTimestamp();
         queryBuilder
           .orderBy(`(case when order.end - :endingSoon >= 0 then 1 else 2 end)`)
           .setParameters({ endingSoon: utcTimestamp });
@@ -459,7 +459,7 @@ export class OrdersService {
 
     return items;
   }
-
+  getUtcTimestamp = () => Math.floor(new Date().getTime() / 1000);
   /**
    * Returns active sell orders
    * @param query QueryDto
@@ -474,12 +474,15 @@ export class OrdersService {
       : constants.OFFSET_LIMIT;
 
     const skippedItems = (query.page - 1) * query.limit;
-    const utcTimestamp = new Date().getTime();
+    const utcTimestamp = this.getUtcTimestamp();
 
     const queryBuilder = this.orderRepository.createQueryBuilder('order');
     queryBuilder
       .where('status = :status', { status: OrderStatus.CREATED })
-      .andWhere(`(order.end = 0 OR order.end > :end )`, {
+      .andWhere(`(order.start = 0 OR order.start < :start)`, {
+        start: utcTimestamp,
+      })
+      .andWhere(`(order.end = 0 OR :end < order.end )`, {
         end: utcTimestamp,
       })
       .andWhere(`order.side = :side`, {
@@ -634,7 +637,7 @@ export class OrdersService {
       throw new MarketplaceException(constants.INVALID_TOKEN_ID);
     }
 
-    const utcTimestamp = new Date().getTime();
+    const utcTimestamp = this.getUtcTimestamp();
 
     const [bestOffer, lastOffer] = await Promise.all([
       this.orderRepository
@@ -679,16 +682,18 @@ export class OrdersService {
       throw new MarketplaceException(constants.INVALID_CONTRACT_ADDRESS);
     }
 
-    const utcTimestamp = new Date().getTime();
+    const utcTimestamp = this.getUtcTimestamp();
     const lowestOrder = await this.orderRepository
       .createQueryBuilder('order')
       .where(`order.side = :side`, {
         side: OrderSide.SELL,
       })
       .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
-      .andWhere(`(order.end = 0 OR order.end < :end)`, { end: utcTimestamp })
-      .andWhere(`(order.start = 0 OR order.start > :start)`, {
+      .andWhere(`(order.start = 0 OR order.start < :start)`, {
         start: utcTimestamp,
+      })
+      .andWhere(`(order.end = 0 OR :end < order.end )`, {
+        end: utcTimestamp,
       })
       .andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
         contract: collection.toLowerCase(),
