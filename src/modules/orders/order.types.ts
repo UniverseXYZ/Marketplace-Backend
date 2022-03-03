@@ -17,6 +17,10 @@ import { constants } from '../../common/constants';
 
 export enum AssetClass {
   ETH = 'ETH',
+  USDC = 'USDC',
+  XYZ = 'XYZ',
+  DAI = 'DAI',
+  WETH = 'WETH',
   ERC20 = 'ERC20',
   ERC721 = 'ERC721',
   ERC721_BUNDLE = 'ERC721_BUNDLE',
