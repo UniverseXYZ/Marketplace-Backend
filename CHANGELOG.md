@@ -1,3 +1,10 @@
+## [1.3.3](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.2...v1.3.3) (2022-03-03)
+
+
+### Bug Fixes
+
+* **utcTimestamp:** queries to use timestamp in seconds ([fa0bc0c](https://github.com/UniverseXYZ/Marketplace-Backend/commit/fa0bc0c2becab64c851c4750309d9b3a6e32c7c1))
+
 ## [1.3.2](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.1...v1.3.2) (2022-03-01)
 
 
