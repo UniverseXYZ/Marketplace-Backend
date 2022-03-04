@@ -784,16 +784,15 @@ export class OrdersService {
           OrderStatus[leftOrder.status]
         }"`,
       );
-      return;
+    } else {
+      this.logger.log(
+        `The matched order has been found. Order left hash: ${matchEvent.leftOrderHash}`,
+      );
+
+      leftOrder.status = OrderStatus.FILLED;
+      leftOrder.matchedTxHash = matchEvent.txHash;
+      await this.orderRepository.save(leftOrder);
     }
-
-    this.logger.log(
-      `The matched order has been found. Order left hash: ${matchEvent.leftOrderHash}`,
-    );
-
-    leftOrder.status = OrderStatus.FILLED;
-    leftOrder.matchedTxHash = matchEvent.txHash;
-    await this.orderRepository.save(leftOrder);
 
     await this.markRelatedOrdersAsStale(leftOrder, matchEvent);
   }
@@ -820,11 +819,11 @@ export class OrdersService {
         .createQueryBuilder('order')
         .where(`order.side = :side`, { side: OrderSide.BUY })
         .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
-        .andWhere(`order.taker = ':taker'`, { taker: orderCreator })
-        .andWhere(`LOWER(take->'assetType'->>'contract') = ':contract'`, {
+        .andWhere(`order.taker = :taker`, { taker: orderCreator })
+        .andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
           contract: orderNftInfo.assetType.contract.toLowerCase(),
         })
-        .andWhere(`take->'assetType'->>'tokenId' = ':tokenId'`, {
+        .andWhere(`take->'assetType'->>'tokenId' = :tokenId`, {
           tokenId: orderNftInfo.assetType.tokenId,
         })
         .getMany(),
@@ -832,30 +831,32 @@ export class OrdersService {
         .createQueryBuilder('order')
         .where(`order.side = :side`, { side: OrderSide.SELL })
         .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
-        .andWhere(`LOWER(order.maker) = ':maker'`, { maker: orderCreator })
-        .andWhere(`LOWER(make->'assetType'->>'contract') = ':contract'`, {
+        .andWhere(`LOWER(order.maker) = :maker`, { maker: orderCreator })
+        .andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
           contract: orderNftInfo.assetType.contract.toLowerCase(),
         })
-        .andWhere(`make->'assetType'->>'tokenId' = ':tokenId'`, {
+        .andWhere(`make->'assetType'->>'tokenId' = :tokenId`, {
           tokenId: orderNftInfo.assetType.tokenId,
         })
         .getMany(),
     ]);
 
+    this.logger.log(
+      `Found ${buyOffers.length} buy offers related to an order match`,
+    );
+
     if (buyOffers.length) {
-      this.logger.log(
-        `Found ${buyOffers.length} buy offers related to an order match`,
-      );
       buyOffers.forEach((offer) => {
         offer.status = OrderStatus.STALE;
       });
       await this.orderRepository.save(buyOffers);
     }
 
+    this.logger.log(
+      `Found ${sellOffers.length} sell offers related to an order match`,
+    );
+
     if (sellOffers.length) {
-      this.logger.log(
-        `Found ${sellOffers.length} sell offers related to an order match`,
-      );
       sellOffers.forEach((offer) => {
         offer.status = OrderStatus.STALE;
       });
@@ -888,6 +889,7 @@ export class OrdersService {
         },
       )
       .getOne();
+
     if (cancelOrder) {
       this.logger.log(
         `The Canceled order has been found. Order left hash: ${event.leftOrderHash}`,
