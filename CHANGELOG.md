@@ -1,3 +1,10 @@
+## [1.3.4](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.3...v1.3.4) (2022-03-04)
+
+
+### Bug Fixes
+
+* **incorrect-placeholders:** fix incorrect placeholders causing the indexing to break ([7b16635](https://github.com/UniverseXYZ/Marketplace-Backend/commit/7b1663517ce2721c08a08bf620dd6a6fba34fe31))
+
 ## [1.3.3](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.2...v1.3.3) (2022-03-03)
 
 
