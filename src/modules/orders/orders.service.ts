@@ -492,11 +492,16 @@ export class OrdersService {
 
     if (!!query.hasOffers) {
       // Get all buy orders
-      const offers = await this.orderRepository.find({
-        where: {
-          side: 0,
-        },
-      });
+      const offers = await this.orderRepository
+        .createQueryBuilder('order')
+        .where('status = :status', { status: OrderStatus.CREATED })
+        .andWhere(`(order.end = 0 OR :end < order.end )`, {
+          end: utcTimestamp,
+        })
+        .andWhere(`order.side = :side`, {
+          side: OrderSide.BUY,
+        })
+        .getMany();
 
       let queryText = '';
 
@@ -512,9 +517,11 @@ export class OrdersService {
         }
       });
 
-      if (queryText) {
-        queryBuilder.andWhere(queryText);
+      // If query is empty --> there are no orders with offers
+      if (!queryText) {
+        return [];
       }
+      queryBuilder.andWhere(queryText);
     }
 
     if (query.maker) {
