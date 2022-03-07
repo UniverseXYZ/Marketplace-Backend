@@ -40,4 +40,11 @@ export class Utils {
       );
       return (await EIP712.signTypedData(web3, walletAddress, data)).sig;
     }
+
+    /**
+     * Returns current UTC timestamp in seconds.
+     */
+    public static getUtcTimestamp() {
+      return Math.floor(new Date().getTime() / 1000);
+    }
 }

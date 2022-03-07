@@ -38,6 +38,7 @@ import { Utils } from '../../common/utils';
 // import { sign } from '../../common/helpers/order';
 import web3 from 'web3';
 import { SortOrderOptionsEnum } from './order.sort';
+
 @Injectable()
 export class OrdersService {
   private watchdogUrl;
@@ -428,7 +429,7 @@ export class OrdersService {
 
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
-        const utcTimestamp = this.getUtcTimestamp();
+        const utcTimestamp = Utils.getUtcTimestamp();
         queryBuilder
           .orderBy(`(case when order.end - :endingSoon >= 0 then 1 else 2 end)`)
           .setParameters({ endingSoon: utcTimestamp });
@@ -459,7 +460,7 @@ export class OrdersService {
 
     return items;
   }
-  getUtcTimestamp = () => Math.floor(new Date().getTime() / 1000);
+  
   /**
    * Returns active sell orders
    * @param query QueryDto
@@ -474,7 +475,7 @@ export class OrdersService {
       : constants.OFFSET_LIMIT;
 
     const skippedItems = (query.page - 1) * query.limit;
-    const utcTimestamp = this.getUtcTimestamp();
+    const utcTimestamp = Utils.getUtcTimestamp();
 
     const queryBuilder = this.orderRepository.createQueryBuilder('order');
     queryBuilder
@@ -637,7 +638,7 @@ export class OrdersService {
       throw new MarketplaceException(constants.INVALID_TOKEN_ID);
     }
 
-    const utcTimestamp = this.getUtcTimestamp();
+    const utcTimestamp = Utils.getUtcTimestamp();
 
     const [bestOffer, lastOffer] = await Promise.all([
       this.orderRepository
@@ -673,40 +674,24 @@ export class OrdersService {
   }
 
   /**
-   *
-   * @param collection Nft token address
-   * @returns string represantation of the floor price in wei
+   * Returns certain data points for a collection (contract).
+   * @param collection NFT token collection address.
+   * @returns {Promise<Object>}
    */
-  public async getCollectionFloorPrice(collection: string) {
+  public async getCollection(collection: string): Promise<Object> {
     if (!constants.REGEX_ETHEREUM_ADDRESS.test(collection)) {
       throw new MarketplaceException(constants.INVALID_CONTRACT_ADDRESS);
     }
 
-    const utcTimestamp = this.getUtcTimestamp();
-    const lowestOrder = await this.orderRepository
-      .createQueryBuilder('order')
-      .where(`order.side = :side`, {
-        side: OrderSide.SELL,
-      })
-      .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
-      .andWhere(`(order.start = 0 OR order.start < :start)`, {
-        start: utcTimestamp,
-      })
-      .andWhere(`(order.end = 0 OR :end < order.end )`, {
-        end: utcTimestamp,
-      })
-      .andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
-        contract: collection.toLowerCase(),
-      })
-      .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
-      .orderBy('value_decimal', 'ASC')
-      .getOne();
+    const [floorPrice, volumeTraded] = await Promise.all([
+      this.getCollectionFloorPrice(collection),
+      this.getCollectionVolumeTraded(collection),
+    ]);
 
-    if (!lowestOrder) {
-      return { floorPrice: '0' };
+    return {
+      floorPrice: floorPrice,
+      volumeTraded: volumeTraded,
     }
-
-    return { floorPrice: lowestOrder.make.value };
   }
 
   /**
@@ -1036,4 +1021,66 @@ export class OrdersService {
       }
     }
   }
+
+  /**
+   *
+   * @param collection Nft token collection address
+   * @returns {Promise<string>} string represantation of the floor price in wei.
+   */
+   private async getCollectionFloorPrice(collection: string): Promise<string> {
+    const utcTimestamp = Utils.getUtcTimestamp();
+    const lowestOrder = await this.orderRepository
+      .createQueryBuilder('order')
+      .where(`order.side = :side`, {
+        side: OrderSide.SELL,
+      })
+      .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
+      .andWhere(`(order.start = 0 OR order.start < :start)`, {
+        start: utcTimestamp,
+      })
+      .andWhere(`(order.end = 0 OR :end < order.end )`, {
+        end: utcTimestamp,
+      })
+      .andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
+        contract: collection.toLowerCase(),
+      })
+      .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
+      .orderBy('value_decimal', 'ASC')
+      .getOne();
+
+    if (!lowestOrder) {
+      return '';
+    }
+
+    return lowestOrder.make.value;
+  }
+
+  /**
+   * Returns the sum of prices in wei from all filled orders for a collection.
+   * i.e. Collection's traded volume.
+   * @param collection - collection (contract) address
+   * @returns {Promise<string>}
+   */
+  private async getCollectionVolumeTraded(collection: string): Promise<string> {
+    let value = '0';
+
+    const orders = await this.orderRepository.createQueryBuilder('o')
+      .where(`
+        o.side = :side AND
+        o.status = :status AND
+        LOWER(o.take->'assetType'->>'contract') = :contract
+      `, {
+        side: OrderSide.BUY,
+        status: OrderStatus.FILLED,
+        contract: collection.toLowerCase(),
+      })
+      .select(`SUM(CAST(o.make->>'value' as DECIMAL))`, 'volumeTraded')
+      .getRawOne();
+    if(orders.volumeTraded) {
+      value = orders.volumeTraded;
+    }
+
+    return value;
+  }
+
 }

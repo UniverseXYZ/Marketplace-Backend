@@ -90,14 +90,14 @@ export class OrdersController extends BaseController {
     }
   }
 
-  @Get('floor-price/:collection')
+  @Get('collection/:collection')
   @UsePipes(MarketplaceValidationPipe)
   @ApiOperation({
-    summary: 'Fetch floor price of a specific collection',
+    summary: 'Get collection data.',
   })
-  async fetchFloorPice(@Param('collection') collection: string) {
+  async getCollection(@Param('collection') collection: string) {
     try {
-      return await this.orderService.getCollectionFloorPrice(collection);
+      return await this.orderService.getCollection(collection);
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
