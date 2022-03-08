@@ -1,3 +1,15 @@
+# [1.4.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.5...v1.4.0) (2022-03-08)
+
+
+### Bug Fixes
+
+* **erc20-query:** fix query to use token address ([85b7743](https://github.com/UniverseXYZ/Marketplace-Backend/commit/85b77437f9c750dff6df836e52b0be57e66dc36b))
+
+
+### Features
+
+* **history-endpoint:** introduce nft order history endpoint ([c75fbea](https://github.com/UniverseXYZ/Marketplace-Backend/commit/c75fbeac35c6c37157563bbd0e72ef80db6e7c45))
+
 ## [1.3.5](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.4...v1.3.5) (2022-03-08)
 
 
