@@ -409,10 +409,10 @@ export class OrdersService {
     }
 
     if (query.token) {
-      const queryTake = `take->'assetType'->>'assetClass' = :token`;
+      const queryTake = `LOWER(take->'assetType'->>'assetClass') = :token`;
 
       queryBuilder.andWhere(queryTake, {
-        token: query.token,
+        token: query.token.toLowerCase(),
       });
     }
 
@@ -581,10 +581,10 @@ export class OrdersService {
     }
 
     if (query.token) {
-      const queryTake = `take->'assetType'->>'assetClass' = :token`;
+      const queryTake = `LOWER(take->'assetType'->>'assetClass') = :token`;
 
       queryBuilder.andWhere(queryTake, {
-        token: query.token,
+        token: query.token.toLowerCase(),
       });
     }
 
