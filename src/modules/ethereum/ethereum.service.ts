@@ -15,7 +15,7 @@ import { AssetClass } from '../orders/order.types';
 
 @Injectable()
 export class EthereumService {
-  public web3: Web3;
+  public ether: ethers.providers.FallbackProvider;
   public exchange: any;
   private logger;
 
@@ -25,23 +25,39 @@ export class EthereumService {
   ) {
     this.logger = new Logger(EthereumService.name);
 
-    const key = <NetworkType>config.values.ETHEREUM_NETWORK;
-    const secret = R.path(['INFURA_PROJECT_SECRET'], config.values);
-    const projectId = R.path(['INFURA_PROJECT_ID'], config.values);
-    const url = `https://:${secret}@${EthereumNetworkType[key]}.infura.io/v3/${projectId}`;
-    if (R.isNil(url)) {
-      throw new Error('[web3.providers]: the url is null or undefined');
-    }
-    const provider = new Web3.providers.HttpProvider(url, {
-      keepAlive: true,
-      timeout: 30000,
-    });
+    const network = <NetworkType>config.values.ETHEREUM_NETWORK;
+    const quorum: number = R.path(['ETHEREUM_QUORUM'], config.values);
 
-    this.web3 = new Web3(provider);
-    const ethersProvider = new ethers.providers.InfuraProvider(
-      EthereumNetworkType[key],
-      R.path(['INFURA_PROJECT_ID'], config.values),
-    );
+    const projectSecret = R.path(['INFURA_PROJECT_SECRET'], config.values);
+    const projectId = R.path(['INFURA_PROJECT_ID'], config.values);
+    const infuraProvider: ethers.providers.InfuraProvider = projectId && projectSecret
+      ? new ethers.providers.InfuraProvider(network, {
+          projectId: projectId,
+          projectSecret: projectSecret
+        })
+      : undefined;
+
+    const alchemyToken: string = R.path(['ALCHEMY_TOKEN'], config.values);
+    const alchemyProvider: ethers.providers.AlchemyProvider = alchemyToken
+      ? new ethers.providers.AlchemyProvider(network, {
+          apikey: alchemyToken,
+        })
+      : undefined;
+
+    const chainstackUrl: string = R.path(['CHAINSTACK_URL'], config.values);
+    const chainStackProvider: ethers.providers.JsonRpcProvider = chainstackUrl
+      ? new ethers.providers.JsonRpcProvider(chainstackUrl, network)
+      : undefined;
+
+    if (!infuraProvider && !alchemyProvider && !chainStackProvider) {
+      throw new Error('Infura project id and secret or alchemy token or chainstack url is not defined');
+    }
+    
+    const allProviders: ethers.providers.BaseProvider[] = [infuraProvider, alchemyProvider, chainStackProvider]
+    const definedProviders: ethers.providers.BaseProvider[] = allProviders.filter(x => x !== undefined);
+    const ethersProvider: ethers.providers.FallbackProvider = new ethers.providers.FallbackProvider(definedProviders, quorum);
+
+    this.ether = ethersProvider;
     this.exchange = Exchange(
       ethersProvider,
       R.path(['MARKETPLACE_CONTRACT'], this.config.values),
@@ -187,11 +203,11 @@ export class EthereumService {
         }
 
         if(!nftContracts[contractAddress]) {
-          nftContracts[contractAddress] = new this.web3.eth.Contract(nftContractABI, contractAddress);
+          nftContracts[contractAddress] = new ethers.Contract(contractAddress, nftContractABI, this.ether);
         }
 
         this.logger.log(`Calling isApprovedForAll() on ERC721 contract ${contractAddress}.`);
-        const isApprovedForAll = await nftContracts[contractAddress].methods.isApprovedForAll(walletAddress, this.config.values.MARKETPLACE_CONTRACT).call();
+        const isApprovedForAll = await nftContracts[contractAddress].isApprovedForAll(walletAddress, this.config.values.MARKETPLACE_CONTRACT);
         
         for(let j = 0 ; j < tokenIds[i].length ; j++) {
           const tokenId = tokenIds[i][j]; // tokenId is a string!
@@ -201,14 +217,14 @@ export class EthereumService {
 
           if(true !== isApprovedForAll) {
             this.logger.log(`Calling getApproved() on ERC721 contract ${contractAddress} with tokenId ${tokenId}.`);
-            const approvedAddress = await nftContracts[contractAddress].methods.getApproved(tokenId).call();             
+            const approvedAddress = await nftContracts[contractAddress].getApproved(tokenId);             
             if(approvedAddress.toLowerCase() !== this.config.values.MARKETPLACE_CONTRACT.toLowerCase()) {
               throw new Error(`Token id ${tokenId} on contract ${contractAddress} is not approved to be transferred to the Marketplace contract.`);
             }
           }
 
           this.logger.log(`Calling ownerOf() on ERC721 contract ${contractAddress} with tokenId ${tokenId}.`);
-          const owner = await nftContracts[contractAddress].methods.ownerOf(tokenId).call();
+          const owner = await nftContracts[contractAddress].ownerOf(tokenId);
           if(owner.toLowerCase() !== walletAddress) {
             throw new Error(`Wallet ${walletAddress} is not the owner of token id ${tokenId} on contract ${contractAddress}.`);
           }
@@ -247,16 +263,16 @@ export class EthereumService {
         throw new Error(`Invalid amount value ${amount}.`);
       }
 
-      const erc20Contract = new this.web3.eth.Contract(erc20ContractABI, contractAddress);
+      const erc20Contract = new ethers.Contract(contractAddress, erc20ContractABI, this.ether);
 
       this.logger.log(`Calling allowance() on ERC20 contract ${contractAddress} with wallet address ${walletAddress} and Marketplace contract.`);
-      const allowance = await erc20Contract.methods.allowance(walletAddress, this.config.values.MARKETPLACE_CONTRACT).call();
+      const allowance = await erc20Contract.allowance(walletAddress, this.config.values.MARKETPLACE_CONTRACT);
       if(BigInt(amount) > allowance) {
         throw new Error(`Marketplace contract does not have enough allowance of ${amount}, got ${allowance}`);
       }
 
       this.logger.log(`Calling balanceOf() on ERC20 contract ${contractAddress} with wallet ${walletAddress}.`);
-      const balance = await erc20Contract.methods.balanceOf(walletAddress);
+      const balance = await erc20Contract.balanceOf(walletAddress);
       if(BigInt(amount) > balance) {
         throw new Error(`Wallet ${walletAddress} does not have enough balance of ${amount}, got ${balance}`);
       }
@@ -297,16 +313,16 @@ export class EthereumService {
         throw new Error(`tokenId ${tokenId} is invalid.`);
       }
 
-      const erc1155Contract = new this.web3.eth.Contract(erc1155ContractABI, contractAddress);
+      const erc1155Contract = new ethers.Contract(contractAddress, erc1155ContractABI, this.ether);
       
       this.logger.log(`Calling isApprovedForAll() on ERC1155 contract ${contractAddress} with wallet address ${walletAddress} and Marketplace contract.`);
-      const isApprovedForAll = await erc1155Contract.methods.isApprovedForAll(walletAddress, this.config.values.MARKETPLACE_CONTRACT).call();
+      const isApprovedForAll = await erc1155Contract.isApprovedForAll(walletAddress, this.config.values.MARKETPLACE_CONTRACT);
       if(true !== isApprovedForAll) {
         throw new Error(`Marketplace contract is not approved to transfer token ${tokenId} on contract ${contractAddress}.`);
       }
 
       this.logger.log(`Calling balanceOf() on ERC1155 contract ${contractAddress} with wallet ${walletAddress} and token ${tokenId}.`);
-      const balance = await erc1155Contract.methods.balanceOf(walletAddress, tokenId).call();
+      const balance = await erc1155Contract.balanceOf(walletAddress, tokenId);
       if(BigInt(amount) > balance) {
         throw new Error(`Wallet ${walletAddress} does not have enough balance of ${amount} on token ${tokenId}, got ${balance}`);
       }
