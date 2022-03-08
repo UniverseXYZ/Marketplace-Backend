@@ -39,9 +39,7 @@ export class EthereumService {
 
     const alchemyToken: string = R.path(['ALCHEMY_TOKEN'], config.values);
     const alchemyProvider: ethers.providers.AlchemyProvider = alchemyToken
-      ? new ethers.providers.AlchemyProvider(network, {
-          apikey: alchemyToken,
-        })
+      ? new ethers.providers.AlchemyProvider(network, alchemyToken)
       : undefined;
 
     const chainstackUrl: string = R.path(['CHAINSTACK_URL'], config.values);
