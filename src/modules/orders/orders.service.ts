@@ -325,13 +325,20 @@ export class OrdersService {
       queryBuilder.andWhere('side = :side', { side: numberSide });
     }
 
+    const utcTimestamp = Utils.getUtcTimestamp();
+
     if (!!query.hasOffers) {
       // Get all buy orders
-      const offers = await this.orderRepository.find({
-        where: {
-          side: 0,
-        },
-      });
+      const offers = await this.orderRepository
+        .createQueryBuilder('order')
+        .where('status = :status', { status: OrderStatus.CREATED })
+        .andWhere(`(order.end = 0 OR :end < order.end )`, {
+          end: utcTimestamp,
+        })
+        .andWhere(`order.side = :side`, {
+          side: OrderSide.BUY,
+        })
+        .getMany();
 
       let queryText = '';
 
@@ -347,9 +354,11 @@ export class OrdersService {
         }
       });
 
-      if (queryText) {
-        queryBuilder.andWhere(queryText);
+      // If query is empty --> there are no orders with offers
+      if (!queryText) {
+        return [];
       }
+      queryBuilder.andWhere(queryText);
     }
 
     if (query.maker) {
@@ -460,7 +469,7 @@ export class OrdersService {
 
     return items;
   }
-  
+
   /**
    * Returns active sell orders
    * @param query QueryDto
@@ -492,11 +501,16 @@ export class OrdersService {
 
     if (!!query.hasOffers) {
       // Get all buy orders
-      const offers = await this.orderRepository.find({
-        where: {
-          side: 0,
-        },
-      });
+      const offers = await this.orderRepository
+        .createQueryBuilder('order')
+        .where('status = :status', { status: OrderStatus.CREATED })
+        .andWhere(`(order.end = 0 OR :end < order.end )`, {
+          end: utcTimestamp,
+        })
+        .andWhere(`order.side = :side`, {
+          side: OrderSide.BUY,
+        })
+        .getMany();
 
       let queryText = '';
 
@@ -512,9 +526,11 @@ export class OrdersService {
         }
       });
 
-      if (queryText) {
-        queryBuilder.andWhere(queryText);
+      // If query is empty --> there are no orders with offers
+      if (!queryText) {
+        return [];
       }
+      queryBuilder.andWhere(queryText);
     }
 
     if (query.maker) {
@@ -691,7 +707,7 @@ export class OrdersService {
     return {
       floorPrice: floorPrice,
       volumeTraded: volumeTraded,
-    }
+    };
   }
 
   /**
@@ -1027,7 +1043,7 @@ export class OrdersService {
    * @param collection Nft token collection address
    * @returns {Promise<string>} string represantation of the floor price in wei.
    */
-   private async getCollectionFloorPrice(collection: string): Promise<string> {
+  private async getCollectionFloorPrice(collection: string): Promise<string> {
     const utcTimestamp = Utils.getUtcTimestamp();
     const lowestOrder = await this.orderRepository
       .createQueryBuilder('order')
@@ -1064,23 +1080,26 @@ export class OrdersService {
   private async getCollectionVolumeTraded(collection: string): Promise<string> {
     let value = '0';
 
-    const orders = await this.orderRepository.createQueryBuilder('o')
-      .where(`
+    const orders = await this.orderRepository
+      .createQueryBuilder('o')
+      .where(
+        `
         o.side = :side AND
         o.status = :status AND
         LOWER(o.take->'assetType'->>'contract') = :contract
-      `, {
-        side: OrderSide.BUY,
-        status: OrderStatus.FILLED,
-        contract: collection.toLowerCase(),
-      })
+      `,
+        {
+          side: OrderSide.BUY,
+          status: OrderStatus.FILLED,
+          contract: collection.toLowerCase(),
+        },
+      )
       .select(`SUM(CAST(o.make->>'value' as DECIMAL))`, 'volumeTraded')
       .getRawOne();
-    if(orders.volumeTraded) {
+    if (orders.volumeTraded) {
       value = orders.volumeTraded;
     }
 
     return value;
   }
-
 }
