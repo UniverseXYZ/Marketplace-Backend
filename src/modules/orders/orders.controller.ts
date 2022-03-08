@@ -90,10 +90,30 @@ export class OrdersController extends BaseController {
     }
   }
 
+  @Get('listing/:collectionAddress/:tokenId/history')
+  @ApiOperation({
+    summary: 'Find active sell order for a specific NFT',
+  })
+  @UsePipes(MarketplaceValidationPipe)
+  async fetchListingHistory(
+    @Param('collectionAddress') collectionAddress,
+    @Param('tokenId') tokenId,
+  ) {
+    try {
+      return await this.orderService.fetchListingHistory(
+        collectionAddress,
+        tokenId,
+      );
+    } catch (e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    }
+  }
+
   @Get('collection/:collection')
   @UsePipes(MarketplaceValidationPipe)
   @ApiOperation({
-    summary: 'Get collection data.',
+    summary: 'Get additional info about a collection.',
   })
   async getCollection(@Param('collection') collection: string) {
     try {
