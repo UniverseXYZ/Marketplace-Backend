@@ -12,11 +12,11 @@ export class EthHealthIndicator extends HealthIndicator {
   constructor(private ethService: EthereumService) {
     super();
   }
-
+  
   async pingCheck(key: string): Promise<HealthIndicatorResult> {
-    const { web3 } = this.ethService;
-    const blockNumber = await web3.eth.getBlockNumber();
-    const network = await web3.eth.net.getNetworkType();
+    const { ether } = this.ethService;
+    const blockNumber = await ether.getBlockNumber();
+    const network = await ether.getNetwork();
     const isHealthy = !R.isNil(blockNumber);
     const result = this.getStatus(key, isHealthy, { blockNumber, network });
 
