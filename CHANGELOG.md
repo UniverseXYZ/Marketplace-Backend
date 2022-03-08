@@ -1,3 +1,11 @@
+## [1.3.5](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.4...v1.3.5) (2022-03-08)
+
+
+### Bug Fixes
+
+* **has-offers:** fix has offers query params to function properly ([aab51e1](https://github.com/UniverseXYZ/Marketplace-Backend/commit/aab51e1bce945182536b3319451747763b9b53db))
+* **has-offers:** fix query in standrad endpoint ([1f877dc](https://github.com/UniverseXYZ/Marketplace-Backend/commit/1f877dce856195674f117f21a84be1742f7925db))
+
 ## [1.3.4](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.3...v1.3.4) (2022-03-04)
 
 
