@@ -694,7 +694,9 @@ export class OrdersService {
    * @param collection NFT token collection address.
    * @returns {Promise<Object>}
    */
-  public async getCollection(collection: string): Promise<Object> {
+  public async getCollection(
+    collection: string,
+  ): Promise<Record<string, unknown>> {
     if (!constants.REGEX_ETHEREUM_ADDRESS.test(collection)) {
       throw new MarketplaceException(constants.INVALID_CONTRACT_ADDRESS);
     }
@@ -796,6 +798,29 @@ export class OrdersService {
     }
 
     await this.markRelatedOrdersAsStale(leftOrder, matchEvent);
+  }
+
+  public async fetchListingHistory(contract: string, tokenId: string) {
+    const queryBuilder = this.orderRepository.createQueryBuilder('order');
+    const queryMakeCollection = `make->'assetType'->>'contract' = :contract`;
+    const queryTakeCollection = `take->'assetType'->>'contract' = :contract`;
+    const collectionQuery = `((${queryMakeCollection}) OR (${queryTakeCollection}))`;
+    queryBuilder.andWhere(collectionQuery, {
+      contract,
+    });
+
+    const queryMakeTokenId = `make->'assetType'->>'tokenId' = :tokenId`;
+    const queryTakeTokenId = `take->'assetType'->>'tokenId' = :tokenId`;
+    const tokenIdQuery = `((${queryMakeTokenId}) OR (${queryTakeTokenId}))`;
+    queryBuilder.andWhere(tokenIdQuery, {
+      tokenId,
+    });
+
+    queryBuilder.orderBy('order.createdAt', 'DESC');
+
+    const listingHistory = await queryBuilder.getManyAndCount();
+
+    return listingHistory;
   }
 
   private async markRelatedOrdersAsStale(
@@ -1068,7 +1093,7 @@ export class OrdersService {
       return '';
     }
 
-    return lowestOrder.make.value;
+    return lowestOrder.take.value;
   }
 
   /**
