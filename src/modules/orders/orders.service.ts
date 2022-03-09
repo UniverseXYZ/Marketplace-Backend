@@ -348,9 +348,9 @@ export class OrdersService {
         const tokenId = offer.take.assetType.tokenId;
         const contract = offer.take.assetType.contract;
         if (tokenId && contract) {
-          queryText += `${queryText ? 'OR ' : ''}`;
+          queryText += `${queryText ? 'OR ' : '('}`;
           // Sell orders have the nft info in 'make'
-          queryText += `make->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(make->'assetType'->>'contract') = '${contract.toLowerCase()}'`;
+          queryText += `(take->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(take->'assetType'->>'contract') = '${contract.toLowerCase()}')`;
         }
       });
 
@@ -358,7 +358,7 @@ export class OrdersService {
       if (!queryText) {
         return [];
       }
-      queryBuilder.andWhere(queryText);
+      queryBuilder.andWhere(queryText + ')');
     }
 
     if (query.maker) {
@@ -520,9 +520,9 @@ export class OrdersService {
         const tokenId = offer.take.assetType.tokenId;
         const contract = offer.take.assetType.contract;
         if (tokenId && contract) {
-          queryText += `${queryText ? 'OR ' : ''}`;
+          queryText += `${queryText ? 'OR ' : '('}`;
           // Sell orders have the nft info in 'make'
-          queryText += `make->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(make->'assetType'->>'contract') = '${contract.toLowerCase()}'`;
+          queryText += `(take->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(take->'assetType'->>'contract') = '${contract.toLowerCase()}')`;
         }
       });
 
@@ -530,7 +530,7 @@ export class OrdersService {
       if (!queryText) {
         return [];
       }
-      queryBuilder.andWhere(queryText);
+      queryBuilder.andWhere(queryText + ')');
     }
 
     if (query.maker) {
