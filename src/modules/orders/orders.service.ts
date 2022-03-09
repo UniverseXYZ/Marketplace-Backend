@@ -409,7 +409,13 @@ export class OrdersService {
     }
 
     if (query.token) {
-      const queryTake = `LOWER(take->'assetType'->>'assetClass') = :token`;
+      let queryTake = '';
+
+      if (query.token === constants.ZERO_ADDRESS) {
+        queryTake = `take->'assetType'->>'assetClass' = ETH`;
+      } else {
+        queryTake = `LOWER(take->'assetType'->>'contract') = :token`;
+      }
 
       queryBuilder.andWhere(queryTake, {
         token: query.token.toLowerCase(),
@@ -581,7 +587,13 @@ export class OrdersService {
     }
 
     if (query.token) {
-      const queryTake = `LOWER(take->'assetType'->>'assetClass') = :token`;
+      let queryTake = '';
+
+      if (query.token === constants.ZERO_ADDRESS) {
+        queryTake = `take->'assetType'->>'assetClass' = ETH`;
+      } else {
+        queryTake = `LOWER(take->'assetType'->>'contract') = :token`;
+      }
 
       queryBuilder.andWhere(queryTake, {
         token: query.token.toLowerCase(),
@@ -672,14 +684,18 @@ export class OrdersService {
         .getOne(),
       this.orderRepository
         .createQueryBuilder('order')
-        .where(`take->'assetType'->>'tokenId' = :tokenId`, {
-          tokenId: tokenId,
+        .where(
+          `(take->'assetType'->>'tokenId' = :tokenId AND LOWER(take->'assetType'->>'contract') = :contract)
+          OR (make->'assetType'->>'tokenId' = :tokenId AND LOWER(make->'assetType'->>'contract') = :contract)`,
+          {
+            tokenId: tokenId,
+            contract: contract.toLowerCase(),
+          },
+        )
+        .andWhere('order.status = :status', {
+          status: OrderStatus.FILLED,
         })
-        .andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
-          contract: contract.toLowerCase(),
-        })
-        .andWhere(`order.side = :side`, { side: OrderSide.BUY })
-        .orderBy('order.createdAt', 'DESC')
+        .orderBy('order.updatedAt', 'DESC')
         .getOne(),
     ]);
 
