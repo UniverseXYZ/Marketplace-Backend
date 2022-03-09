@@ -665,6 +665,9 @@ export class OrdersService {
         .andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
           contract: contract.toLowerCase(),
         })
+        .andWhere(`order.status = :status`, {
+          status: OrderStatus.CREATED,
+        })
         .andWhere(`order.side = :side`, { side: OrderSide.BUY })
         .andWhere(`order.end > :end`, { end: utcTimestamp })
         .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
@@ -797,7 +800,7 @@ export class OrdersService {
       await this.orderRepository.save(leftOrder);
     }
 
-    await this.markRelatedOrdersAsStale(leftOrder, matchEvent);
+    await this.markRelatedOrdersAsStale(leftOrder);
   }
 
   public async fetchListingHistory(contract: string, tokenId: string) {
@@ -823,48 +826,57 @@ export class OrdersService {
     return listingHistory;
   }
 
-  private async markRelatedOrdersAsStale(
-    leftOrder: Order,
-    event: MatchOrderDto,
-  ) {
-    // Take nft info either from 'take' or 'make' depending on the tx maker.
+  private async markRelatedOrdersAsStale(leftOrder: Order) {
     let orderNftInfo: Asset = null;
     let orderCreator = '';
-    if (event.txFrom === event.leftMaker) {
+
+    // Take nft info either from 'take' or 'make'.
+    if (leftOrder.make.assetType.tokenId) {
       orderNftInfo = leftOrder.make;
-      orderCreator = leftOrder.maker.toLowerCase();
-    } else if (event.txFrom === event.rightMaker) {
+      orderCreator = leftOrder.maker;
+    } else if (leftOrder.take.assetType.tokenId) {
       orderNftInfo = leftOrder.take;
-      orderCreator = leftOrder.taker.toLowerCase();
+      orderCreator = leftOrder.taker;
+    } else {
+      throw new MarketplaceException(
+        "Invalid left order. Doesn't contain nft info.",
+      );
     }
 
     // 1. Mark any buy offers as stale. They can't be executed anymore as the owner has changed
+    const buyQuery = this.orderRepository
+      .createQueryBuilder('order')
+      .where(`order.side = :side`, { side: OrderSide.BUY })
+      .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
+      .andWhere(`LOWER(order.taker) = :taker`, { taker: orderCreator })
+      .andWhere(`take->'assetType'->>'tokenId' = :tokenId`, {
+        tokenId: orderNftInfo.assetType.tokenId,
+      });
+
     // 2. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
+    const sellQuery = this.orderRepository
+      .createQueryBuilder('order')
+      .where(`order.side = :side`, { side: OrderSide.SELL })
+      .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
+      .andWhere(`LOWER(order.maker) = :maker`, { maker: orderCreator })
+      .andWhere(`make->'assetType'->>'tokenId' = :tokenId`, {
+        tokenId: orderNftInfo.assetType.tokenId,
+      });
+
+    // ETH orders don't have contract
+    if (orderNftInfo.assetType.contract) {
+      buyQuery.andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
+        contract: orderNftInfo.assetType.contract.toLowerCase(),
+      });
+
+      sellQuery.andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
+        contract: orderNftInfo.assetType.contract.toLowerCase(),
+      });
+    }
+
     const [buyOffers, sellOffers] = await Promise.all([
-      this.orderRepository
-        .createQueryBuilder('order')
-        .where(`order.side = :side`, { side: OrderSide.BUY })
-        .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
-        .andWhere(`order.taker = :taker`, { taker: orderCreator })
-        .andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
-          contract: orderNftInfo.assetType.contract.toLowerCase(),
-        })
-        .andWhere(`take->'assetType'->>'tokenId' = :tokenId`, {
-          tokenId: orderNftInfo.assetType.tokenId,
-        })
-        .getMany(),
-      this.orderRepository
-        .createQueryBuilder('order')
-        .where(`order.side = :side`, { side: OrderSide.SELL })
-        .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
-        .andWhere(`LOWER(order.maker) = :maker`, { maker: orderCreator })
-        .andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
-          contract: orderNftInfo.assetType.contract.toLowerCase(),
-        })
-        .andWhere(`make->'assetType'->>'tokenId' = :tokenId`, {
-          tokenId: orderNftInfo.assetType.tokenId,
-        })
-        .getMany(),
+      buyQuery.getMany(),
+      sellQuery.getMany(),
     ]);
 
     this.logger.log(
