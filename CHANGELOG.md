@@ -1,3 +1,11 @@
+## [1.4.1](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.4.0...v1.4.1) (2022-03-09)
+
+
+### Bug Fixes
+
+* **stale-orders:** improve stale orders querying ([267a96a](https://github.com/UniverseXYZ/Marketplace-Backend/commit/267a96a87ce5012a3fc6cc3fa4e8e5da2c0954d0))
+* **stale-orders:** unnecesary-query ([9bcacc9](https://github.com/UniverseXYZ/Marketplace-Backend/commit/9bcacc91a2211e8e748bbb80c0f06ffe22f630d4))
+
 # [1.4.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.3.5...v1.4.0) (2022-03-08)
 
 
