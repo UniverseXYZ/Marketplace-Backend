@@ -329,7 +329,7 @@ export class OrdersService {
 
     if (!!query.hasOffers) {
       // Get all buy orders
-      const offers = await this.orderRepository
+      const buyOffers = await this.orderRepository
         .createQueryBuilder('order')
         .where('status = :status', { status: OrderStatus.CREATED })
         .andWhere(`(order.end = 0 OR :end < order.end )`, {
@@ -343,14 +343,14 @@ export class OrdersService {
       let queryText = '';
 
       // Search for any sell orders that have offers
-      offers.forEach((offer) => {
+      buyOffers.forEach((offer) => {
         // Offers(buy orders) have the nft info in 'take'
         const tokenId = offer.take.assetType.tokenId;
         const contract = offer.take.assetType.contract;
         if (tokenId && contract) {
           queryText += `${queryText ? 'OR ' : '('}`;
           // Sell orders have the nft info in 'make'
-          queryText += `(take->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(take->'assetType'->>'contract') = '${contract.toLowerCase()}')`;
+          queryText += `(make->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(make->'assetType'->>'contract') = '${contract.toLowerCase()}')`;
         }
       });
 
@@ -412,7 +412,7 @@ export class OrdersService {
       let queryTake = '';
 
       if (query.token === constants.ZERO_ADDRESS) {
-        queryTake = `take->'assetType'->>'assetClass' = ETH`;
+        queryTake = `take->'assetType'->>'assetClass' = 'ETH'`;
       } else {
         queryTake = `LOWER(take->'assetType'->>'contract') = :token`;
       }
@@ -507,7 +507,7 @@ export class OrdersService {
 
     if (!!query.hasOffers) {
       // Get all buy orders
-      const offers = await this.orderRepository
+      const buyOffers = await this.orderRepository
         .createQueryBuilder('order')
         .where('status = :status', { status: OrderStatus.CREATED })
         .andWhere(`(order.end = 0 OR :end < order.end )`, {
@@ -521,14 +521,14 @@ export class OrdersService {
       let queryText = '';
 
       // Search for any sell orders that have offers
-      offers.forEach((offer) => {
+      buyOffers.forEach((offer) => {
         // Offers(buy orders) have the nft info in 'take'
         const tokenId = offer.take.assetType.tokenId;
         const contract = offer.take.assetType.contract;
         if (tokenId && contract) {
           queryText += `${queryText ? 'OR ' : '('}`;
           // Sell orders have the nft info in 'make'
-          queryText += `(take->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(take->'assetType'->>'contract') = '${contract.toLowerCase()}')`;
+          queryText += `(make->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(make->'assetType'->>'contract') = '${contract.toLowerCase()}')`;
         }
       });
 
@@ -590,7 +590,7 @@ export class OrdersService {
       let queryTake = '';
 
       if (query.token === constants.ZERO_ADDRESS) {
-        queryTake = `take->'assetType'->>'assetClass' = ETH`;
+        queryTake = `take->'assetType'->>'assetClass' = 'ETH'`;
       } else {
         queryTake = `LOWER(take->'assetType'->>'contract') = :token`;
       }
@@ -643,6 +643,7 @@ export class OrdersService {
         queryBuilder.orderBy('order.createdAt', 'DESC');
         break;
     }
+    console.log(queryBuilder.getQuery());
 
     queryBuilder.addOrderBy('order.createdAt', 'DESC');
     const items = await queryBuilder
