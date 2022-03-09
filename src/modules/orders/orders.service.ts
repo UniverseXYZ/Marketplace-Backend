@@ -681,9 +681,6 @@ export class OrdersService {
         .andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
           contract: contract.toLowerCase(),
         })
-        .andWhere(`order.status = :status`, {
-          status: OrderStatus.CREATED,
-        })
         .andWhere(`order.side = :side`, { side: OrderSide.BUY })
         .orderBy('order.createdAt', 'DESC')
         .getOne(),
@@ -854,9 +851,6 @@ export class OrdersService {
       .andWhere(`LOWER(order.taker) = :taker`, { taker: orderCreator })
       .andWhere(`take->'assetType'->>'tokenId' = :tokenId`, {
         tokenId: orderNftInfo.assetType.tokenId,
-      })
-      .andWhere(`take->'assetType'->>'contract' = :contract`, {
-        contract: orderNftInfo.assetType.contract,
       });
 
     // 2. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
@@ -867,9 +861,6 @@ export class OrdersService {
       .andWhere(`LOWER(order.maker) = :maker`, { maker: orderCreator })
       .andWhere(`make->'assetType'->>'tokenId' = :tokenId`, {
         tokenId: orderNftInfo.assetType.tokenId,
-      })
-      .andWhere(`make->'assetType'->>'contract' = :contract`, {
-        contract: orderNftInfo.assetType.contract,
       });
 
     // ETH orders don't have contract
