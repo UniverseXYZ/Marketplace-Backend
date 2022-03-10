@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.4.2...v1.5.0) (2022-03-10)
+
+
+### Features
+
+* **orders:** Add filter for many tokenIds ([4b4ea5c](https://github.com/UniverseXYZ/Marketplace-Backend/commit/4b4ea5cc34125ce90f162d54e7812ea50bf88e47))
+
 ## [1.4.2](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.4.1...v1.4.2) (2022-03-10)
 
 
