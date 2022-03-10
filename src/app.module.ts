@@ -8,6 +8,8 @@ import configuration from './modules/configuration';
 import { DatabaseModule } from './modules/database/database.module';
 import { EthereumModule } from './modules/ethereum/ethereum.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { CoingeckoModule } from './modules/coingecko/coingecko.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { OrdersModule } from './modules/orders/orders.module';
     HealthModule,
     EthereumModule,
     OrdersModule,
+    CoingeckoModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [],
   providers: [],

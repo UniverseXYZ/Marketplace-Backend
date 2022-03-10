@@ -38,6 +38,8 @@ import { Utils } from '../../common/utils';
 // import { sign } from '../../common/helpers/order';
 import web3 from 'web3';
 import { SortOrderOptionsEnum } from './order.sort';
+import { CoingeckoService } from '../coingecko/coingecko.service';
+import { TOKENS, TOKEN_DECIMALS } from '../coingecko/tokens';
 
 @Injectable()
 export class OrdersService {
@@ -50,6 +52,7 @@ export class OrdersService {
     private readonly ethereumService: EthereumService,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    private readonly coingecko: CoingeckoService,
   ) {
     const watchdogUrl = R.path(['WATCHDOG_URL'], config.values);
     if (R.isNil(watchdogUrl)) {
@@ -451,13 +454,13 @@ export class OrdersService {
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
-          .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
-          .orderBy('value_decimal', 'DESC');
+          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .orderBy('usd_value', 'DESC');
         break;
       case SortOrderOptionsEnum.LowestPrice:
         queryBuilder
-          .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
-          .orderBy('value_decimal', 'ASC');
+          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .orderBy('usd_value', 'ASC');
         break;
       case SortOrderOptionsEnum.RecentlyListed:
         queryBuilder.orderBy('order.createdAt', 'DESC');
@@ -466,7 +469,7 @@ export class OrdersService {
         queryBuilder.orderBy('order.createdAt', 'DESC');
         break;
     }
-
+    console.log(queryBuilder.getSql());
     queryBuilder.addOrderBy('order.createdAt', 'DESC');
     const items = await queryBuilder
       .offset(skippedItems)
@@ -619,6 +622,7 @@ export class OrdersService {
         maxPrice: weiPrice,
       });
     }
+    console.log(this.coingecko.tokenUsdValues);
 
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
@@ -628,13 +632,13 @@ export class OrdersService {
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
-          .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
-          .orderBy('value_decimal', 'DESC');
+          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .orderBy('usd_value', 'DESC');
         break;
       case SortOrderOptionsEnum.LowestPrice:
         queryBuilder
-          .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
-          .orderBy('value_decimal', 'ASC');
+          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .orderBy('usd_value', 'ASC');
         break;
       case SortOrderOptionsEnum.RecentlyListed:
         queryBuilder.orderBy('order.createdAt', 'DESC');
@@ -651,6 +655,44 @@ export class OrdersService {
       .getManyAndCount();
 
     return items;
+  }
+
+  public addPriceSortQuery() {
+    return `(case 
+      when take->'assetType'->>'assetClass' = 'ETH' 
+      then CAST(take->>'value' as DECIMAL) / POWER(10,${
+        TOKEN_DECIMALS[TOKENS.ETH]
+      }) * ${this.coingecko.tokenUsdValues[TOKENS.ETH]}
+
+      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+        TOKENS.DAI
+      ].toLowerCase()}' 
+      then CAST(take->>'value' as DECIMAL) / POWER(10,${
+        TOKEN_DECIMALS[TOKENS.DAI]
+      }) * ${this.coingecko.tokenUsdValues[TOKENS.DAI]} 
+
+      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+        TOKENS.USDC
+      ].toLowerCase()}' 
+      then CAST(take->>'value' as DECIMAL) / POWER(10,${
+        TOKEN_DECIMALS[TOKENS.USDC]
+      }) * ${this.coingecko.tokenUsdValues[TOKENS.USDC]} 
+
+      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+        TOKENS.WETH
+      ].toLowerCase()}' 
+      then CAST(take->>'value' as DECIMAL) / POWER(10,${
+        TOKEN_DECIMALS[TOKENS.WETH]
+      }) * ${this.coingecko.tokenUsdValues[TOKENS.WETH]} 
+
+      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+        TOKENS.XYZ
+      ].toLowerCase()}' 
+      then CAST(take->>'value' as DECIMAL) / POWER(10,${
+        TOKEN_DECIMALS[TOKENS.XYZ]
+      }) * ${this.coingecko.tokenUsdValues[TOKENS.XYZ]}
+      
+      end)`;
   }
 
   /**
