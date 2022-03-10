@@ -1,3 +1,12 @@
+## [1.4.2](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.4.1...v1.4.2) (2022-03-10)
+
+
+### Bug Fixes
+
+* **order:** query filters ([9b40715](https://github.com/UniverseXYZ/Marketplace-Backend/commit/9b407152f5f2be25b761c603f4de10dbed5dabd9))
+* **queries:** fix has offers and token query ([f601b48](https://github.com/UniverseXYZ/Marketplace-Backend/commit/f601b483b8806b9fab5981946da3dab6c0fccf6c))
+* **queries:** fix token and last offer queries ([89501af](https://github.com/UniverseXYZ/Marketplace-Backend/commit/89501af60d303c5bfdfe728c8e98002b75132273))
+
 ## [1.4.1](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.4.0...v1.4.1) (2022-03-09)
 
 
