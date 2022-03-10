@@ -33,7 +33,7 @@ export function createTypeData(domainData: any, primaryType: any, message: any, 
   };
 }
   
-export function  signTypedData(web3, from, data) {
+export function signTypedData(web3, from, data): Promise<any> {
   return new Promise((resolve, reject) => {
     function cb(err, result) {
       if (err) {

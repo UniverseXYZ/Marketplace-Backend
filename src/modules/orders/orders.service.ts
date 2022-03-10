@@ -460,7 +460,7 @@ export class OrdersService {
 
     return items;
   }
-  
+
   /**
    * Returns active sell orders
    * @param query QueryDto
@@ -691,7 +691,7 @@ export class OrdersService {
     return {
       floorPrice: floorPrice,
       volumeTraded: volumeTraded,
-    }
+    };
   }
 
   /**
@@ -949,7 +949,7 @@ export class OrdersService {
     }
   }
 
-  private async checkSubscribe(order: Order) {
+  protected async checkSubscribe(order: Order) {
     // if it is already subscribed, that's ok.
     this.httpService
       .post(`${this.watchdogUrl}/v1/subscribe`, {
@@ -1027,7 +1027,7 @@ export class OrdersService {
    * @param collection Nft token collection address
    * @returns {Promise<string>} string represantation of the floor price in wei.
    */
-   private async getCollectionFloorPrice(collection: string): Promise<string> {
+  private async getCollectionFloorPrice(collection: string): Promise<string> {
     const utcTimestamp = Utils.getUtcTimestamp();
     const lowestOrder = await this.orderRepository
       .createQueryBuilder('order')
@@ -1064,23 +1064,26 @@ export class OrdersService {
   private async getCollectionVolumeTraded(collection: string): Promise<string> {
     let value = '0';
 
-    const orders = await this.orderRepository.createQueryBuilder('o')
-      .where(`
+    const orders = await this.orderRepository
+      .createQueryBuilder('o')
+      .where(
+        `
         o.side = :side AND
         o.status = :status AND
         LOWER(o.take->'assetType'->>'contract') = :contract
-      `, {
-        side: OrderSide.BUY,
-        status: OrderStatus.FILLED,
-        contract: collection.toLowerCase(),
-      })
+      `,
+        {
+          side: OrderSide.BUY,
+          status: OrderStatus.FILLED,
+          contract: collection.toLowerCase(),
+        },
+      )
       .select(`SUM(CAST(o.make->>'value' as DECIMAL))`, 'volumeTraded')
       .getRawOne();
-    if(orders.volumeTraded) {
+    if (orders.volumeTraded) {
       value = orders.volumeTraded;
     }
 
     return value;
   }
-
 }

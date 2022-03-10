@@ -72,10 +72,10 @@ export class EthereumService {
   /**
    * Returns the address that signed the EIP-712 value for the domain and types 
    * to produce the signature.
-   * @param {Object} domain 
-   * @param {Object} types 
+   * @param {Object} domain
+   * @param {Object} types
    * @param {Object} value - encoded order
-   * @param {string} signature 
+   * @param {string} signature
    * @returns {string}
    */
   public verifyTypedData(domain, types, value, signature ): string {
@@ -131,20 +131,19 @@ export class EthereumService {
   /**
    * This method calls allowance verification methods depending on the asset class (ERC721, ERC20 etc)
    * @param assetClass - value of type AssetClass
-   * @param walletAddress 
-   * @param contractAddresses 
-   * @param tokenIds 
+   * @param walletAddress
+   * @param contractAddresses
+   * @param tokenIds
    * @param amount - this is the order value for ERC20 orders
-   * @returns 
+   * @returns
    */
   public async verifyAllowance(
-    assetClass: AssetClass, 
-    walletAddress: string, 
-    contractAddresses: string[], 
+    assetClass: AssetClass,
+    walletAddress: string,
+    contractAddresses: string[],
     tokenIds: string[][],
-    amount = '0'
+    amount = '0',
   ): Promise<boolean> {
-
     let value = false;
     walletAddress = walletAddress.toLowerCase();
 
