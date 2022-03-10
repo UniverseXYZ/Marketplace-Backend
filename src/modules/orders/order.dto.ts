@@ -239,13 +239,13 @@ export class QueryDto {
   collection: string;
 
   @ApiProperty({
-    example: 1,
-    description: 'Token id of the NFT',
+    example: '1,2,3',
+    description: 'Token ids of the NFTs',
     required: false,
   })
-  @IsNumberString()
+  @IsString()
   @IsOptional()
-  tokenId: number;
+  tokenIds: string;
 
   @ApiProperty({
     example: 1645177895,
