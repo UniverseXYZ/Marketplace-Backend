@@ -643,7 +643,6 @@ export class OrdersService {
         queryBuilder.orderBy('order.createdAt', 'DESC');
         break;
     }
-    console.log(queryBuilder.getQuery());
 
     queryBuilder.addOrderBy('order.createdAt', 'DESC');
     const items = await queryBuilder
