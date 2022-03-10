@@ -388,13 +388,13 @@ export class OrdersService {
       });
     }
 
-    if (query.tokenId) {
+    if (query.tokenIds) {
       // @TODO there is no filtering by tokenId for ERC721_BUNDLE orders supposedly because of array of arrays
-      const queryMake = `make->'assetType'->>'tokenId' = :tokenId`;
-      const queryTake = `take->'assetType'->>'tokenId' = :tokenId`;
+      const queryMake = `make->'assetType'->>'tokenId' IN (:...tokenIds)`;
+      const queryTake = `take->'assetType'->>'tokenId' IN (:...tokenIds)`;
       const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
       queryBuilder.andWhere(queryForBoth, {
-        tokenId: query.tokenId,
+        tokenIds: query.tokenIds.replace(/\s/g, '').split(','),
       });
     }
 
@@ -566,13 +566,13 @@ export class OrdersService {
       });
     }
 
-    if (query.tokenId) {
+    if (query.tokenIds) {
       // @TODO there is no filtering by tokenId for ERC721_BUNDLE orders supposedly because of array of arrays
-      const queryMake = `make->'assetType'->>'tokenId' = :tokenId`;
-      const queryTake = `take->'assetType'->>'tokenId' = :tokenId`;
+      const queryMake = `make->'assetType'->>'tokenId' IN (:tokenIds)`;
+      const queryTake = `take->'assetType'->>'tokenId' IN (:tokenIds)`;
       const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
       queryBuilder.andWhere(queryForBoth, {
-        tokenId: query.tokenId,
+        tokenIds: query.tokenIds.replace(/\s/g, '').split(','),
       });
     }
 
