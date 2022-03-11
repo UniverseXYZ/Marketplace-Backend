@@ -1060,7 +1060,7 @@ export class OrdersService {
     }
   }
 
-  private async checkSubscribe(order: Order) {
+  protected async checkSubscribe(order: Order) {
     // if it is already subscribed, that's ok.
     this.httpService
       .post(`${this.watchdogUrl}/v1/subscribe`, {
