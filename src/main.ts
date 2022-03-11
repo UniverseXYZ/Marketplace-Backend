@@ -7,6 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { VersioningType, ValidationPipe } from '@nestjs/common';
 import session from 'express-session';
 import R from 'ramda';
+import './modules/orders/order.queries';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);

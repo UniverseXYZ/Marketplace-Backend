@@ -317,161 +317,83 @@ export class OrdersService {
 
     const skippedItems = (query.page - 1) * query.limit;
 
-    const queryBuilder = this.orderRepository.createQueryBuilder('order');
-    queryBuilder.where('status = :status', { status: OrderStatus.CREATED });
+    const orderQuery = this.orderRepository.createQueryBuilder('order');
+    orderQuery.addStatusFilter(OrderStatus.CREATED);
 
     if (query.side) {
-      const numberSide = Number(query.side);
-      if (numberSide !== OrderSide.BUY && numberSide !== OrderSide.SELL) {
-        throw new MarketplaceException(constants.INVALID_ORDER_SIDE);
-      }
-      queryBuilder.andWhere('side = :side', { side: numberSide });
+      orderQuery.addSideFilter(Number(query.side));
     }
 
     const utcTimestamp = Utils.getUtcTimestamp();
 
     if (!!query.hasOffers) {
-      // Get all buy orders
-      const buyOffers = await this.orderRepository
-        .createQueryBuilder('order')
-        .where('status = :status', { status: OrderStatus.CREATED })
-        .andWhere(`(order.end = 0 OR :end < order.end )`, {
-          end: utcTimestamp,
-        })
-        .andWhere(`order.side = :side`, {
-          side: OrderSide.BUY,
-        })
-        .getMany();
+      const offersQuery = await this.getOfferQuery(utcTimestamp);
 
-      let queryText = '';
-
-      // Search for any sell orders that have offers
-      buyOffers.forEach((offer) => {
-        // Offers(buy orders) have the nft info in 'take'
-        const tokenId = offer.take.assetType.tokenId;
-        const contract = offer.take.assetType.contract;
-        if (tokenId && contract) {
-          queryText += `${queryText ? 'OR ' : '('}`;
-          // Sell orders have the nft info in 'make'
-          queryText += `(make->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(make->'assetType'->>'contract') = '${contract.toLowerCase()}')`;
-        }
-      });
-
-      // If query is empty --> there are no orders with offers
-      if (!queryText) {
+      if (!offersQuery) {
         return [];
       }
-      queryBuilder.andWhere(queryText + ')');
+
+      orderQuery.andWhere(offersQuery + ')');
     }
 
     if (query.maker) {
-      queryBuilder.andWhere('maker = :maker', {
-        maker: query.maker.toLowerCase(),
-      });
+      orderQuery.addMakerFilter(query.maker);
     }
 
     if (query.assetClass) {
-      const queryMake = `make->'assetType'->'assetClass' = :assetClass`;
-      const queryTake = `take->'assetType'->'assetClass' = :assetClass`;
-      const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
-      queryBuilder.andWhere(queryForBoth, {
-        assetClass: `"${query.assetClass}"`,
-      });
+      orderQuery.addAssetClassFilter(query.assetClass);
     }
 
     if (query.collection) {
-      const queryMake = `make->'assetType'->'contract' = :collection`;
-      const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
-      const queryTake = `take->'assetType'->'contract' = :collection`;
-      const queryTakeBundle = `take->'assetType'->'contracts' ?| array[:collections]`;
-      const queryForBoth = `((${queryMake}) OR (${queryTake}) OR (${queryMakeBundle}) OR (${queryTakeBundle}))`;
-      queryBuilder.andWhere(queryForBoth, {
-        collection: `"${query.collection}"`,
-        collections: `${query.collection}`,
-      });
+      orderQuery.addCollectionFilter(query.collection);
     }
 
     if (query.tokenIds) {
-      // @TODO there is no filtering by tokenId for ERC721_BUNDLE orders supposedly because of array of arrays
-      const queryMake = `make->'assetType'->>'tokenId' IN (:...tokenIds)`;
-      const queryTake = `take->'assetType'->>'tokenId' IN (:...tokenIds)`;
-      const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
-      queryBuilder.andWhere(queryForBoth, {
-        tokenIds: query.tokenIds.replace(/\s/g, '').split(','),
-      });
+      orderQuery.addTokenIdsFilter(query.tokenIds);
     }
 
     if (query.beforeTimestamp) {
-      const milisecTimestamp = Number(query.beforeTimestamp) * 1000;
-      const utcDate = new Date(milisecTimestamp);
-
-      const timestampQuery = `order.createdAt >= :date`;
-      queryBuilder.andWhere(timestampQuery, {
-        date: utcDate.toDateString(),
-      });
+      orderQuery.addBeforeTimestampFilter(query.beforeTimestamp);
     }
 
     if (query.token) {
-      let queryTake = '';
-
-      if (query.token === constants.ZERO_ADDRESS) {
-        queryTake = `take->'assetType'->>'assetClass' = 'ETH'`;
-      } else {
-        queryTake = `LOWER(take->'assetType'->>'contract') = :token`;
-      }
-
-      queryBuilder.andWhere(queryTake, {
-        token: query.token.toLowerCase(),
-      });
+      orderQuery.addErc20TokenFilter(query.token);
     }
 
     if (query.minPrice) {
-      const weiPrice = web3.utils.toWei(query.minPrice);
-
-      const queryTake = `CAST(take->>'value' as DECIMAL) >= CAST(:minPrice as DECIMAL)`;
-
-      queryBuilder.andWhere(queryTake, {
-        minPrice: weiPrice,
-      });
+      orderQuery.addMinPriceFilter(query.minPrice);
     }
 
     if (query.maxPrice) {
-      const weiPrice = web3.utils.toWei(query.maxPrice);
-
-      const queryTake = `CAST(take->>'value' as DECIMAL) <= CAST(:maxPrice as DECIMAL)`;
-
-      queryBuilder.andWhere(queryTake, {
-        maxPrice: weiPrice,
-      });
+      orderQuery.addMaxPriceFilter(query.maxPrice);
     }
 
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
-        const utcTimestamp = Utils.getUtcTimestamp();
-        queryBuilder
-          .orderBy(`(case when order.end - :endingSoon >= 0 then 1 else 2 end)`)
-          .setParameters({ endingSoon: utcTimestamp });
+        orderQuery.sortByEndingSoon(utcTimestamp);
         break;
       case SortOrderOptionsEnum.HighestPrice:
-        queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
-          .orderBy('usd_value', 'DESC');
+        orderQuery.sortByHighestPrice(
+          this.coingecko.tokenAddresses,
+          this.coingecko.tokenUsdValues,
+        );
         break;
       case SortOrderOptionsEnum.LowestPrice:
-        queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
-          .orderBy('usd_value', 'ASC');
+        orderQuery.sortByLowestPrice(
+          this.coingecko.tokenAddresses,
+          this.coingecko.tokenUsdValues,
+        );
         break;
       case SortOrderOptionsEnum.RecentlyListed:
-        queryBuilder.orderBy('order.createdAt', 'DESC');
+        orderQuery.sortByRecentlyListed();
         break;
       default:
-        queryBuilder.orderBy('order.createdAt', 'DESC');
+        orderQuery.sortByRecentlyListed();
         break;
     }
-    console.log(queryBuilder.getSql());
-    queryBuilder.addOrderBy('order.createdAt', 'DESC');
-    const items = await queryBuilder
+
+    orderQuery.addOrderBy('order.createdAt', 'DESC');
+    const items = await orderQuery
       .offset(skippedItems)
       .limit(query.limit)
       .getManyAndCount();
@@ -495,161 +417,84 @@ export class OrdersService {
     const skippedItems = (query.page - 1) * query.limit;
     const utcTimestamp = Utils.getUtcTimestamp();
 
-    const queryBuilder = this.orderRepository.createQueryBuilder('order');
-    queryBuilder
-      .where('status = :status', { status: OrderStatus.CREATED })
-      .andWhere(`(order.start = 0 OR order.start < :start)`, {
-        start: utcTimestamp,
-      })
-      .andWhere(`(order.end = 0 OR :end < order.end )`, {
-        end: utcTimestamp,
-      })
-      .andWhere(`order.side = :side`, {
-        side: OrderSide.SELL,
-      });
+    const orderQuery = this.orderRepository.createQueryBuilder('order');
+
+    orderQuery
+      .addStatusFilter(OrderStatus.CREATED)
+      .addSideFilter(OrderSide.SELL)
+      .addStartFilter(utcTimestamp)
+      .addEndFilter(utcTimestamp);
 
     if (!!query.hasOffers) {
-      // Get all buy orders
-      const buyOffers = await this.orderRepository
-        .createQueryBuilder('order')
-        .where('status = :status', { status: OrderStatus.CREATED })
-        .andWhere(`(order.end = 0 OR :end < order.end )`, {
-          end: utcTimestamp,
-        })
-        .andWhere(`order.side = :side`, {
-          side: OrderSide.BUY,
-        })
-        .getMany();
+      const offersQuery = await this.getOfferQuery(utcTimestamp);
 
-      let queryText = '';
-
-      // Search for any sell orders that have offers
-      buyOffers.forEach((offer) => {
-        // Offers(buy orders) have the nft info in 'take'
-        const tokenId = offer.take.assetType.tokenId;
-        const contract = offer.take.assetType.contract;
-        if (tokenId && contract) {
-          queryText += `${queryText ? 'OR ' : '('}`;
-          // Sell orders have the nft info in 'make'
-          queryText += `(make->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(make->'assetType'->>'contract') = '${contract.toLowerCase()}')`;
-        }
-      });
-
-      // If query is empty --> there are no orders with offers
-      if (!queryText) {
+      if (!offersQuery) {
         return [];
       }
-      queryBuilder.andWhere(queryText + ')');
+
+      orderQuery.andWhere(offersQuery + ')');
     }
 
     if (query.maker) {
-      queryBuilder.andWhere('maker = :maker', {
-        maker: query.maker.toLowerCase(),
-      });
+      orderQuery.addMakerFilter(query.maker);
     }
 
     if (query.assetClass) {
-      const queryMake = `make->'assetType'->'assetClass' = :assetClass`;
-      const queryTake = `take->'assetType'->'assetClass' = :assetClass`;
-      const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
-      queryBuilder.andWhere(queryForBoth, {
-        assetClass: `"${query.assetClass}"`,
-      });
+      // TODO: Use AssetClass enum
+      orderQuery.addAssetClassFilter(query.assetClass);
     }
 
     if (query.collection) {
-      const queryMake = `make->'assetType'->'contract' = :collection`;
-      const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
-      const queryTake = `take->'assetType'->'contract' = :collection`;
-      const queryTakeBundle = `take->'assetType'->'contracts' ?| array[:collections]`;
-      const queryForBoth = `((${queryMake}) OR (${queryTake}) OR (${queryMakeBundle}) OR (${queryTakeBundle}))`;
-      queryBuilder.andWhere(queryForBoth, {
-        collection: `"${query.collection}"`,
-        collections: `${query.collection}`,
-      });
+      orderQuery.addCollectionFilter(query.collection);
     }
 
     if (query.tokenIds) {
-      // @TODO there is no filtering by tokenId for ERC721_BUNDLE orders supposedly because of array of arrays
-      const queryMake = `make->'assetType'->>'tokenId' IN (:tokenIds)`;
-      const queryTake = `take->'assetType'->>'tokenId' IN (:tokenIds)`;
-      const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
-      queryBuilder.andWhere(queryForBoth, {
-        tokenIds: query.tokenIds.replace(/\s/g, '').split(','),
-      });
+      orderQuery.addTokenIdsFilter(query.tokenIds);
     }
 
     if (query.beforeTimestamp) {
-      const milisecTimestamp = Number(query.beforeTimestamp) * 1000;
-      const utcDate = new Date(milisecTimestamp);
-
-      const timestampQuery = `order.createdAt >= :date`;
-      queryBuilder.andWhere(timestampQuery, {
-        date: utcDate.toDateString(),
-      });
+      orderQuery.addBeforeTimestampFilter(query.beforeTimestamp);
     }
 
     if (query.token) {
-      let queryTake = '';
-
-      if (query.token === constants.ZERO_ADDRESS) {
-        queryTake = `take->'assetType'->>'assetClass' = 'ETH'`;
-      } else {
-        queryTake = `LOWER(take->'assetType'->>'contract') = :token`;
-      }
-
-      queryBuilder.andWhere(queryTake, {
-        token: query.token.toLowerCase(),
-      });
+      orderQuery.addErc20TokenFilter(query.token);
     }
 
     if (query.minPrice) {
-      const weiPrice = web3.utils.toWei(query.minPrice);
-
-      const queryTake = `CAST(take->>'value' as DECIMAL) >= CAST(:minPrice as DECIMAL)`;
-
-      queryBuilder.andWhere(queryTake, {
-        minPrice: weiPrice,
-      });
+      orderQuery.addMinPriceFilter(query.minPrice);
     }
 
     if (query.maxPrice) {
-      const weiPrice = web3.utils.toWei(query.maxPrice);
-
-      const queryTake = `CAST(take->>'value' as DECIMAL) <= CAST(:maxPrice as DECIMAL)`;
-
-      queryBuilder.andWhere(queryTake, {
-        maxPrice: weiPrice,
-      });
+      orderQuery.addMaxPriceFilter(query.maxPrice);
     }
-    console.log(this.coingecko.tokenUsdValues);
 
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
-        queryBuilder
-          .orderBy(`(case when order.end - :endingSoon >= 0 then 1 else 2 end)`)
-          .setParameters({ endingSoon: utcTimestamp });
+        orderQuery.sortByEndingSoon(utcTimestamp);
         break;
       case SortOrderOptionsEnum.HighestPrice:
-        queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
-          .orderBy('usd_value', 'DESC');
+        orderQuery.sortByHighestPrice(
+          this.coingecko.tokenAddresses,
+          this.coingecko.tokenUsdValues,
+        );
         break;
       case SortOrderOptionsEnum.LowestPrice:
-        queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
-          .orderBy('usd_value', 'ASC');
+        orderQuery.sortByLowestPrice(
+          this.coingecko.tokenAddresses,
+          this.coingecko.tokenUsdValues,
+        );
         break;
       case SortOrderOptionsEnum.RecentlyListed:
-        queryBuilder.orderBy('order.createdAt', 'DESC');
+        orderQuery.sortByRecentlyListed();
         break;
       default:
-        queryBuilder.orderBy('order.createdAt', 'DESC');
+        orderQuery.sortByRecentlyListed();
         break;
     }
 
-    queryBuilder.addOrderBy('order.createdAt', 'DESC');
-    const items = await queryBuilder
+    orderQuery.sortByRecentlyListed();
+    console.log(orderQuery.getSql());
+    const items = await orderQuery
       .offset(skippedItems)
       .limit(query.limit)
       .getManyAndCount();
@@ -657,42 +502,29 @@ export class OrdersService {
     return items;
   }
 
-  public addPriceSortQuery() {
-    return `(case 
-      when take->'assetType'->>'assetClass' = 'ETH' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.ETH]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.ETH]}
+  private async getOfferQuery(utcTimestamp: number) {
+    const buyOffers = await this.orderRepository
+      .createQueryBuilder('order')
+      .addStatusFilter(OrderStatus.CREATED)
+      .addEndFilter(utcTimestamp)
+      .addSideFilter(OrderSide.BUY)
+      .getMany();
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.DAI
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.DAI]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.DAI]} 
+    let queryText = '';
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.USDC
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.USDC]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.USDC]} 
+    // Search for any sell orders that have offers
+    buyOffers.forEach((offer) => {
+      // Offers(buy orders) have the nft info in 'take'
+      const tokenId = offer.take.assetType.tokenId;
+      const contract = offer.take.assetType.contract;
+      if (tokenId && contract) {
+        queryText += `${queryText ? 'OR ' : '('}`;
+        // Sell orders have the nft info in 'make'
+        queryText += `(make->'assetType'->>'tokenId' = '${tokenId}' AND LOWER(make->'assetType'->>'contract') = '${contract.toLowerCase()}')`;
+      }
+    });
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.WETH
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.WETH]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.WETH]} 
-
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.XYZ
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.XYZ]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.XYZ]}
-      
-      end)`;
+    return queryText;
   }
 
   /**
@@ -782,13 +614,15 @@ export class OrdersService {
    */
   public async queryOne(contract: string, tokenId: string, maker = '') {
     const queryBuilder = this.orderRepository.createQueryBuilder();
-    queryBuilder.where('status = :status', { status: OrderStatus.CREATED });
-
-    queryBuilder.andWhere('side = :side', { side: OrderSide.SELL });
+    queryBuilder
+      .addStatusFilter(OrderStatus.CREATED)
+      .addSideFilter(OrderSide.SELL);
 
     if (maker) {
-      queryBuilder.andWhere('maker = :maker', { maker: maker.toLowerCase() });
+      queryBuilder.addMakerFilter(maker);
     }
+
+    // queryBuilder.addCollectionFilter(contract);
 
     const queryMake = `make->'assetType'->'contract' = :collection`;
     const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
@@ -797,11 +631,6 @@ export class OrdersService {
       collection: `"${contract}"`,
       collections: `${contract}`,
     });
-
-    // const queryMakeTokenId = `make->'assetType'->'tokenId' = :tokenId`;
-    // queryBuilder.andWhere(queryMakeTokenId, {
-    //   tokenId: `${tokenId}`,
-    // });
 
     const results = await queryBuilder.getMany();
 
