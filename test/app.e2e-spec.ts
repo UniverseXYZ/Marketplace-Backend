@@ -132,7 +132,7 @@ describe('End to end Match Orders tests', () => {
       await mockNFT2.connect(accounts[1]).approve(transferProxy.address, i + 1);
     }
 
-    const erc721Qunatity = '8';
+    const erc721Quantity = '8';
 
     // get salt for new left order
     const leftOrderSaltResponse = await request(app.getHttpServer())
@@ -152,7 +152,7 @@ describe('End to end Match Orders tests', () => {
             [1, 2, 3, 4],
           ],
         },
-        value: erc721Qunatity,
+        value: erc721Quantity,
       },
       taker: constants.ZERO_ADDRESS,
       take: {
@@ -267,7 +267,7 @@ describe('End to end Match Orders tests', () => {
             [1, 2, 3, 4],
           ],
         },
-        value: erc721Qunatity,
+        value: erc721Quantity,
       },
       salt: rightOrderSaltResponse.body.salt,
       start: 0,
