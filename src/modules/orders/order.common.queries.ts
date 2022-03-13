@@ -1,98 +1,13 @@
 import { constants } from 'src/common/constants';
 import { MarketplaceException } from 'src/common/exceptions/MarketplaceException';
-import { QueryBuilder, SelectQueryBuilder, Repository } from 'typeorm';
+import { SelectQueryBuilder } from 'typeorm';
 import web3 from 'web3';
 import { TOKENS } from '../coingecko/tokens';
-import { Order } from './order.entity';
 import { addPriceSortQuery } from './order.query.helpers';
 import { OrderSide, OrderStatus } from './order.types';
 
-//Declaration Merging Of Module.
-declare module 'typeorm/query-builder/SelectQueryBuilder' {
-  interface SelectQueryBuilder<Entity> {
-    addStatusFilter(
-      this: SelectQueryBuilder<Entity>,
-      status: OrderStatus,
-    ): SelectQueryBuilder<Entity>;
-
-    addSideFilter(
-      this: SelectQueryBuilder<Entity>,
-      side: OrderSide,
-    ): SelectQueryBuilder<Entity>;
-
-    addStartFilter(
-      this: SelectQueryBuilder<Entity>,
-      start: number,
-    ): SelectQueryBuilder<Entity>;
-
-    addEndFilter(
-      this: SelectQueryBuilder<Entity>,
-      end: number,
-    ): SelectQueryBuilder<Entity>;
-
-    addMakerFilter(
-      this: SelectQueryBuilder<Entity>,
-      maker: string,
-    ): SelectQueryBuilder<Entity>;
-
-    addAssetClassFilter(
-      this: SelectQueryBuilder<Entity>,
-      assetClass: string,
-    ): SelectQueryBuilder<Entity>;
-
-    addCollectionFilter(
-      this: SelectQueryBuilder<Entity>,
-      collection: string,
-    ): SelectQueryBuilder<Entity>;
-
-    addTokenIdsFilter(
-      this: SelectQueryBuilder<Entity>,
-      tokenIds: string,
-    ): SelectQueryBuilder<Entity>;
-
-    addBeforeTimestampFilter(
-      this: SelectQueryBuilder<Entity>,
-      timestamp: number,
-    ): SelectQueryBuilder<Entity>;
-
-    addErc20TokenFilter(
-      this: SelectQueryBuilder<Entity>,
-      token: string,
-    ): SelectQueryBuilder<Entity>;
-
-    addMinPriceFilter(
-      this: SelectQueryBuilder<Entity>,
-      price: string,
-    ): SelectQueryBuilder<Entity>;
-
-    addMaxPriceFilter(
-      this: SelectQueryBuilder<Entity>,
-      price: string,
-    ): SelectQueryBuilder<Entity>;
-
-    sortByEndingSoon(
-      this: SelectQueryBuilder<Entity>,
-      endingSoonTimestamp: number,
-    ): SelectQueryBuilder<Entity>;
-
-    sortByHighestPrice(
-      this: SelectQueryBuilder<Entity>,
-      tokenAddresses: { [key in TOKENS]: string },
-      tokenUsdValues:{ [key in TOKENS]: number }   
-    ): SelectQueryBuilder<Entity>;
-
-    sortByLowestPrice(
-      this: SelectQueryBuilder<Entity>,
-      tokenAddresses: { [key in TOKENS]: string },
-      tokenUsdValues:{ [key in TOKENS]: number }   
-    ): SelectQueryBuilder<Entity>;
-
-    sortByRecentlyListed(
-      this: SelectQueryBuilder<Entity>,
-    ): SelectQueryBuilder<Entity>;
-
-  }
-}
+import './interfaces/order.common.queries';
+import { FilterSide, NftType } from './interfaces/order.common.queries';
 
 SelectQueryBuilder.prototype.addStatusFilter = function <Entity>(
   this: SelectQueryBuilder<Entity>,
@@ -132,19 +47,43 @@ SelectQueryBuilder.prototype.addMakerFilter = function <Entity>(
   this: SelectQueryBuilder<Entity>,
   maker: string,
 ): SelectQueryBuilder<Entity> {
-  return this.andWhere('LOWER(maker) = :maker', {
+  return this.andWhere('LOWER(order.maker) = :maker', {
     maker: maker.toLowerCase(),
   });
 };
 
-SelectQueryBuilder.prototype.addMakerFilter = function <Entity>(
+SelectQueryBuilder.prototype.addTakerFilter = function <Entity>(
+  this: SelectQueryBuilder<Entity>,
+  taker: string,
+): SelectQueryBuilder<Entity> {
+  return this.andWhere('LOWER(order.taker) = :taker', {
+    taker: taker.toLowerCase(),
+  });
+};
+
+SelectQueryBuilder.prototype.addAssetClassFilter = function <Entity>(
   this: SelectQueryBuilder<Entity>,
   assetClass: string,
+  filterSide: FilterSide = FilterSide.BOTH,
 ): SelectQueryBuilder<Entity> {
   const queryMake = `make->'assetType'->'assetClass' = ':assetClass'`;
   const queryTake = `take->'assetType'->'assetClass' = ':assetClass'`;
-  const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
-  return this.andWhere(queryForBoth, {
+  const queryBoth = `((${queryMake}) OR (${queryTake}))`;
+  let assetClassQuery = '';
+
+  switch (filterSide) {
+    case FilterSide.MAKE:
+      assetClassQuery = queryMake;
+      break;
+    case FilterSide.TAKE:
+      assetClassQuery = queryTake;
+      break;
+    case FilterSide.BOTH:
+      assetClassQuery = queryBoth;
+      break;
+  }
+
+  return this.andWhere(assetClassQuery, {
     assetClass,
   });
 };
@@ -152,27 +91,95 @@ SelectQueryBuilder.prototype.addMakerFilter = function <Entity>(
 SelectQueryBuilder.prototype.addCollectionFilter = function <Entity>(
   this: SelectQueryBuilder<Entity>,
   collection: string,
+  filterSide: FilterSide = FilterSide.BOTH,
+  nftFilter: NftType = NftType.BOTH,
 ): SelectQueryBuilder<Entity> {
-  const queryMake = `make->'assetType'->'contract' = :collection`;
-  const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
-  const queryTake = `take->'assetType'->'contract' = :collection`;
-  const queryTakeBundle = `take->'assetType'->'contracts' ?| array[:collections]`;
-  const queryForBoth = `((${queryMake}) OR (${queryTake}) OR (${queryMakeBundle}) OR (${queryTakeBundle}))`;
-  return this.andWhere(queryForBoth, {
-    collection: `"${collection}"`,
-    collections: `${collection}`,
+  const queryMake = `LOWER(make->'assetType'->>'contract') = :collection`;
+  const queryMakeBundle = `LOWER(make->'assetType'->'contracts') ?| array[:collections]`;
+  const queryTake = `LOWER(take->'assetType'->>'contract') = :collection`;
+  const queryTakeBundle = `LOWER(take->'assetType'->'contracts') ?| array[:collections]`;
+
+  const queryMakeBoth = `((${queryMake}) OR (${queryMakeBundle}))`;
+  const queryTakeBoth = `((${queryTake}) OR (${queryTakeBundle}))`;
+  const queryMakeTakeErc721 = `((${queryMake}) OR (${queryTake}))`;
+  const queryMakeTakeBundle = `((${queryMakeBundle}) OR (${queryTakeBundle}))`;
+
+  const queryMakeTakeAll = `((${queryMake}) OR (${queryTake}) OR (${queryMakeBundle}) OR (${queryTakeBundle}))`;
+
+  let collectionQuery = '';
+
+  switch (filterSide) {
+    case FilterSide.MAKE:
+      switch (nftFilter) {
+        case NftType.ERC721:
+          collectionQuery = queryMake;
+          break;
+        case NftType.ERCBUNDLE:
+          collectionQuery = queryMakeBundle;
+          break;
+        case NftType.BOTH:
+          collectionQuery = queryMakeBoth;
+          break;
+      }
+      break;
+    case FilterSide.TAKE:
+      switch (nftFilter) {
+        case NftType.ERC721:
+          collectionQuery = queryTake;
+          break;
+        case NftType.ERCBUNDLE:
+          collectionQuery = queryTakeBundle;
+          break;
+        case NftType.BOTH:
+          collectionQuery = queryTakeBoth;
+          break;
+      }
+      break;
+    case FilterSide.BOTH:
+      switch (nftFilter) {
+        case NftType.ERC721:
+          collectionQuery = queryMakeTakeErc721;
+          break;
+        case NftType.ERCBUNDLE:
+          collectionQuery = queryMakeTakeBundle;
+          break;
+        case NftType.BOTH:
+          collectionQuery = queryMakeTakeAll;
+          break;
+      }
+      break;
+  }
+  return this.andWhere(collectionQuery, {
+    collection: `"${collection.toLowerCase()}"`,
+    collections: `${collection.toLowerCase()}`,
   });
 };
 
 SelectQueryBuilder.prototype.addTokenIdsFilter = function <Entity>(
   this: SelectQueryBuilder<Entity>,
   tokenIds: string,
+  filterSide: FilterSide = FilterSide.BOTH,
 ): SelectQueryBuilder<Entity> {
   // @TODO there is no filtering by tokenId for ERC721_BUNDLE orders supposedly because of array of arrays
   const queryMake = `make->'assetType'->>'tokenId' IN (:tokenIds)`;
   const queryTake = `take->'assetType'->>'tokenId' IN (:tokenIds)`;
   const queryForBoth = `((${queryMake}) OR (${queryTake}))`;
-  return this.andWhere(queryForBoth, {
+  let tokenIdsQuery = '';
+
+  switch (filterSide) {
+    case FilterSide.MAKE:
+      tokenIdsQuery = queryMake;
+      break;
+    case FilterSide.TAKE:
+      tokenIdsQuery = queryTake;
+      break;
+    case FilterSide.BOTH:
+      tokenIdsQuery = queryForBoth;
+      break;
+    default:
+      break;
+  }
+  return this.andWhere(tokenIdsQuery, {
     tokenIds: tokenIds.replace(/\s/g, '').split(','),
   });
 };
@@ -237,45 +244,34 @@ SelectQueryBuilder.prototype.sortByEndingSoon = function <Entity>(
   this: SelectQueryBuilder<Entity>,
   endingSoonTimestamp: number,
 ): SelectQueryBuilder<Entity> {
-  return this
-  .orderBy(`(case when order.end - :endingSoon >= 0 then 1 else 2 end)`)
-  .setParameters({ endingSoon: endingSoonTimestamp });
-
+  return this.orderBy(
+    `(case when order.end - :endingSoon >= 0 then 1 else 2 end)`,
+  ).setParameters({ endingSoon: endingSoonTimestamp });
 };
 
 SelectQueryBuilder.prototype.sortByHighestPrice = function <Entity>(
   this: SelectQueryBuilder<Entity>,
   tokenAddresses: { [key in TOKENS]: string },
-  tokenUsdValues:{ [key in TOKENS]: number }   
+  tokenUsdValues: { [key in TOKENS]: number },
 ): SelectQueryBuilder<Entity> {
-  const priceQuery = addPriceSortQuery(tokenAddresses, tokenUsdValues)
-  return this.addSelect(priceQuery, 'usd_value')
-  .addOrderBy('usd_value', 'DESC');
-
+  const priceQuery = addPriceSortQuery(tokenAddresses, tokenUsdValues);
+  return this.addSelect(priceQuery, 'usd_value').addOrderBy(
+    'usd_value',
+    'DESC',
+  );
 };
-
 
 SelectQueryBuilder.prototype.sortByLowestPrice = function <Entity>(
   this: SelectQueryBuilder<Entity>,
   tokenAddresses: { [key in TOKENS]: string },
-  tokenUsdValues:{ [key in TOKENS]: number }
+  tokenUsdValues: { [key in TOKENS]: number },
 ): SelectQueryBuilder<Entity> {
-  const priceQuery = addPriceSortQuery(tokenAddresses, tokenUsdValues)
-  return this.addSelect(priceQuery, 'usd_value')
-  .addOrderBy('usd_value', 'ASC');
-
+  const priceQuery = addPriceSortQuery(tokenAddresses, tokenUsdValues);
+  return this.addSelect(priceQuery, 'usd_value').addOrderBy('usd_value', 'ASC');
 };
-
 
 SelectQueryBuilder.prototype.sortByRecentlyListed = function <Entity>(
   this: SelectQueryBuilder<Entity>,
 ): SelectQueryBuilder<Entity> {
   return this.addOrderBy('order.createdAt', 'DESC');
 };
-
-
-
-
-
-
-

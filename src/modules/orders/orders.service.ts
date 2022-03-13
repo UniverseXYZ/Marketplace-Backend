@@ -40,6 +40,7 @@ import web3 from 'web3';
 import { SortOrderOptionsEnum } from './order.sort';
 import { CoingeckoService } from '../coingecko/coingecko.service';
 import { TOKENS, TOKEN_DECIMALS } from '../coingecko/tokens';
+import { FilterSide, NftType } from './interfaces/order.common.queries';
 
 @Injectable()
 export class OrdersService {
@@ -341,15 +342,19 @@ export class OrdersService {
     }
 
     if (query.assetClass) {
-      orderQuery.addAssetClassFilter(query.assetClass);
+      orderQuery.addAssetClassFilter(query.assetClass, FilterSide.BOTH);
     }
 
     if (query.collection) {
-      orderQuery.addCollectionFilter(query.collection);
+      orderQuery.addCollectionFilter(
+        query.collection,
+        FilterSide.BOTH,
+        NftType.ERC721,
+      );
     }
 
     if (query.tokenIds) {
-      orderQuery.addTokenIdsFilter(query.tokenIds);
+      orderQuery.addTokenIdsFilter(query.tokenIds, FilterSide.BOTH);
     }
 
     if (query.beforeTimestamp) {
@@ -441,15 +446,19 @@ export class OrdersService {
 
     if (query.assetClass) {
       // TODO: Use AssetClass enum
-      orderQuery.addAssetClassFilter(query.assetClass);
+      orderQuery.addAssetClassFilter(query.assetClass, FilterSide.MAKE);
     }
 
     if (query.collection) {
-      orderQuery.addCollectionFilter(query.collection);
+      orderQuery.addCollectionFilter(
+        query.collection,
+        FilterSide.MAKE,
+        NftType.ERC721,
+      );
     }
 
     if (query.tokenIds) {
-      orderQuery.addTokenIdsFilter(query.tokenIds);
+      orderQuery.addTokenIdsFilter(query.tokenIds, FilterSide.MAKE);
     }
 
     if (query.beforeTimestamp) {
@@ -545,33 +554,21 @@ export class OrdersService {
     const [bestOffer, lastOffer] = await Promise.all([
       this.orderRepository
         .createQueryBuilder('order')
-        .where(`take->'assetType'->>'tokenId' = :tokenId`, {
-          tokenId: tokenId,
-        })
-        .andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
-          contract: contract.toLowerCase(),
-        })
-        .andWhere(`order.status = :status`, {
-          status: OrderStatus.CREATED,
-        })
-        .andWhere(`order.side = :side`, { side: OrderSide.BUY })
-        .andWhere(`order.end > :end`, { end: utcTimestamp })
-        .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
-        .orderBy('value_decimal', 'DESC')
+        .addTokenIdsFilter(tokenId, FilterSide.TAKE)
+        .addCollectionFilter(contract, FilterSide.TAKE, NftType.ERC721)
+        .addStatusFilter(OrderStatus.CREATED)
+        .addSideFilter(OrderSide.BUY)
+        .addEndFilter(utcTimestamp)
+        .sortByHighestPrice(
+          this.coingecko.tokenAddresses,
+          this.coingecko.tokenUsdValues,
+        )
         .getOne(),
       this.orderRepository
         .createQueryBuilder('order')
-        .where(
-          `(take->'assetType'->>'tokenId' = :tokenId AND LOWER(take->'assetType'->>'contract') = :contract)
-          OR (make->'assetType'->>'tokenId' = :tokenId AND LOWER(make->'assetType'->>'contract') = :contract)`,
-          {
-            tokenId: tokenId,
-            contract: contract.toLowerCase(),
-          },
-        )
-        .andWhere('order.status = :status', {
-          status: OrderStatus.FILLED,
-        })
+        .addStatusFilter(OrderStatus.FILLED)
+        .addTokenIdsFilter(tokenId, FilterSide.BOTH)
+        .addCollectionFilter(contract, FilterSide.BOTH, NftType.ERC721)
         .orderBy('order.updatedAt', 'DESC')
         .getOne(),
     ]);
@@ -613,7 +610,7 @@ export class OrdersService {
    * @returns order
    */
   public async queryOne(contract: string, tokenId: string, maker = '') {
-    const queryBuilder = this.orderRepository.createQueryBuilder();
+    const queryBuilder = this.orderRepository.createQueryBuilder('order');
     queryBuilder
       .addStatusFilter(OrderStatus.CREATED)
       .addSideFilter(OrderSide.SELL);
@@ -622,15 +619,7 @@ export class OrdersService {
       queryBuilder.addMakerFilter(maker);
     }
 
-    // queryBuilder.addCollectionFilter(contract);
-
-    const queryMake = `make->'assetType'->'contract' = :collection`;
-    const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
-    const queryForBoth = `((${queryMake}) OR (${queryMakeBundle}))`;
-    queryBuilder.andWhere(queryForBoth, {
-      collection: `"${contract}"`,
-      collections: `${contract}`,
-    });
+    queryBuilder.addCollectionFilter(contract, FilterSide.MAKE, NftType.ERC721);
 
     const results = await queryBuilder.getMany();
 
@@ -692,21 +681,11 @@ export class OrdersService {
 
   public async fetchListingHistory(contract: string, tokenId: string) {
     const queryBuilder = this.orderRepository.createQueryBuilder('order');
-    const queryMakeCollection = `make->'assetType'->>'contract' = :contract`;
-    const queryTakeCollection = `take->'assetType'->>'contract' = :contract`;
-    const collectionQuery = `((${queryMakeCollection}) OR (${queryTakeCollection}))`;
-    queryBuilder.andWhere(collectionQuery, {
-      contract,
-    });
 
-    const queryMakeTokenId = `make->'assetType'->>'tokenId' = :tokenId`;
-    const queryTakeTokenId = `take->'assetType'->>'tokenId' = :tokenId`;
-    const tokenIdQuery = `((${queryMakeTokenId}) OR (${queryTakeTokenId}))`;
-    queryBuilder.andWhere(tokenIdQuery, {
-      tokenId,
-    });
-
-    queryBuilder.orderBy('order.createdAt', 'DESC');
+    queryBuilder
+      .addCollectionFilter(contract, FilterSide.BOTH, NftType.ERC721)
+      .addTokenIdsFilter(tokenId, FilterSide.BOTH)
+      .sortByRecentlyListed();
 
     const listingHistory = await queryBuilder.getManyAndCount();
 
@@ -733,32 +712,32 @@ export class OrdersService {
     // 1. Mark any buy offers as stale. They can't be executed anymore as the owner has changed
     const buyQuery = this.orderRepository
       .createQueryBuilder('order')
-      .where(`order.side = :side`, { side: OrderSide.BUY })
-      .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
-      .andWhere(`LOWER(order.taker) = :taker`, { taker: orderCreator })
-      .andWhere(`take->'assetType'->>'tokenId' = :tokenId`, {
-        tokenId: orderNftInfo.assetType.tokenId,
-      });
+      .addSideFilter(OrderSide.BUY)
+      .addStatusFilter(OrderStatus.CREATED)
+      .addTakerFilter(orderCreator)
+      .addTokenIdsFilter(orderNftInfo.assetType.tokenId, FilterSide.TAKE);
 
     // 2. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
     const sellQuery = this.orderRepository
       .createQueryBuilder('order')
-      .where(`order.side = :side`, { side: OrderSide.SELL })
-      .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
-      .andWhere(`LOWER(order.maker) = :maker`, { maker: orderCreator })
-      .andWhere(`make->'assetType'->>'tokenId' = :tokenId`, {
-        tokenId: orderNftInfo.assetType.tokenId,
-      });
+      .addSideFilter(OrderSide.SELL)
+      .addStatusFilter(OrderStatus.CREATED)
+      .addMakerFilter(orderCreator)
+      .addTokenIdsFilter(orderNftInfo.assetType.tokenId, FilterSide.MAKE);
 
     // ETH orders don't have contract
     if (orderNftInfo.assetType.contract) {
-      buyQuery.andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
-        contract: orderNftInfo.assetType.contract.toLowerCase(),
-      });
+      buyQuery.addCollectionFilter(
+        orderNftInfo.assetType.contract,
+        FilterSide.TAKE,
+        NftType.ERC721,
+      );
 
-      sellQuery.andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
-        contract: orderNftInfo.assetType.contract.toLowerCase(),
-      });
+      sellQuery.addCollectionFilter(
+        orderNftInfo.assetType.contract,
+        FilterSide.MAKE,
+        NftType.ERC721,
+      );
     }
 
     const [buyOffers, sellOffers] = await Promise.all([
