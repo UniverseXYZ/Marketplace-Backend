@@ -219,11 +219,11 @@ export class QueryDto {
   side: number;
 
   @ApiProperty({
-    example: 'ERC721_BUNDLE',
+    example: 'ERC721,ERC721_BUNDLE',
     description: 'Asset class of the order. e.g. ERC721, ERC721_BUNDLE',
     required: false,
   })
-  @IsEnum(AssetClass)
+  @IsString()
   @IsOptional()
   assetClass: AssetClass;
 
