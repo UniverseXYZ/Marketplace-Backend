@@ -469,7 +469,6 @@ export class OrdersService {
         queryBuilder.orderBy('order.createdAt', 'DESC');
         break;
     }
-    console.log(queryBuilder.getSql());
     queryBuilder.addOrderBy('order.createdAt', 'DESC');
     const items = await queryBuilder
       .offset(skippedItems)
@@ -550,7 +549,6 @@ export class OrdersService {
 
     if (query.assetClass) {
       const queryMake = `make->'assetType'->>'assetClass' IN (:...assetClass)`;
-      console.log(query.assetClass.replace(/\s/g, '').split(','));
       queryBuilder.andWhere(queryMake, {
         assetClass: query.assetClass.replace(/\s/g, '').split(','),
       });
@@ -621,7 +619,6 @@ export class OrdersService {
         maxPrice: weiPrice,
       });
     }
-    console.log(this.coingecko.tokenUsdValues);
 
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
