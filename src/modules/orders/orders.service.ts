@@ -386,8 +386,8 @@ export class OrdersService {
       const queryTakeBundle = `take->'assetType'->'contracts' ?| array[:collections]`;
       const queryForBoth = `((${queryMake}) OR (${queryTake}) OR (${queryMakeBundle}) OR (${queryTakeBundle}))`;
       queryBuilder.andWhere(queryForBoth, {
-        collection: `"${query.collection}"`,
-        collections: `${query.collection}`,
+        collection: `"${query.collection.toLowerCase()}"`,
+        collections: `${query.collection.toLowerCase()}`,
       });
     }
 
@@ -561,8 +561,8 @@ export class OrdersService {
       const queryTakeBundle = `take->'assetType'->'contracts' ?| array[:collections]`;
       const queryForBoth = `((${queryMake}) OR (${queryTake}) OR (${queryMakeBundle}) OR (${queryTakeBundle}))`;
       queryBuilder.andWhere(queryForBoth, {
-        collection: `"${query.collection}"`,
-        collections: `${query.collection}`,
+        collection: `"${query.collection.toLowerCase()}"`,
+        collections: `${query.collection.toLowerCase()}`,
       });
     }
 
@@ -790,8 +790,8 @@ export class OrdersService {
     const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
     const queryForBoth = `((${queryMake}) OR (${queryMakeBundle}))`;
     queryBuilder.andWhere(queryForBoth, {
-      collection: `"${contract}"`,
-      collections: `${contract}`,
+      collection: `"${contract.toLowerCase()}"`,
+      collections: `${contract.toLowerCase()}`,
     });
 
     // const queryMakeTokenId = `make->'assetType'->'tokenId' = :tokenId`;
