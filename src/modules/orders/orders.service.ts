@@ -720,8 +720,8 @@ export class OrdersService {
         })
         .andWhere(`order.side = :side`, { side: OrderSide.BUY })
         .andWhere(`order.end > :end`, { end: utcTimestamp })
-        .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
-        .orderBy('value_decimal', 'DESC')
+        .addSelect(this.addPriceSortQuery(), 'usd_value')
+        .orderBy('usd_value', 'DESC')
         .getOne(),
       this.orderRepository
         .createQueryBuilder('order')
@@ -851,6 +851,12 @@ export class OrdersService {
 
       leftOrder.status = OrderStatus.FILLED;
       leftOrder.matchedTxHash = matchEvent.txHash;
+
+      // Populate taker in sell order
+      if (leftOrder.taker === constants.ZERO_ADDRESS) {
+        leftOrder.taker = matchEvent.rightMaker.toLowerCase();
+      }
+
       await this.orderRepository.save(leftOrder);
     }
 
