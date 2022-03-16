@@ -151,7 +151,7 @@ export class OrdersService {
     }
 
     const savedOrder = await this.orderRepository.save(order);
-    await this.staleOrdersWithHigherPrice(savedOrder);
+    // await this.staleOrdersWithHigherPrice(savedOrder);
     this.checkSubscribe(savedOrder);
     return savedOrder;
   }
@@ -852,9 +852,19 @@ export class OrdersService {
       leftOrder.status = OrderStatus.FILLED;
       leftOrder.matchedTxHash = matchEvent.txHash;
 
-      // Populate taker in sell order
-      if (leftOrder.taker === constants.ZERO_ADDRESS) {
-        leftOrder.taker = matchEvent.rightMaker.toLowerCase();
+      // Populate taker
+      let orderMaker = '';
+      if (leftOrder.make.assetType.tokenId) {
+        orderMaker = leftOrder.maker;
+      } else if (leftOrder.take.assetType.tokenId) {
+        orderMaker = leftOrder.taker;
+      }
+
+      // The taker adress will always be the one who isn't the order maker
+      if (matchEvent.leftMaker.toLowerCase() !== orderMaker) {
+        leftOrder.taker = matchEvent.leftMaker;
+      } else {
+        leftOrder.taker = matchEvent.rightMaker;
       }
 
       await this.orderRepository.save(leftOrder);
@@ -903,15 +913,15 @@ export class OrdersService {
       );
     }
 
-    // 1. Mark any buy offers as stale. They can't be executed anymore as the owner has changed
-    const buyQuery = this.orderRepository
-      .createQueryBuilder('order')
-      .where(`order.side = :side`, { side: OrderSide.BUY })
-      .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
-      .andWhere(`LOWER(order.taker) = :taker`, { taker: orderCreator })
-      .andWhere(`take->'assetType'->>'tokenId' = :tokenId`, {
-        tokenId: orderNftInfo.assetType.tokenId,
-      });
+    // // 1. Mark any buy offers as stale. They can't be executed anymore as the owner has changed
+    // const buyQuery = this.orderRepository
+    //   .createQueryBuilder('order')
+    //   .where(`order.side = :side`, { side: OrderSide.BUY })
+    //   .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
+    //   .andWhere(`LOWER(order.taker) = :taker`, { taker: orderCreator })
+    //   .andWhere(`take->'assetType'->>'tokenId' = :tokenId`, {
+    //     tokenId: orderNftInfo.assetType.tokenId,
+    //   });
 
     // 2. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
     const sellQuery = this.orderRepository
@@ -925,30 +935,32 @@ export class OrdersService {
 
     // ETH orders don't have contract
     if (orderNftInfo.assetType.contract) {
-      buyQuery.andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
-        contract: orderNftInfo.assetType.contract.toLowerCase(),
-      });
+      // buyQuery.andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
+      //   contract: orderNftInfo.assetType.contract.toLowerCase(),
+      // });
 
       sellQuery.andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
         contract: orderNftInfo.assetType.contract.toLowerCase(),
       });
     }
 
-    const [buyOffers, sellOffers] = await Promise.all([
-      buyQuery.getMany(),
-      sellQuery.getMany(),
-    ]);
+    // const [buyOffers, sellOffers] = await Promise.all([
+    //   buyQuery.getMany(),
+    //   sellQuery.getMany(),
+    // ]);
 
-    this.logger.log(
-      `Found ${buyOffers.length} buy offers related to an order match`,
-    );
+    const sellOffers = await sellQuery.getMany();
 
-    if (buyOffers.length) {
-      buyOffers.forEach((offer) => {
-        offer.status = OrderStatus.STALE;
-      });
-      await this.orderRepository.save(buyOffers);
-    }
+    // this.logger.log(
+    //   `Found ${buyOffers.length} buy offers related to an order match`,
+    // );
+
+    // if (buyOffers.length) {
+    //   buyOffers.forEach((offer) => {
+    //     offer.status = OrderStatus.STALE;
+    //   });
+    //   await this.orderRepository.save(buyOffers);
+    // }
 
     this.logger.log(
       `Found ${sellOffers.length} sell offers related to an order match`,
