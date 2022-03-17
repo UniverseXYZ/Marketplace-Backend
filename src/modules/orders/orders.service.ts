@@ -454,12 +454,12 @@ export class OrdersService {
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
           .orderBy('usd_value', 'DESC');
         break;
       case SortOrderOptionsEnum.LowestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
           .orderBy('usd_value', 'ASC');
         break;
       case SortOrderOptionsEnum.RecentlyListed:
@@ -628,12 +628,12 @@ export class OrdersService {
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
           .orderBy('usd_value', 'DESC');
         break;
       case SortOrderOptionsEnum.LowestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
           .orderBy('usd_value', 'ASC');
         break;
       case SortOrderOptionsEnum.RecentlyListed:
@@ -653,40 +653,49 @@ export class OrdersService {
     return items;
   }
 
-  public addPriceSortQuery() {
+  public addPriceSortQuery(orderSide: OrderSide) {
+    let nftSide = '';
+    switch (orderSide) {
+      case OrderSide.BUY:
+        nftSide = 'make';
+        break;
+      case OrderSide.SELL:
+        nftSide = 'take';
+    }
+
     return `(case 
-      when take->'assetType'->>'assetClass' = 'ETH' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.ETH]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.ETH]}
+      when ${nftSide}->'assetType'->>'assetClass' = 'ETH' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.ETH]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.ETH]}
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.DAI
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.DAI]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.DAI]} 
+      when LOWER(${nftSide}->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+      TOKENS.DAI
+    ].toLowerCase()}' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.DAI]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.DAI]} 
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.USDC
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.USDC]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.USDC]} 
+      when LOWER(${nftSide}->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+      TOKENS.USDC
+    ].toLowerCase()}' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.USDC]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.USDC]} 
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.WETH
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.WETH]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.WETH]} 
+      when LOWER(${nftSide}->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+      TOKENS.WETH
+    ].toLowerCase()}' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.WETH]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.WETH]} 
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.XYZ
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.XYZ]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.XYZ]}
+      when LOWER(${nftSide}->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+      TOKENS.XYZ
+    ].toLowerCase()}' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.XYZ]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.XYZ]}
       
       end)`;
   }
@@ -720,7 +729,7 @@ export class OrdersService {
         })
         .andWhere(`order.side = :side`, { side: OrderSide.BUY })
         .andWhere(`order.end > :end`, { end: utcTimestamp })
-        .addSelect(this.addPriceSortQuery(), 'usd_value')
+        .addSelect(this.addPriceSortQuery(OrderSide.BUY), 'usd_value')
         .orderBy('usd_value', 'DESC')
         .getOne(),
       this.orderRepository
