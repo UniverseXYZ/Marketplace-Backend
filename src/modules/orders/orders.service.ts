@@ -151,7 +151,7 @@ export class OrdersService {
     }
 
     const savedOrder = await this.orderRepository.save(order);
-    await this.staleOrdersWithHigherPrice(savedOrder);
+    // await this.staleOrdersWithHigherPrice(savedOrder);
     this.checkSubscribe(savedOrder);
     return savedOrder;
   }
@@ -386,8 +386,8 @@ export class OrdersService {
       const queryTakeBundle = `take->'assetType'->'contracts' ?| array[:collections]`;
       const queryForBoth = `((${queryMake}) OR (${queryTake}) OR (${queryMakeBundle}) OR (${queryTakeBundle}))`;
       queryBuilder.andWhere(queryForBoth, {
-        collection: `"${query.collection}"`,
-        collections: `${query.collection}`,
+        collection: `"${query.collection.toLowerCase()}"`,
+        collections: `${query.collection.toLowerCase()}`,
       });
     }
 
@@ -454,12 +454,12 @@ export class OrdersService {
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
           .orderBy('usd_value', 'DESC');
         break;
       case SortOrderOptionsEnum.LowestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
           .orderBy('usd_value', 'ASC');
         break;
       case SortOrderOptionsEnum.RecentlyListed:
@@ -561,8 +561,8 @@ export class OrdersService {
       const queryTakeBundle = `take->'assetType'->'contracts' ?| array[:collections]`;
       const queryForBoth = `((${queryMake}) OR (${queryTake}) OR (${queryMakeBundle}) OR (${queryTakeBundle}))`;
       queryBuilder.andWhere(queryForBoth, {
-        collection: `"${query.collection}"`,
-        collections: `${query.collection}`,
+        collection: `"${query.collection.toLowerCase()}"`,
+        collections: `${query.collection.toLowerCase()}`,
       });
     }
 
@@ -628,12 +628,12 @@ export class OrdersService {
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
           .orderBy('usd_value', 'DESC');
         break;
       case SortOrderOptionsEnum.LowestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
           .orderBy('usd_value', 'ASC');
         break;
       case SortOrderOptionsEnum.RecentlyListed:
@@ -653,40 +653,49 @@ export class OrdersService {
     return items;
   }
 
-  public addPriceSortQuery() {
+  public addPriceSortQuery(orderSide: OrderSide) {
+    let nftSide = '';
+    switch (orderSide) {
+      case OrderSide.BUY:
+        nftSide = 'make';
+        break;
+      case OrderSide.SELL:
+        nftSide = 'take';
+    }
+
     return `(case 
-      when take->'assetType'->>'assetClass' = 'ETH' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.ETH]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.ETH]}
+      when ${nftSide}->'assetType'->>'assetClass' = 'ETH' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.ETH]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.ETH]}
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.DAI
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.DAI]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.DAI]} 
+      when LOWER(${nftSide}->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+      TOKENS.DAI
+    ].toLowerCase()}' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.DAI]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.DAI]} 
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.USDC
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.USDC]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.USDC]} 
+      when LOWER(${nftSide}->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+      TOKENS.USDC
+    ].toLowerCase()}' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.USDC]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.USDC]} 
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.WETH
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.WETH]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.WETH]} 
+      when LOWER(${nftSide}->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+      TOKENS.WETH
+    ].toLowerCase()}' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.WETH]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.WETH]} 
 
-      when LOWER(take->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
-        TOKENS.XYZ
-      ].toLowerCase()}' 
-      then CAST(take->>'value' as DECIMAL) / POWER(10,${
-        TOKEN_DECIMALS[TOKENS.XYZ]
-      }) * ${this.coingecko.tokenUsdValues[TOKENS.XYZ]}
+      when LOWER(${nftSide}->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+      TOKENS.XYZ
+    ].toLowerCase()}' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.XYZ]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.XYZ]}
       
       end)`;
   }
@@ -720,8 +729,8 @@ export class OrdersService {
         })
         .andWhere(`order.side = :side`, { side: OrderSide.BUY })
         .andWhere(`order.end > :end`, { end: utcTimestamp })
-        .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
-        .orderBy('value_decimal', 'DESC')
+        .addSelect(this.addPriceSortQuery(OrderSide.BUY), 'usd_value')
+        .orderBy('usd_value', 'DESC')
         .getOne(),
       this.orderRepository
         .createQueryBuilder('order')
@@ -790,8 +799,8 @@ export class OrdersService {
     const queryMakeBundle = `make->'assetType'->'contracts' ?| array[:collections]`;
     const queryForBoth = `((${queryMake}) OR (${queryMakeBundle}))`;
     queryBuilder.andWhere(queryForBoth, {
-      collection: `"${contract}"`,
-      collections: `${contract}`,
+      collection: `"${contract.toLowerCase()}"`,
+      collections: `${contract.toLowerCase()}`,
     });
 
     // const queryMakeTokenId = `make->'assetType'->'tokenId' = :tokenId`;
@@ -841,6 +850,21 @@ export class OrdersService {
             );
             leftOrder.status = OrderStatus.FILLED;
             leftOrder.matchedTxHash = event.txHash;
+
+            // Populate taker
+            let orderMaker = '';
+            if (leftOrder.make.assetType.tokenId) {
+              orderMaker = leftOrder.maker;
+            } else if (leftOrder.take.assetType.tokenId) {
+              orderMaker = leftOrder.taker;
+            }
+
+            // The taker adress will always be the one who isn't the order maker
+            if (event.leftMaker.toLowerCase() !== orderMaker) {
+              leftOrder.taker = event.leftMaker;
+            } else {
+              leftOrder.taker = event.rightMaker;
+            }
             await this.orderRepository.save(leftOrder);
 
             value[event.txHash] = 'success';
@@ -924,15 +948,15 @@ export class OrdersService {
       );
     }
 
-    // 1. Mark any buy offers as stale. They can't be executed anymore as the owner has changed
-    const buyQuery = this.orderRepository
-      .createQueryBuilder('order')
-      .where(`order.side = :side`, { side: OrderSide.BUY })
-      .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
-      .andWhere(`LOWER(order.taker) = :taker`, { taker: orderCreator })
-      .andWhere(`take->'assetType'->>'tokenId' = :tokenId`, {
-        tokenId: orderNftInfo.assetType.tokenId,
-      });
+    // // 1. Mark any buy offers as stale. They can't be executed anymore as the owner has changed
+    // const buyQuery = this.orderRepository
+    //   .createQueryBuilder('order')
+    //   .where(`order.side = :side`, { side: OrderSide.BUY })
+    //   .andWhere(`order.status = :status`, { status: OrderStatus.CREATED })
+    //   .andWhere(`LOWER(order.taker) = :taker`, { taker: orderCreator })
+    //   .andWhere(`take->'assetType'->>'tokenId' = :tokenId`, {
+    //     tokenId: orderNftInfo.assetType.tokenId,
+    //   });
 
     // 2. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
     const sellQuery = this.orderRepository
@@ -946,30 +970,32 @@ export class OrdersService {
 
     // ETH orders don't have contract
     if (orderNftInfo.assetType.contract) {
-      buyQuery.andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
-        contract: orderNftInfo.assetType.contract.toLowerCase(),
-      });
+      // buyQuery.andWhere(`LOWER(take->'assetType'->>'contract') = :contract`, {
+      //   contract: orderNftInfo.assetType.contract.toLowerCase(),
+      // });
 
       sellQuery.andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
         contract: orderNftInfo.assetType.contract.toLowerCase(),
       });
     }
 
-    const [buyOffers, sellOffers] = await Promise.all([
-      buyQuery.getMany(),
-      sellQuery.getMany(),
-    ]);
+    // const [buyOffers, sellOffers] = await Promise.all([
+    //   buyQuery.getMany(),
+    //   sellQuery.getMany(),
+    // ]);
 
-    this.logger.log(
-      `Found ${buyOffers.length} buy offers related to an order match`,
-    );
+    const sellOffers = await sellQuery.getMany();
 
-    if (buyOffers.length) {
-      buyOffers.forEach((offer) => {
-        offer.status = OrderStatus.STALE;
-      });
-      await this.orderRepository.save(buyOffers);
-    }
+    // this.logger.log(
+    //   `Found ${buyOffers.length} buy offers related to an order match`,
+    // );
+
+    // if (buyOffers.length) {
+    //   buyOffers.forEach((offer) => {
+    //     offer.status = OrderStatus.STALE;
+    //   });
+    //   await this.orderRepository.save(buyOffers);
+    // }
 
     this.logger.log(
       `Found ${sellOffers.length} sell offers related to an order match`,
