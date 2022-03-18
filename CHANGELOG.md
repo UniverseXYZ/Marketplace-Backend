@@ -1,3 +1,18 @@
+# [1.6.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.5.0...v1.6.0) (2022-03-18)
+
+
+### Bug Fixes
+
+* **addPriceSortQuery:** improve function to take into account order side ([9061bf3](https://github.com/UniverseXYZ/Marketplace-Backend/commit/9061bf38072db5c932a031ec2435f03579345732))
+* **assetClass-filters:** fix assetClass and tokenIds query ([8601eba](https://github.com/UniverseXYZ/Marketplace-Backend/commit/8601eba73dff5860c3fae5e054f890e6d54c8707))
+* **orders:** contract address to lower case ([6e53ef7](https://github.com/UniverseXYZ/Marketplace-Backend/commit/6e53ef781cd58325a6ab854d65f3adbb279c3407))
+* **queries:** add taker when sell orders are matched + fix best offer query to use usd value ([7246618](https://github.com/UniverseXYZ/Marketplace-Backend/commit/72466188edf13bed172125b491fdc49a2f4d8cae))
+
+
+### Features
+
+* **coingecko:** add coingecko integration and upgrade order filters ([0a114a3](https://github.com/UniverseXYZ/Marketplace-Backend/commit/0a114a3a9007110daa2d99a15e06715c26c8b43b))
+
 # [1.5.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.4.2...v1.5.0) (2022-03-10)
 
 

@@ -11,8 +11,8 @@ import {
 import { In, Repository } from 'typeorm';
 import { AppConfig } from '../configuration/configuration.service';
 import {
-  MatchOrderDto,
-  CancelOrderDto,
+  CancelOrder,
+  MatchOrder,
   TrackOrderDto,
   OrderDto,
   CreateOrderDto,
@@ -835,51 +835,77 @@ export class OrdersService {
     }
   }
 
-  public async matchOrder(matchEvent: MatchOrderDto) {
-    const leftOrder = await this.orderRepository.findOne({
-      hash: matchEvent.leftOrderHash,
-    });
+  public async matchOrders(events: MatchOrder[]) {
+    const value = {};
+    for (const event of events) {
+      try {
+        const leftOrder = await this.orderRepository.findOne({
+          hash: event.leftOrderHash,
+        });
 
-    if (!leftOrder) {
-      this.logger.error(
-        `The matched order is not found in database. Order left hash: ${matchEvent.leftOrderHash}`,
-      );
-      return;
+        if (leftOrder) {
+          if (OrderStatus.CREATED == leftOrder.status) {
+            this.logger.log(
+              `The matched order has been found. Order left hash: ${event.leftOrderHash}`,
+            );
+            leftOrder.status = OrderStatus.FILLED;
+            leftOrder.matchedTxHash = event.txHash;
+
+            // Populate taker
+            let orderMaker = '';
+            if (leftOrder.make.assetType.tokenId) {
+              orderMaker = leftOrder.maker;
+            } else if (leftOrder.take.assetType.tokenId) {
+              orderMaker = leftOrder.taker;
+            }
+
+            // The taker adress will always be the one who isn't the order maker
+            if (event.leftMaker.toLowerCase() !== orderMaker) {
+              leftOrder.taker = event.leftMaker;
+            } else {
+              leftOrder.taker = event.rightMaker;
+            }
+            await this.orderRepository.save(leftOrder);
+
+            value[event.txHash] = 'success';
+          } else if (OrderStatus.FILLED == leftOrder.status) {
+            // this is added to provide idempotency!
+            this.logger.log(
+              `The matched order is already filled. Order left hash: ${event.leftOrderHash}`,
+            );
+            value[event.txHash] = 'success';
+          } else {
+            this.logger.log(
+              `The matched order's status is already "${
+                OrderStatus[leftOrder.status]
+              }"`,
+            );
+            value[event.txHash] = 'not found';
+          }
+
+          try {
+            //marking related orders as stale regardless of the status.
+            await this.markRelatedOrdersAsStale(leftOrder);
+          } catch (e) {
+            this.logger.error(`Error marking related orders as stale ${e}`);
+            value[event.txHash] =
+              'error marking related orders as stale: ' + e.message;
+          }
+        } else {
+          value[event.txHash] = 'not found or has wrong status';
+          this.logger.error(
+            `The matched order is not found in database. Order left hash: ${event.leftOrderHash}`,
+          );
+        }
+      } catch (e) {
+        value[event.txHash] = 'error: ' + e.message;
+        this.logger.error(
+          `Error marking order as filled. Event: ${JSON.stringify(event)}`,
+        );
+      }
     }
 
-    if (leftOrder.status !== OrderStatus.CREATED) {
-      this.logger.log(
-        `The matched order's status is already "${
-          OrderStatus[leftOrder.status]
-        }"`,
-      );
-    } else {
-      this.logger.log(
-        `The matched order has been found. Order left hash: ${matchEvent.leftOrderHash}`,
-      );
-
-      leftOrder.status = OrderStatus.FILLED;
-      leftOrder.matchedTxHash = matchEvent.txHash;
-
-      // Populate taker
-      let orderMaker = '';
-      if (leftOrder.make.assetType.tokenId) {
-        orderMaker = leftOrder.maker;
-      } else if (leftOrder.take.assetType.tokenId) {
-        orderMaker = leftOrder.taker;
-      }
-
-      // The taker adress will always be the one who isn't the order maker
-      if (matchEvent.leftMaker.toLowerCase() !== orderMaker) {
-        leftOrder.taker = matchEvent.leftMaker;
-      } else {
-        leftOrder.taker = matchEvent.rightMaker;
-      }
-
-      await this.orderRepository.save(leftOrder);
-    }
-
-    await this.markRelatedOrdersAsStale(leftOrder);
+    return value;
   }
 
   public async fetchListingHistory(contract: string, tokenId: string) {
@@ -984,46 +1010,61 @@ export class OrdersService {
   }
 
   /**
-   * Marks an order as Cancelled and sets cancelledTxHash.
+   * Marks orders as Cancelled and sets cancelledTxHash.
    * This method is supposed to process the API call PUT /internal/orders/cancel
    * which is called by the Marketplace-Indexer.
    * @See https://github.com/UniverseXYZ/Marketplace-Indexer
    * @param event - event data from the Indexer.
    * @returns void
    */
-  public async cancelOrder(event: CancelOrderDto) {
-    const cancelOrder = await this.orderRepository
-      .createQueryBuilder('order')
-      .where(
-        `
-        order.hash = :hash AND 
-        order.maker = :maker AND 
-        (order.status = :status1 OR order.status = :status2)
-      `,
-        {
-          hash: event.leftOrderHash,
-          maker: event.leftMaker,
-          status1: OrderStatus.CREATED,
-          status2: OrderStatus.STALE,
-        },
-      )
-      .getOne();
+  public async cancelOrders(events: CancelOrder[]) {
+    const value = {};
+    for (const event of events) {
+      try {
+        const queryResult = await this.orderRepository
+          .createQueryBuilder()
+          .update(Order)
+          .set({
+            status: OrderStatus.CANCELLED,
+            cancelledTxHash: event.txHash,
+          })
+          .where(
+            `hash = :hash AND 
+            maker = :maker AND 
+            status IN(:status1, :status2, :status3)
+            `,
+            {
+              hash: event.leftOrderHash,
+              maker: event.leftMaker,
+              status1: OrderStatus.CREATED,
+              status2: OrderStatus.STALE,
+              status3: OrderStatus.CANCELLED, // this is added to provide idempotency!
+            },
+          )
+          .execute();
 
-    if (cancelOrder) {
-      this.logger.log(
-        `The Canceled order has been found. Order left hash: ${event.leftOrderHash}`,
-      );
+        value[event.txHash] = queryResult.affected ? 'success' : 'not found';
 
-      cancelOrder.status = OrderStatus.CANCELLED;
-      cancelOrder.cancelledTxHash = event.txHash;
-      await this.orderRepository.save(cancelOrder);
-    } else {
-      this.logger.error(
-        `The Cancelled order is not found in database. Request: ${JSON.stringify(
-          event,
-        )}`,
-      );
+        if (queryResult.affected) {
+          this.logger.log(
+            `The Canceled order has been found. Order left hash: ${event.leftOrderHash}`,
+          );
+        } else {
+          this.logger.error(
+            `The Cancelled order is not found in database. Request: ${JSON.stringify(
+              event,
+            )}`,
+          );
+        }
+      } catch (e) {
+        value[event.txHash] = 'error: ' + e.message;
+        this.logger.error(
+          `Error cancelling order. Event: ${JSON.stringify(event)}`,
+        );
+      }
     }
+
+    return value;
   }
 
   public async staleOrder(event: TrackOrderDto) {
