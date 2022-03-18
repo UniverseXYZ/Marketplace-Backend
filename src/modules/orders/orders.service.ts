@@ -1244,17 +1244,15 @@ export class OrdersService {
       .where(
         `
         o.status = :status AND
-        (
-          o.side = :side AND 
-          o.take->'assetType'->>'assetClass' = :assetClass
-        ) AND
-        LOWER(o.make->'assetType'->>'contract') = :contract
+        o.side = :side AND 
+        LOWER(o.make->'assetType'->>'contract') = :contract AND
+        o.take->'assetType'->>'assetClass' = :assetClass
       `,
         {
           status: OrderStatus.FILLED,
           side: OrderSide.SELL,
-          assetClass: AssetClass.ETH,
           contract: collection.toLowerCase(),
+          assetClass: AssetClass.ETH,
         },
       )
       .select(`SUM(CAST(o.take->>'value' as DECIMAL))`, 'volumeTraded')
