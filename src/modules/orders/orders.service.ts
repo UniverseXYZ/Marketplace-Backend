@@ -1202,17 +1202,21 @@ export class OrdersService {
       .createQueryBuilder('o')
       .where(
         `
-        o.side = :side AND
         o.status = :status AND
-        LOWER(o.take->'assetType'->>'contract') = :contract
+        (
+          o.side = :side AND 
+          o.take->'assetType'->>'assetClass' = :assetClass
+        ) AND
+        LOWER(o.make->'assetType'->>'contract') = :contract
       `,
         {
-          side: OrderSide.BUY,
           status: OrderStatus.FILLED,
+          side: OrderSide.SELL,
+          assetClass: AssetClass.ETH,
           contract: collection.toLowerCase(),
         },
       )
-      .select(`SUM(CAST(o.make->>'value' as DECIMAL))`, 'volumeTraded')
+      .select(`SUM(CAST(o.take->>'value' as DECIMAL))`, 'volumeTraded')
       .getRawOne();
     if (orders.volumeTraded) {
       value = orders.volumeTraded;
