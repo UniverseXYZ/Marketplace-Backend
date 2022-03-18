@@ -302,7 +302,7 @@ export class QueryDto {
   hasOffers: boolean;
 }
 
-export class MatchOrderDto {
+export class MatchOrder {
   txHash: string;
 
   leftMaker: string;
@@ -313,8 +313,33 @@ export class MatchOrderDto {
   newRightFill: string;
   txFrom: string;
 }
+export class MatchOrderDto {
+  @IsNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => MatchOrder)
+  @ApiProperty({
+    example: [
+      {
+        txHash:
+          '0xf6768c7be3133edf019685bc230e2a4e58b505d159508e87cfcdac8e0e017b99',
+        leftMaker: '0xf3d5a5d72b0c5c68e75ce70836f23a9337643098',
+        rightMaker: '0x0ad21d5df91ec3f60086c08e07bd0f8cd95486a4',
+        leftOrderHash:
+          '0xb562669668f03d229620e0c46378266a6d8c252b32d00bbdfffb5b6b14fae903',
+        rightOrderHash:
+          '0xc25980c3b862b0221fcf62484ce805ec22a95a6e42c4aeb3e119ee08225cbd36',
+        newLeftFill: '100000000000000000',
+        newRightFill: '1',
+        txFrom: '0x0ad21d5df91ec3f60086c08e07bd0f8cd95486a4',
+      },
+    ],
+    description: 'Array of events to mark as matched.',
+    required: true,
+  })
+  events: MatchOrder[];
+}
 
-export class CancelOrderDto {
+export class CancelOrder {
   @ApiProperty({
     example:
       '0xf6768c7be3133edf019685bc230e2a4e58b505d159508e87cfcdac8e0e017b99',
@@ -340,6 +365,25 @@ export class CancelOrderDto {
   })
   @IsString()
   leftOrderHash: string;
+}
+export class CancelOrderDto {
+  @IsNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => CancelOrder)
+  @ApiProperty({
+    example: [
+      {
+        txHash:
+          '0xf6768c7be3133edf019685bc230e2a4e58b505d159508e87cfcdac8e0e017b99',
+        leftMaker: '0xf3d5a5d72b0c5c68e75ce70836f23a9337643098',
+        leftOrderHash:
+          '0xb562669668f03d229620e0c46378266a6d8c252b32d00bbdfffb5b6b14fae903',
+      },
+    ],
+    description: 'Array of events to cancel.',
+    required: true,
+  })
+  events: CancelOrder[];
 }
 
 export class TrackOrderDto {

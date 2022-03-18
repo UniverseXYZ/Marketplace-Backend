@@ -1,5 +1,5 @@
-import { Body, Controller, Put } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Put, UsePipes } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { BaseController } from '../../common/base.controller';
 import { CancelOrderDto, MatchOrderDto, TrackOrderDto } from './order.dto';
 import { OrdersService } from './orders.service';
@@ -12,10 +12,13 @@ export class OrdersInternalController extends BaseController {
   }
 
   @Put('orders/match')
+  @ApiOperation({
+    summary:
+      'Mark orders as matched. Intented to be used by the Marketplace-Indexer.',
+  })
   async matchOrder(@Body() body: MatchOrderDto) {
     try {
-      await this.orderService.matchOrder(body);
-      return 'OK';
+      return await this.orderService.matchOrders(body.events);
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
@@ -23,10 +26,13 @@ export class OrdersInternalController extends BaseController {
   }
 
   @Put('orders/cancel')
+  @ApiOperation({
+    summary:
+      'Mark orders as cancelled. Intented to be used by the Marketplace-Indexer.',
+  })
   async cancelOrder(@Body() body: CancelOrderDto) {
     try {
-      await this.orderService.cancelOrder(body);
-      return 'OK';
+      return await this.orderService.cancelOrders(body.events);
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
