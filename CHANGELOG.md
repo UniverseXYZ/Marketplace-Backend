@@ -1,3 +1,11 @@
+## [1.6.1](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.6.0...v1.6.1) (2022-03-21)
+
+
+### Bug Fixes
+
+* **orders:** ending soon order ([9bd1f93](https://github.com/UniverseXYZ/Marketplace-Backend/commit/9bd1f93bf868f6c12ea9f602afee83beb101bd51))
+* **orders:** remove debug code ([c35d925](https://github.com/UniverseXYZ/Marketplace-Backend/commit/c35d92525c8f73ed76583d0853e402ae25af4867))
+
 # [1.6.0](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.5.0...v1.6.0) (2022-03-18)
 
 
