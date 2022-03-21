@@ -1,3 +1,11 @@
+## [1.6.2](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.6.1...v1.6.2) (2022-03-21)
+
+
+### Bug Fixes
+
+* **floor-price:** Only get floor price from ETH listings ([803b8da](https://github.com/UniverseXYZ/Marketplace-Backend/commit/803b8dae70b9beddc9dd2be2aefe9a840e03afa4))
+* **order-stalling:** fix listing stalling when offer is accepted ([198f283](https://github.com/UniverseXYZ/Marketplace-Backend/commit/198f283ed2b086d43f6fe00b1ab00a761f894a9d))
+
 ## [1.6.1](https://github.com/UniverseXYZ/Marketplace-Backend/compare/v1.6.0...v1.6.1) (2022-03-21)
 
 
