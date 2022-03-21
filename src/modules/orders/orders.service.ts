@@ -1243,6 +1243,9 @@ export class OrdersService {
       .andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
         contract: collection.toLowerCase(),
       })
+      .andWhere(`take->'assetType'->>'assetClass' = :assetClass`, {
+        assetClass: AssetClass.ETH,
+      })
       .addSelect("CAST(take->>'value' as DECIMAL)", 'value_decimal')
       .orderBy('value_decimal', 'ASC')
       .getOne();
