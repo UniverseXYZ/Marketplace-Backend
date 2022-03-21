@@ -88,6 +88,25 @@ export class OrdersService {
 
     const order = this.convertToOrder(data);
 
+    // Check if order for the nft already exists
+    if (order.side === OrderSide.SELL) {
+      const existingOrder = await this.orderRepository
+        .createQueryBuilder('order')
+        .where('side = :side', { side: OrderSide.SELL })
+        .where('status = :status', { status: OrderStatus.CREATED })
+        .andWhere(`make->'assetType'->>'tokenId' = :tokenId`, {
+          tokenId: order.make.assetType.tokenId,
+        })
+        .andWhere(`LOWER(make->'assetType'->>'contract') = :contract`, {
+          contract: order.make.assetType.contract.toLowerCase(),
+        })
+        .getOne();
+
+      if (existingOrder) {
+        throw new MarketplaceException(constants.ORDER_ALREADY_EXISTS);
+      }
+    }
+
     // Sell orders cannot have ETH as the asset.
     if (
       OrderSide.SELL === order.side &&
