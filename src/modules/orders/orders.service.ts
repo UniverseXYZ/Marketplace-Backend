@@ -447,9 +447,10 @@ export class OrdersService {
 
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
+        console.log('aaaaaa');
         const utcTimestamp = Utils.getUtcTimestamp();
         queryBuilder
-          .orderBy(`(case when order.end - :endingSoon >= 0 then 1 else 2 end)`)
+          .orderBy(`order.end`, 'DESC')
           .setParameters({ endingSoon: utcTimestamp });
         break;
       case SortOrderOptionsEnum.HighestPrice:
@@ -623,7 +624,7 @@ export class OrdersService {
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
         queryBuilder
-          .orderBy(`(case when order.end - :endingSoon >= 0 then 1 else 2 end)`)
+          .orderBy('case order.end when 0 then 2 else 1 end, order.end')
           .setParameters({ endingSoon: utcTimestamp });
         break;
       case SortOrderOptionsEnum.HighestPrice:

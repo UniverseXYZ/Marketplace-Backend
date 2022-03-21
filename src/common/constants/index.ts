@@ -25,5 +25,5 @@ export const constants = {
   INVALID_ASSET_CLASS: 'Invalid asset class.',
   ORDER_ALREADY_FILLED_ERROR: 'Order has been filled.',
   NFT_ALLOWANCE_ERROR:
-    'Some NFTs are not approved to be transferred or not awned by maker.',
+    'Some NFTs are not approved to be transferred or not owned by maker.',
 };
