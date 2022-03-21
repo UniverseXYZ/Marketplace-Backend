@@ -870,18 +870,24 @@ export class OrdersService {
             leftOrder.matchedTxHash = event.txHash;
 
             // Populate taker
-            let orderMaker = '';
             if (leftOrder.make.assetType.tokenId) {
-              orderMaker = leftOrder.maker;
+              const orderMaker = leftOrder.maker;
+              if (orderMaker.toLowerCase() === event.leftMaker.toLowerCase()) {
+                leftOrder.taker = event.rightMaker.toLowerCase();
+              } else {
+                leftOrder.taker = event.leftMaker.toLowerCase();
+              }
             } else if (leftOrder.take.assetType.tokenId) {
-              orderMaker = leftOrder.taker;
-            }
-
-            // The taker adress will always be the one who isn't the order maker
-            if (event.leftMaker.toLowerCase() !== orderMaker) {
-              leftOrder.taker = event.leftMaker;
+              const orderTaker = leftOrder.maker;
+              if (orderTaker.toLowerCase() === event.leftMaker.toLowerCase()) {
+                leftOrder.taker = event.rightMaker.toLowerCase();
+              } else {
+                leftOrder.taker = event.leftMaker.toLowerCase();
+              }
             } else {
-              leftOrder.taker = event.rightMaker;
+              throw new MarketplaceException(
+                "Invalid left order. Doesn't contain nft info.",
+              );
             }
             await this.orderRepository.save(leftOrder);
 
