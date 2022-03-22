@@ -862,7 +862,12 @@ export class OrdersService {
         });
 
         if (leftOrder) {
-          if (OrderStatus.CREATED == leftOrder.status) {
+          if (
+            OrderStatus.CREATED == leftOrder.status ||
+            // stale orders also need to be able to be marked as filled
+            // because of the Watchdog.
+            OrderStatus.STALE == leftOrder.status
+          ) {
             this.logger.log(
               `The matched order has been found. Order left hash: ${event.leftOrderHash}`,
             );
@@ -1095,12 +1100,26 @@ export class OrdersService {
     return value;
   }
 
+  /**
+   * Marks an order as stale.
+   * This method is intented to be called by the /internal/orders/track endpoint.
+   * @param event - event data from Alchemy.
+   * @returns void
+   */
   public async staleOrder(event: TrackOrderDto) {
     const { fromAddress, toAddress, address, erc721TokenId } = event;
     const matchedOne = await this.queryOne(address, erc721TokenId, fromAddress);
     if (!matchedOne) {
       this.logger.error(
         `Failed to find this order: contract: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
+      );
+      return;
+    }
+    if (OrderStatus.FILLED == matchedOne.status) {
+      this.logger.log(
+        `The order is already filled. Can't mark it as stale. Event: ${JSON.stringify(
+          event,
+        )}. Order: ${JSON.stringify(matchedOne)}`,
       );
       return;
     }
