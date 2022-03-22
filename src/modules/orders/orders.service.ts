@@ -890,6 +890,7 @@ export class OrdersService {
               );
             }
             await this.orderRepository.save(leftOrder);
+            this.checkUnsubscribe(leftOrder.maker);
 
             value[event.txHash] = 'success';
           } else if (OrderStatus.FILLED == leftOrder.status) {
@@ -898,6 +899,7 @@ export class OrdersService {
               `The matched order is already filled. Order left hash: ${event.leftOrderHash}`,
             );
             value[event.txHash] = 'success';
+            this.checkUnsubscribe(leftOrder.maker);
           } else {
             this.logger.log(
               `The matched order's status is already "${
@@ -1028,6 +1030,7 @@ export class OrdersService {
     if (sellOffers.length) {
       sellOffers.forEach((offer) => {
         offer.status = OrderStatus.STALE;
+        this.checkUnsubscribe(offer.maker);
       });
       await this.orderRepository.save(sellOffers);
     }
@@ -1068,6 +1071,7 @@ export class OrdersService {
           .execute();
 
         value[event.txHash] = queryResult.affected ? 'success' : 'not found';
+        this.checkUnsubscribe(event.leftMaker);
 
         if (queryResult.affected) {
           this.logger.log(
@@ -1096,7 +1100,7 @@ export class OrdersService {
     const matchedOne = await this.queryOne(address, erc721TokenId, fromAddress);
     if (!matchedOne) {
       this.logger.error(
-        `Failed to find this order: nft: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
+        `Failed to find this order: contract: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
       );
       return;
     }
@@ -1106,6 +1110,7 @@ export class OrdersService {
       { hash: matchedOne.hash },
       { status: OrderStatus.STALE },
     );
+    this.checkUnsubscribe(matchedOne.maker);
   }
 
   /**
@@ -1125,19 +1130,31 @@ export class OrdersService {
     return value;
   }
 
-  public async checkUnsubscribe(order: Order) {
+  /**
+   * This method checks if the passed wallet address has any active listings and,
+   * if not, makes a request to the Watchdog to unsubscribe this wallet from the
+   * list of monitored wallets.
+   * The Watchdog in its turn makes a request to alchemy to remove this wallet
+   * from the "webhook" and marks this address as CANCELLED in its table ("subscription" table).
+   * I.E. a wallet, once added to the Watchdog table, does not get removed.
+   * @param walletAddress - order.maker
+   * @returns void
+   */
+  public async checkUnsubscribe(walletAddress: string) {
+    walletAddress = walletAddress.toLowerCase();
+
     // if we are still interested in this address, don't unsubscribe
-    const pending_orders = await this.orderRepository.find({
+    const pendingOrders = await this.orderRepository.find({
       where: {
-        hash: order.hash,
+        maker: walletAddress,
         status: In([OrderStatus.CREATED, OrderStatus.PARTIALFILLED]),
       },
       take: 2,
     });
-    if (pending_orders.length === 0) {
+    if (pendingOrders.length === 0) {
       this.httpService
         .post(`${this.watchdogUrl}/unsubscribe/`, {
-          addresses: [order.maker.toLowerCase()],
+          addresses: [walletAddress],
           topic: 'NFT',
         })
         .subscribe({
