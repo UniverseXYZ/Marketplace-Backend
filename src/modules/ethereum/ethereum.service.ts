@@ -47,11 +47,18 @@ export class EthereumService {
       ? new ethers.providers.JsonRpcProvider(chainstackUrl, network)
       : undefined;
 
-    if (!infuraProvider && !alchemyProvider && !chainStackProvider) {
-      throw new Error('Infura project id and secret or alchemy token or chainstack url is not defined');
+    const quicknodeUrl: string = R.path(['QUICKNODE_URL'], config.values);
+    const quicknodeProvider: ethers.providers.JsonRpcProvider = quicknodeUrl
+      ? new ethers.providers.JsonRpcProvider(quicknodeUrl, network)
+      : undefined;
+
+    if (!infuraProvider && !alchemyProvider && !chainStackProvider && !quicknodeProvider) {
+      throw new Error(
+        'Infura project id and secret or alchemy token or chainstack url is not defined',
+      );
     }
     
-    const allProviders: ethers.providers.BaseProvider[] = [infuraProvider, alchemyProvider, chainStackProvider]
+    const allProviders: ethers.providers.BaseProvider[] = [infuraProvider, alchemyProvider, chainStackProvider, quicknodeProvider]
     const definedProviders: ethers.providers.BaseProvider[] = allProviders.filter(x => x !== undefined);
     const ethersProvider: ethers.providers.FallbackProvider = new ethers.providers.FallbackProvider(definedProviders, quorum);
 
