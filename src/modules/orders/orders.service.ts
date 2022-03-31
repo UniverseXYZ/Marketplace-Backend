@@ -911,7 +911,9 @@ export class OrdersService {
                 OrderStatus[leftOrder.status]
               }"`,
             );
-            value[event.txHash] = 'not found';
+            value[event.txHash] = `error: order has status ${
+              OrderStatus[leftOrder.status]
+            }`;
           }
 
           try {
@@ -923,7 +925,7 @@ export class OrdersService {
               'error marking related orders as stale: ' + e.message;
           }
         } else {
-          value[event.txHash] = 'not found or has wrong status';
+          value[event.txHash] = 'not found';
           this.logger.error(
             `The matched order is not found in database. Order left hash: ${event.leftOrderHash}`,
           );
