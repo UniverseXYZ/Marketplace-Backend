@@ -87,6 +87,7 @@ export class OrdersService {
     }
 
     const order = this.convertToOrder(data);
+    const utcTimestamp = Utils.getUtcTimestamp();
 
     // Check if order for the nft already exists
     if (order.side === OrderSide.SELL) {
@@ -94,6 +95,12 @@ export class OrdersService {
         .createQueryBuilder('order')
         .where('side = :side', { side: OrderSide.SELL })
         .where('status = :status', { status: OrderStatus.CREATED })
+        .andWhere(`(order.start = 0 OR order.start < :start)`, {
+          start: utcTimestamp,
+        })
+        .andWhere(`(order.end = 0 OR :end < order.end )`, {
+          end: utcTimestamp,
+        })
         .andWhere(`make->'assetType'->>'tokenId' = :tokenId`, {
           tokenId: order.make.assetType.tokenId,
         })
@@ -804,10 +811,17 @@ export class OrdersService {
    * @returns order
    */
   public async queryOne(contract: string, tokenId: string, maker = '') {
-    const queryBuilder = this.orderRepository.createQueryBuilder();
+    const utcTimestamp = Utils.getUtcTimestamp();
+    const queryBuilder = this.orderRepository.createQueryBuilder('order');
     queryBuilder.where('status = :status', { status: OrderStatus.CREATED });
 
     queryBuilder.andWhere('side = :side', { side: OrderSide.SELL });
+    queryBuilder.andWhere(`(order.start = 0 OR order.start < :start)`, {
+      start: utcTimestamp,
+    });
+    queryBuilder.andWhere(`(order.end = 0 OR :end < order.end )`, {
+      end: utcTimestamp,
+    });
 
     if (maker) {
       queryBuilder.andWhere('maker = :maker', { maker: maker.toLowerCase() });
@@ -911,7 +925,9 @@ export class OrdersService {
                 OrderStatus[leftOrder.status]
               }"`,
             );
-            value[event.txHash] = 'not found';
+            value[event.txHash] = `error: order has status ${
+              OrderStatus[leftOrder.status]
+            }`;
           }
 
           try {
@@ -923,7 +939,7 @@ export class OrdersService {
               'error marking related orders as stale: ' + e.message;
           }
         } else {
-          value[event.txHash] = 'not found or has wrong status';
+          value[event.txHash] = 'not found';
           this.logger.error(
             `The matched order is not found in database. Order left hash: ${event.leftOrderHash}`,
           );
