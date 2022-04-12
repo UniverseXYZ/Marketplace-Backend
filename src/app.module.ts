@@ -10,6 +10,9 @@ import { EthereumModule } from './modules/ethereum/ethereum.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { CoingeckoModule } from './modules/coingecko/coingecko.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MongooseModule } from '@nestjs/mongoose';
+import { MongoDatabaseService } from './modules/mongo-database/mongo-database.service';
+import { MongoDatabaseModule } from './modules/mongo-database/mongo-database.module';
 
 @Module({
   imports: [
@@ -23,6 +26,10 @@ import { ScheduleModule } from '@nestjs/schedule';
     TypeOrmModule.forRootAsync({
       imports: [DatabaseModule],
       useExisting: TypeOrmDefaultConfigService,
+    }),
+    MongooseModule.forRootAsync({
+      imports: [MongoDatabaseModule],
+      useExisting: MongoDatabaseService,
     }),
     HealthModule,
     EthereumModule,
