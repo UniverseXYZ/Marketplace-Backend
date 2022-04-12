@@ -18,9 +18,10 @@ import {
   GetSaltParamsDto,
 } from './order.dto';
 import { OrderStatus } from './order.types';
-import { OrdersService } from './orders.service';
+// import { OrdersService } from './orders.service';
 import { BaseController } from '../../common/base.controller';
 import { MarketplaceValidationPipe } from '../../common/pipes/marketplace-validation.pipe';
+import { OrdersService } from './mongo-orders.service';
 
 @Controller('orders')
 @ApiTags('Orderbook')

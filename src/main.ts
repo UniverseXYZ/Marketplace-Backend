@@ -24,7 +24,7 @@ async function bootstrap() {
 
   // Middlewares
   app.use(helmet());
-
+  app.enableCors({ methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS' });
   // Swagger Documentation
   const options = new DocumentBuilder()
     .setTitle('Universe Marcketplace API')
