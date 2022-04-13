@@ -80,8 +80,11 @@ export class Order {
   @Column('varchar', { nullable: true })
   cancelledTxHash?: string;
 
-  @Column('varchar', { nullable: true })
-  matchedTxHash?: string;
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+  })
+  matchedTxHash?: any;
 
   // @Column()
   // makePriceUsd: number;
