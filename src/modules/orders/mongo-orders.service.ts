@@ -526,7 +526,8 @@ export class OrdersService {
     let aggregation = [] as any;
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
-        sort.end = -1;
+        aggregation = this.addEndSortingAggregation();
+        sort.orderSort = 1;
         break;
       case SortOrderOptionsEnum.HighestPrice:
         aggregation = this.addPriceSortingAggregation(OrderSide.SELL);
@@ -543,6 +544,7 @@ export class OrdersService {
         sort.createdAt = -1;
         break;
     }
+
     // _id is unique and will return consistent sorting
     // results because other sorting params are not unique
     sort = {
@@ -571,6 +573,18 @@ export class OrdersService {
 
       return [items, count];
     }
+
+    const [items, count] = await Promise.all([
+      this.ordersModel
+        .find({ $and: queryFilters })
+        .sort({ ...sort })
+        .skip(skippedItems)
+        .limit(query.limit),
+      this.ordersModel.countDocuments({ $and: queryFilters }),
+    ]);
+
+    return [items, count];
+
   }
 
   /**
@@ -755,7 +769,8 @@ export class OrdersService {
     let aggregation = [] as any;
     switch (Number(query.sortBy)) {
       case SortOrderOptionsEnum.EndingSoon:
-        sort.end = -1;
+        aggregation = this.addEndSortingAggregation();
+        sort.orderSort = 1;
         break;
       case SortOrderOptionsEnum.HighestPrice:
         aggregation = this.addPriceSortingAggregation(OrderSide.SELL);
@@ -814,7 +829,31 @@ export class OrdersService {
     return [items, count];
   }
 
-  public addPriceSortingAggregation(orderSide: OrderSide) {
+  private addEndSortingAggregation() {
+    // We want to show orders with offers in ascending order but also show offers without offers at the end
+    return [
+      {
+        $addFields: {
+          orderSort: {
+            $switch: {
+              branches: [
+                {
+                  case: {
+                    $eq: ['$end', 0],
+                  },
+                  // Workaround which is safe to use until year 2255
+                  then: Number.MAX_SAFE_INTEGER,
+                },
+              ],
+              default: '$end',
+            },
+          },
+        },
+      },
+    ];
+  }
+
+  private addPriceSortingAggregation(orderSide: OrderSide) {
     if (orderSide === OrderSide.BUY) {
       return [
         {
@@ -828,7 +867,7 @@ export class OrdersService {
                     },
                     then: {
                       $divide: [
-                        { $toDouble: '$make.value' },
+                        { $toDecimal: '$make.value' },
                         Math.pow(10, TOKEN_DECIMALS[TOKENS.ETH]) *
                           this.coingecko.tokenUsdValues[TOKENS.ETH],
                       ],
@@ -843,7 +882,7 @@ export class OrdersService {
                     },
                     then: {
                       $divide: [
-                        { $toDouble: '$make.value' },
+                        { $toDecimal: '$make.value' },
                         Math.pow(10, TOKEN_DECIMALS[TOKENS.DAI]) *
                           this.coingecko.tokenUsdValues[TOKENS.DAI],
                       ],
@@ -858,7 +897,7 @@ export class OrdersService {
                     },
                     then: {
                       $divide: [
-                        { $toDouble: '$make.value' },
+                        { $toDecimal: '$make.value' },
                         Math.pow(10, TOKEN_DECIMALS[TOKENS.WETH]) *
                           this.coingecko.tokenUsdValues[TOKENS.WETH],
                       ],
@@ -873,7 +912,7 @@ export class OrdersService {
                     },
                     then: {
                       $divide: [
-                        { $toDouble: '$make.value' },
+                        { $toDecimal: '$make.value' },
                         Math.pow(10, TOKEN_DECIMALS[TOKENS.USDC]) *
                           this.coingecko.tokenUsdValues[TOKENS.USDC],
                       ],
@@ -888,7 +927,7 @@ export class OrdersService {
                     },
                     then: {
                       $divide: [
-                        { $toDouble: '$make.value' },
+                        { $toDecimal: '$make.value' },
                         Math.pow(10, TOKEN_DECIMALS[TOKENS.XYZ]) *
                           this.coingecko.tokenUsdValues[TOKENS.XYZ],
                       ],
@@ -913,91 +952,14 @@ export class OrdersService {
                       $eq: ['$take.assetType.assetClass', AssetClass.ETH],
                     },
                     then: {
-                      $divide: [
-                        { $toDouble: '$take.value' },
-                        Math.pow(10, TOKEN_DECIMALS[TOKENS.ETH]) *
-                          this.coingecko.tokenUsdValues[TOKENS.ETH],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.DAI],
-                      ],
-                    },
-                    then: {
-                      $divide: [
-                        { $toDouble: '$take.value' },
-                        Math.pow(10, TOKEN_DECIMALS[TOKENS.DAI]) *
-                          this.coingecko.tokenUsdValues[TOKENS.DAI],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.WETH],
-                      ],
-                    },
-                    then: {
-                      $divide: [
-                        { $toDouble: '$take.value' },
-                        Math.pow(10, TOKEN_DECIMALS[TOKENS.WETH]) *
-                          this.coingecko.tokenUsdValues[TOKENS.WETH],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.USDC],
-                      ],
-                    },
-                    then: {
-                      $divide: [
-                        { $toDouble: '$take.value' },
-                        Math.pow(10, TOKEN_DECIMALS[TOKENS.USDC]) *
-                          this.coingecko.tokenUsdValues[TOKENS.USDC],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.XYZ],
-                      ],
-                    },
-                    then: {
-                      $divide: [
-                        { $toDouble: '$take.value' },
-                        Math.pow(10, TOKEN_DECIMALS[TOKENS.XYZ]) *
-                          this.coingecko.tokenUsdValues[TOKENS.XYZ],
-                      ],
-                    },
-                  },
-                ],
-                default: 0,
-              },
-            },
-            takeValue: { $toDouble: '$take.value' },
-            divideValue: {
-              $switch: {
-                branches: [
-                  {
-                    case: {
-                      $eq: ['$take.assetType.assetClass', AssetClass.ETH],
-                    },
-                    then: {
                       $multiply: [
-                        TOKEN_DECIMALS[TOKENS.ETH],
                         {
-                          $pow: [10, TOKEN_DECIMALS[TOKENS.ETH]],
+                          $divide: [
+                            { $toDecimal: '$take.value' },
+                            { $pow: [10, TOKEN_DECIMALS[TOKENS.ETH]] },
+                          ],
                         },
+                        this.coingecko.tokenUsdValues[TOKENS.ETH],
                       ],
                     },
                   },
@@ -1010,10 +972,13 @@ export class OrdersService {
                     },
                     then: {
                       $multiply: [
-                        TOKEN_DECIMALS[TOKENS.DAI],
                         {
-                          $pow: [10, TOKEN_DECIMALS[TOKENS.DAI]],
+                          $divide: [
+                            { $toDecimal: '$take.value' },
+                            { $pow: [10, TOKEN_DECIMALS[TOKENS.DAI]] },
+                          ],
                         },
+                        this.coingecko.tokenUsdValues[TOKENS.DAI],
                       ],
                     },
                   },
@@ -1026,10 +991,13 @@ export class OrdersService {
                     },
                     then: {
                       $multiply: [
-                        TOKEN_DECIMALS[TOKENS.WETH],
                         {
-                          $pow: [10, TOKEN_DECIMALS[TOKENS.WETH]],
+                          $divide: [
+                            { $toDecimal: '$take.value' },
+                            { $pow: [10, TOKEN_DECIMALS[TOKENS.WETH]] },
+                          ],
                         },
+                        this.coingecko.tokenUsdValues[TOKENS.WETH],
                       ],
                     },
                   },
@@ -1042,10 +1010,13 @@ export class OrdersService {
                     },
                     then: {
                       $multiply: [
-                        TOKEN_DECIMALS[TOKENS.USDC],
                         {
-                          $pow: [10, TOKEN_DECIMALS[TOKENS.USDC]],
+                          $divide: [
+                            { $toDecimal: '$take.value' },
+                            { $pow: [10, TOKEN_DECIMALS[TOKENS.USDC]] },
+                          ],
                         },
+                        this.coingecko.tokenUsdValues[TOKENS.USDC],
                       ],
                     },
                   },
@@ -1058,110 +1029,15 @@ export class OrdersService {
                     },
                     then: {
                       $multiply: [
-                        TOKEN_DECIMALS[TOKENS.XYZ],
                         {
-                          $pow: [10, TOKEN_DECIMALS[TOKENS.XYZ]],
+                          $divide: [
+                            { $toDecimal: '$take.value' },
+                            { $pow: [10, TOKEN_DECIMALS[TOKENS.XYZ]] },
+                          ],
                         },
+                        this.coingecko.tokenUsdValues[TOKENS.XYZ],
                       ],
                     },
-                  },
-                ],
-                default: 0,
-              },
-            },
-            coingeckoPrice: {
-              $switch: {
-                branches: [
-                  {
-                    case: {
-                      $eq: ['$take.assetType.assetClass', AssetClass.ETH],
-                    },
-                    then: this.coingecko.tokenUsdValues[TOKENS.ETH],
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.DAI],
-                      ],
-                    },
-                    then: this.coingecko.tokenUsdValues[TOKENS.DAI],
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.WETH],
-                      ],
-                    },
-                    then: this.coingecko.tokenUsdValues[TOKENS.WETH],
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.USDC],
-                      ],
-                    },
-                    then: this.coingecko.tokenUsdValues[TOKENS.USDC],
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.XYZ],
-                      ],
-                    },
-                    then: this.coingecko.tokenUsdValues[TOKENS.XYZ],
-                  },
-                ],
-                default: 0,
-              },
-            },
-            powValue: {
-              $switch: {
-                branches: [
-                  {
-                    case: {
-                      $eq: ['$take.assetType.assetClass', AssetClass.ETH],
-                    },
-                    then: Math.pow(10, TOKEN_DECIMALS[TOKENS.ETH]),
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.DAI],
-                      ],
-                    },
-                    then: Math.pow(10, TOKEN_DECIMALS[TOKENS.DAI]),
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.WETH],
-                      ],
-                    },
-                    then: Math.pow(10, TOKEN_DECIMALS[TOKENS.WETH]),
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.USDC],
-                      ],
-                    },
-                    then: Math.pow(10, TOKEN_DECIMALS[TOKENS.USDC]),
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.XYZ],
-                      ],
-                    },
-                    then: Math.pow(10, TOKEN_DECIMALS[TOKENS.XYZ]),
                   },
                 ],
                 default: 0,
@@ -1206,7 +1082,7 @@ export class OrdersService {
             _ud: -1,
           },
         },
-        { $limit: 1 }
+        { $limit: 1 },
       ]),
       this.ordersModel
         .findOne({
@@ -1483,7 +1359,7 @@ export class OrdersService {
     const value = {};
     for (const event of events) {
       try {
-        const queryResult = await this.ordersModel.updateOne(
+        const queryResult = await this.ordersModel.updateOne( 
           {
             hash: event.leftOrderHash,
             maker: event.leftMaker,
