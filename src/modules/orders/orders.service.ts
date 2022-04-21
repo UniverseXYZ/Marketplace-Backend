@@ -998,8 +998,9 @@ export class OrdersService {
       } catch (e) {
         value[event.txHash] = 'error: ' + e.message;
         this.logger.error(
-          `Error marking order as filled. Event: ${JSON.stringify(event)}`,
-          e,
+          `Error marking order as filled. Error: ${
+            e.message
+          }. Event: ${JSON.stringify(event)}`,
         );
       }
     }
@@ -1106,12 +1107,12 @@ export class OrdersService {
 
     if (sellOffers.length) {
       sellOffers.forEach((offer) => {
-
-        if(
+        if (
           AssetClass.ERC1155 === offer.make.assetType.assetClass &&
-          //it's always event.newLeftFill as the matching event here is assumed to be 
+          //it's always event.newLeftFill as the matching event here is assumed to be
           //a match against a buy order (an offer).
-          Number(offer.make.value) > Number(offer.fill) + Number(event.newLeftFill)
+          Number(offer.make.value) >
+            Number(offer.fill) + Number(event.newLeftFill)
         ) {
           offer.status = OrderStatus.PARTIALFILLED;
           offer.fill = '' + (Number(offer.fill) + Number(event.newLeftFill));
@@ -1543,13 +1544,13 @@ export class OrdersService {
        * This logic can be done in 2 ways:
        * 1. summing up all fills from the order.matchedTxHash property and adding the event's newRightFill (or newLeftFill).
        * 2. taking the order.fill property and adding the event's newRightFill (or newLeftFill) to it.
-       * I'm doing it the latter way because there's a case when a listing gets 
+       * I'm doing it the latter way because there's a case when a listing gets
        * partially filled by accepting an offer (buy order).
        * In this case the buy order has a transaction and the initial listing has nothing.
        * However the fill property of the initial listing gets updated inside markRelatedOrdersAsStale()
        * so had i chosen the #1 option, this function would drop that fill value of a listing.
        */
-      
+
       if (Array.isArray(matchedHashes)) {
         const existingHashes = matchedHashes.map((entry) => {
           // fill += Number(Object.values(entry)[0]);
