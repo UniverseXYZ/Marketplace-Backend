@@ -52,11 +52,11 @@ export class Order {
   @Prop({ trim: true })
   makeBalance: string;
 
-  @Prop({ trim: true })
+  @Prop({ trim: true, default: null })
   cancelledTxHash: string;
 
-  @Prop({ trim: true })
-  matchedTxHash: string;
+  @Prop({ type: Array, trim: true, default: null })
+  matchedTxHash: any[];
 }
 
 type OrderDocument = Order & Document;

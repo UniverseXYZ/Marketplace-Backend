@@ -186,8 +186,17 @@ export class DataLayerService implements IDataLayerService {
     contract: string,
   ) {
     const queryFilters = [
-      { status: OrderStatus.CREATED },
       { side: OrderSide.SELL },
+      {
+        $or: [
+          {
+            status: OrderStatus.CREATED,
+          },
+          {
+            status: OrderStatus.PARTIALFILLED,
+          },
+        ],
+      },
       {
         $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
       },
@@ -256,7 +265,9 @@ export class DataLayerService implements IDataLayerService {
 
     const queryFilters = {
       side: OrderSide.SELL,
-      status: OrderStatus.CREATED,
+      status: {
+        $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+      },
       maker: orderCreator.toLowerCase(),
       'make.assetType.tokenId': orderNftInfo.assetType.tokenId,
     } as any;
@@ -560,8 +571,10 @@ export class DataLayerService implements IDataLayerService {
       case (OrderSide.SELL, OrderSide.BUY):
         queryFilters = [
           {
-            status: OrderStatus.CREATED,
             side: query.side,
+            status: {
+              $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+            },
           },
           {
             $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
@@ -570,7 +583,13 @@ export class DataLayerService implements IDataLayerService {
         ];
         break;
       default:
-        queryFilters = [{ status: OrderStatus.CREATED }] as any;
+        queryFilters = [
+          {
+            status: {
+              $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+            },
+          },
+        ] as any;
         break;
     }
 
