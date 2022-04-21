@@ -264,7 +264,7 @@ export class OrdersService {
       status: OrderStatus.CREATED,
       side: 0,
       cancelledTxHash: '',
-      matchedTxHash: '',
+      matchedTxHash: null,
       hash: '',
     };
 
@@ -347,7 +347,19 @@ export class OrdersService {
 
     const skippedItems = (query.page - 1) * query.limit;
 
-    const queryFilters = [{ status: OrderStatus.CREATED }] as any;
+    // const queryFilters = [{ status: OrderStatus.CREATED }] as any;
+    const queryFilters = [
+      {
+        $or: [
+          {
+            status: OrderStatus.CREATED,
+          },
+          {
+            status: OrderStatus.PARTIALFILLED,
+          },
+        ],
+      },
+    ] as any;
 
     if (query.side) {
       const numberSide = Number(query.side);
@@ -584,7 +596,6 @@ export class OrdersService {
     ]);
 
     return [items, count];
-
   }
 
   /**
@@ -605,8 +616,18 @@ export class OrdersService {
 
     const queryFilters = [
       {
-        status: OrderStatus.CREATED,
+        // status: OrderStatus.CREATED,
         side: OrderSide.SELL,
+      },
+      {
+        $or: [
+          {
+            status: OrderStatus.CREATED,
+          },
+          {
+            status: OrderStatus.PARTIALFILLED,
+          },
+        ],
       },
       {
         $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
@@ -1140,8 +1161,18 @@ export class OrdersService {
   public async queryOne(contract: string, tokenId: string, maker = '') {
     const utcTimestamp = Utils.getUtcTimestamp();
     const queryFilters = [
-      { status: OrderStatus.CREATED },
+      // { status: OrderStatus.CREATED },
       { side: OrderSide.SELL },
+      {
+        $or: [
+          {
+            status: OrderStatus.CREATED,
+          },
+          {
+            status: OrderStatus.PARTIALFILLED,
+          },
+        ],
+      },
       {
         $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
       },
@@ -1196,6 +1227,7 @@ export class OrdersService {
         if (leftOrder) {
           if (
             OrderStatus.CREATED == leftOrder.status ||
+            OrderStatus.PARTIALFILLED == leftOrder.status ||
             // stale orders also need to be able to be marked as filled
             // because of the Watchdog.
             OrderStatus.STALE == leftOrder.status
@@ -1203,8 +1235,17 @@ export class OrdersService {
             this.logger.log(
               `The matched order has been found. Order left hash: ${event.leftOrderHash}`,
             );
-            leftOrder.status = OrderStatus.FILLED;
-            leftOrder.matchedTxHash = event.txHash;
+
+            if (this.isPartialFill(leftOrder, event)) {
+              leftOrder.status = OrderStatus.PARTIALFILLED;
+              this.setPartialFill(leftOrder, event);
+            } else {
+              leftOrder.status = OrderStatus.FILLED;
+              leftOrder.fill = '0';
+            }
+
+            // leftOrder.matchedTxHash = event.txHash;
+            this.setMatchedTxHash(leftOrder, event);
 
             // Populate taker
             if (leftOrder.make.assetType.tokenId) {
@@ -1250,7 +1291,7 @@ export class OrdersService {
 
           try {
             //marking related orders as stale regardless of the status.
-            await this.markRelatedOrdersAsStale(leftOrder as Order);
+            await this.markRelatedOrdersAsStale(leftOrder as Order, event);
           } catch (e) {
             this.logger.error(`Error marking related orders as stale ${e}`);
             value[event.txHash] =
@@ -1265,7 +1306,9 @@ export class OrdersService {
       } catch (e) {
         value[event.txHash] = 'error: ' + e.message;
         this.logger.error(
-          `Error marking order as filled. Event: ${JSON.stringify(event)}`,
+          `Error marking order as filled. Error: ${
+            e.message
+          }. Event: ${JSON.stringify(event)}`,
         );
       }
     }
@@ -1301,7 +1344,7 @@ export class OrdersService {
     return [listingHistory, count];
   }
 
-  private async markRelatedOrdersAsStale(leftOrder: Order) {
+  private async markRelatedOrdersAsStale(leftOrder: Order, event: MatchOrder) {
     let orderNftInfo: Asset = null;
     let orderCreator = '';
 
@@ -1319,20 +1362,32 @@ export class OrdersService {
     }
 
     // 1. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
-    const queryFilters = {
-      side: OrderSide.SELL,
-      status: OrderStatus.CREATED,
-      maker: orderCreator.toLowerCase(),
-      'make.assetType.tokenId': orderNftInfo.assetType.tokenId,
-    } as any;
+    const queryFilters = [
+      { hash: { $ne: leftOrder.hash } },
+      { side: OrderSide.SELL },
+      {
+        $or: [
+          {
+            status: OrderStatus.CREATED,
+          },
+          {
+            status: OrderStatus.PARTIALFILLED,
+          },
+        ],
+      },
+      { maker: orderCreator.toLowerCase() },
+      { 'make.assetType.tokenId': orderNftInfo.assetType.tokenId },
+    ] as any;
 
     // ETH orders don't have contract
     if (orderNftInfo.assetType.contract) {
-      queryFilters['make.assetType.contract'] =
-        orderNftInfo.assetType.contract.toLowerCase();
+      queryFilters.push({
+        'make.assetType.contract':
+          orderNftInfo.assetType.contract.toLowerCase(),
+      });
     }
 
-    const sellOffers = await this.ordersModel.find({ ...queryFilters });
+    const sellOffers = await this.ordersModel.find({ $and: queryFilters });
 
     this.logger.log(
       `Found ${sellOffers.length} sell offers related to an order match`,
@@ -1340,8 +1395,19 @@ export class OrdersService {
 
     if (sellOffers.length) {
       sellOffers.forEach((offer) => {
-        offer.status = OrderStatus.STALE;
-        this.checkUnsubscribe(offer.maker);
+        if (
+          AssetClass.ERC1155 === offer.make.assetType.assetClass &&
+          //it's always event.newLeftFill as the matching event here is assumed to be
+          //a match against a buy order (an offer).
+          Number(offer.make.value) >
+            Number(offer.fill) + Number(event.newLeftFill)
+        ) {
+          offer.status = OrderStatus.PARTIALFILLED;
+          offer.fill = '' + (Number(offer.fill) + Number(event.newLeftFill));
+        } else {
+          offer.status = OrderStatus.STALE;
+          this.checkUnsubscribe(offer.maker);
+        }
       });
       await this.ordersModel.bulkSave(sellOffers);
     }
@@ -1359,7 +1425,7 @@ export class OrdersService {
     const value = {};
     for (const event of events) {
       try {
-        const queryResult = await this.ordersModel.updateOne( 
+        const queryResult = await this.ordersModel.updateOne(
           {
             hash: event.leftOrderHash,
             maker: event.leftMaker,
@@ -1622,5 +1688,143 @@ export class OrdersService {
     }
 
     return value;
+  }
+
+  /**
+   * This method returns whether or not the match event data indicates
+   * that the order is being partially filled.
+   * The order has to be a sell or buy order with assetClass = AssetClass.ERC1155.
+   * @param order
+   * @param event
+   * @returns {Boolean}
+   */
+  private isPartialFill(order: Order, event: MatchOrder) {
+    let value = false;
+
+    let originalValue = 0;
+    const alreadyFilled = parseInt(order.fill);
+
+    //if this is the original listing (SELL order)
+    if (
+      OrderSide.SELL === order.side &&
+      AssetClass.ERC1155 === order.make.assetType.assetClass
+    ) {
+      originalValue = parseInt(order.make.value);
+      if (originalValue > alreadyFilled + parseInt(event.newRightFill)) {
+        value = true;
+      }
+    } else if (
+      //if this is an offer (BUY order)
+      OrderSide.BUY === order.side &&
+      AssetClass.ERC1155 === order.take.assetType.assetClass
+    ) {
+      originalValue = parseInt(order.take.value);
+      if (originalValue > alreadyFilled + parseInt(event.newLeftFill)) {
+        value = true;
+      }
+    }
+
+    return value;
+  }
+
+  /**
+   * This method sets the matchedTxHash property on the order object.
+   * If the order is a ERC1155 order, matchedTxHash becomes an array
+   * of objects. Each objects has tx hash as the key and the amount of
+   * 1155 editions in the match event as the value.
+   * If the orderis not ERC1155, matchedTxHash is still an array with
+   * only 1 object with value = '1'.
+   * @param order
+   * @param event
+   * @returns void
+   */
+  private setMatchedTxHash(order: Order, event: MatchOrder) {
+    if (
+      AssetClass.ERC1155 === order.make.assetType.assetClass ||
+      AssetClass.ERC1155 === order.take.assetType.assetClass
+    ) {
+      let matchedHashes = order.matchedTxHash;
+      if (Array.isArray(matchedHashes)) {
+        // adding only unique tx hashes
+        const existingHashes = matchedHashes.map((entry) => {
+          return Object.keys(entry)[0];
+        });
+        if (!existingHashes.includes(event.txHash)) {
+          matchedHashes.push({
+            [event.txHash]:
+              OrderSide.SELL === order.side
+                ? event.newRightFill
+                : event.newLeftFill,
+          });
+        }
+      } else {
+        matchedHashes = [
+          {
+            [event.txHash]:
+              OrderSide.SELL === order.side
+                ? event.newRightFill
+                : event.newLeftFill,
+          },
+        ];
+      }
+
+      order.matchedTxHash = matchedHashes;
+    } else {
+      order.matchedTxHash = [
+        {
+          [event.txHash]: '1',
+        },
+      ];
+    }
+  }
+
+  /**
+   * This method set the fill property on the order object if the order is a ERC1155 order.
+   * It calculates the fill value from previous matches and adds the new event's fill
+   * to that value.
+   * "Fill" is the amount of 1155 editions that have been filled (bought) in an order.
+   * @param order
+   * @param event
+   * @returns void
+   */
+  private setPartialFill(order: Order, event: MatchOrder) {
+    if (
+      AssetClass.ERC1155 === order.make.assetType.assetClass ||
+      AssetClass.ERC1155 === order.take.assetType.assetClass
+    ) {
+      let fill = Number(order.fill);
+      const matchedHashes = order.matchedTxHash;
+
+      /**
+       * This logic can be done in 2 ways:
+       * 1. summing up all fills from the order.matchedTxHash property and adding the event's newRightFill (or newLeftFill).
+       * 2. taking the order.fill property and adding the event's newRightFill (or newLeftFill) to it.
+       * I'm doing it the latter way because there's a case when a listing gets
+       * partially filled by accepting an offer (buy order).
+       * In this case the buy order has a transaction and the initial listing has nothing.
+       * However the fill property of the initial listing gets updated inside markRelatedOrdersAsStale()
+       * so had i chosen the #1 option, this function would drop that fill value of a listing.
+       */
+
+      if (Array.isArray(matchedHashes)) {
+        const existingHashes = matchedHashes.map((entry) => {
+          // fill += Number(Object.values(entry)[0]);
+          return Object.keys(entry)[0];
+        });
+        if (!existingHashes.includes(event.txHash)) {
+          fill +=
+            OrderSide.SELL === order.side
+              ? Number(event.newRightFill)
+              : Number(event.newLeftFill);
+        }
+      } else {
+        fill +=
+          OrderSide.SELL === order.side
+            ? Number(event.newRightFill)
+            : Number(event.newLeftFill);
+      }
+
+      order.fill = '' + fill;
+    }
   }
 }
