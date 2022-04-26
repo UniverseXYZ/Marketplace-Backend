@@ -313,7 +313,7 @@ export class DataLayerService implements IDataLayerService {
 
   public async getErc1155OrdersToStale(
     contract: string,
-    tokenIds: Array<any>,
+    erc1155tokenIds: Array<any>,
     orderMaker: string,
     utcTimestamp: number,
   ) {
@@ -329,7 +329,7 @@ export class DataLayerService implements IDataLayerService {
         { 'make.assetType.contract': contract },
         {
           'make.assetType.tokenId': {
-            $in: tokenIds,
+            $in: erc1155tokenIds,
           },
         },
         {

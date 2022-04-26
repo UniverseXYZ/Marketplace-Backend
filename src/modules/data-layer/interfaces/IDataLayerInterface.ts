@@ -55,7 +55,7 @@ export interface IDataLayerService {
 
   getErc1155OrdersToStale(
     contract: string,
-    tokenIds: Array<any>,
+    erc1155tokenIds: Array<any>,
     orderMaker: string,
     utcTimestamp: number,
   )

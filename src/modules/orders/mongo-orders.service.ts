@@ -739,21 +739,13 @@ export class OrdersService {
     } else if (erc1155Metadata) {
       // if it is a ERC1155 token transfer
       const utcTimestamp = Utils.getUtcTimestamp();
-      const erc1155tokensAndValues = {};
-
-      erc1155Metadata.forEach((data) => {
-        if (erc1155tokensAndValues.hasOwnProperty(data.tokenId)) {
-          erc1155tokensAndValues[data.tokenId] =
-            '' +
-            (Number(erc1155tokensAndValues[data.tokenId]) + Number(data.value));
-        } else {
-          erc1155tokensAndValues[data.tokenId] = data.value;
-        }
+      const erc1155tokenIds = erc1155Metadata.map((data) => {
+        return data.tokenId;
       });
 
       const erc1155Orders = await this.dataLayerService.getErc1155OrdersToStale(
         address.toLowerCase(),
-        Object.keys(erc1155tokensAndValues),
+        erc1155tokenIds,
         fromAddress.toLowerCase(),
         utcTimestamp,
       );
@@ -797,7 +789,7 @@ export class OrdersService {
       if (!erc1155Orders.length) {
         this.logger.error(
           `Failed to find this order from alchemy: contract: ${address}, ERC1155 tokenIds: ${JSON.stringify(
-            Object.keys(erc1155tokensAndValues),
+            erc1155tokenIds,
           )}, from: ${fromAddress}, to: ${toAddress}`,
         );
       }
