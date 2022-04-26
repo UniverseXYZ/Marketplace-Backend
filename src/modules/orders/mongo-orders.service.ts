@@ -266,6 +266,7 @@ export class OrdersService {
       cancelledTxHash: '',
       matchedTxHash: null,
       hash: '',
+      erc1155TokenBalance: null,
     };
 
     if (NftTokens.includes(order.make.assetType.assetClass)) {
@@ -1477,29 +1478,117 @@ export class OrdersService {
    * @returns void
    */
   public async staleOrder(event: TrackOrderDto) {
-    const { fromAddress, toAddress, address, erc721TokenId } = event;
-    const matchedOne = await this.queryOne(address, erc721TokenId, fromAddress);
-    if (!matchedOne) {
-      this.logger.error(
-        `Failed to find this order: contract: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
-      );
-      return;
-    }
-    if (OrderStatus.FILLED == matchedOne.status) {
-      this.logger.log(
-        `The order is already filled. Can't mark it as stale. Event: ${JSON.stringify(
-          event,
-        )}. Order: ${JSON.stringify(matchedOne)}`,
-      );
-      return;
-    }
+    const { fromAddress, toAddress, address, erc721TokenId, erc1155Metadata } =
+      event;
 
-    this.logger.log(`Found matching order by alchemy: ${matchedOne.hash}`);
-    await this.ordersModel.updateOne(
-      { hash: matchedOne.hash },
-      { status: OrderStatus.STALE },
-    );
-    this.checkUnsubscribe(matchedOne.maker);
+    if (erc721TokenId) {
+      // if it is a ERC721 token transfer
+      const matchedOne = await this.queryOne(
+        address,
+        erc721TokenId,
+        fromAddress,
+      );
+      if (!matchedOne) {
+        this.logger.error(
+          `Failed to find this order: contract: ${address}, ERC721 tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
+        );
+        return;
+      }
+      if (OrderStatus.FILLED == matchedOne.status) {
+        this.logger.log(
+          `The order is already filled. Can't mark it as stale. Event: ${JSON.stringify(
+            event,
+          )}. Order: ${JSON.stringify(matchedOne)}`,
+        );
+        return;
+      }
+
+      this.logger.log(`
+        Found ERC721 matching order by alchemy: ${matchedOne.hash}
+      `);
+      await this.ordersModel.updateOne(
+        { hash: matchedOne.hash },
+        { status: OrderStatus.STALE },
+      );
+      this.checkUnsubscribe(matchedOne.maker);
+    } else if (erc1155Metadata) {
+      // if it is a ERC1155 token transfer
+      const utcTimestamp = Utils.getUtcTimestamp();
+      const erc1155tokensAndValues = {};
+
+      erc1155Metadata.forEach((data) => {
+        if (erc1155tokensAndValues.hasOwnProperty(data.tokenId)) {
+          erc1155tokensAndValues[data.tokenId] =
+            '' +
+            (Number(erc1155tokensAndValues[data.tokenId]) + Number(data.value));
+        } else {
+          erc1155tokensAndValues[data.tokenId] = data.value;
+        }
+      });
+
+      const erc1155Orders = await this.ordersModel.find({
+        $and: [
+          {
+            status: {
+              $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+            },
+          },
+          { side: OrderSide.SELL },
+          { maker: fromAddress.toLowerCase() },
+          { 'make.assetType.contract': address.toLowerCase() },
+          {
+            'make.assetType.tokenId': {
+              $in: Object.keys(erc1155tokensAndValues),
+            },
+          },
+          {
+            $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
+          },
+          { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
+        ],
+      });
+      erc1155Orders.forEach(async (order) => {
+        this.logger.log(`
+          Found ERC1155 order by alchemy: Hash: ${order.hash}
+        `);
+
+        const requiredAmount = Number(order.make.value) - Number(order.fill);
+        const erc1155TokenBalance =
+          await this.ethereumService.getErc1155TokenBalance(
+            address.toLowerCase(),
+            order.make.assetType.tokenId,
+            fromAddress.toLowerCase(),
+          );
+        if (BigInt(requiredAmount) > erc1155TokenBalance) {
+          // if the wallet address has token balance less than the required amount - mark this order as stale.
+          this.logger.log(
+            `Wallet ${fromAddress.toLowerCase()} has balance of ${erc1155TokenBalance} of ERC1155 token id ${
+              order.make.assetType.tokenId
+            } on contract ${address.toLowerCase()} which is less than required ${requiredAmount}. Marking this order as stale.`,
+          );
+
+          await this.ordersModel.updateOne(
+            { hash: order.hash },
+            { status: OrderStatus.STALE },
+          );
+          this.checkUnsubscribe(order.maker);
+        } else {
+          // if the wallet address has enough token balance - put this balance into order.erc1155TokenBalance
+          await this.ordersModel.updateOne(
+            { hash: order.hash },
+            { erc1155TokenBalance: erc1155TokenBalance.toString() },
+          );
+        }
+      });
+
+      if (!erc1155Orders.length) {
+        this.logger.error(
+          `Failed to find this order from alchemy: contract: ${address}, ERC1155 tokenIds: ${JSON.stringify(
+            Object.keys(erc1155tokensAndValues),
+          )}, from: ${fromAddress}, to: ${toAddress}`,
+        );
+      }
+    }
   }
 
   /**

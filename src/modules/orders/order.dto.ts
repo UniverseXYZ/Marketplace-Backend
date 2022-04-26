@@ -393,7 +393,7 @@ export class TrackOrderDto {
   toAddress: string;
   value: string;
   erc721TokenId: string;
-  erc1155Metadata: string;
+  erc1155Metadata: Array<any>;
   asset: string;
   category: string;
   address: string;
