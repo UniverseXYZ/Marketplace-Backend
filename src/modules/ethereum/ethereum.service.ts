@@ -136,7 +136,10 @@ export class EthereumService implements IEthereumService {
     takeAmount: string,
   ) {
     let value = BigNumber.from(0);
-    // @TODO check with Ryan and @Stan that make's asset class == ETH is not a bug but feature!
+    // "ETH" can only be TAKE'a asset class in case it is a direct buy from a listing.
+    // In this case transaction value is the ETH value from order.take.amount.
+    // There may be no situations when ETH is a MAKE's asset class, but it won't harm
+    // to leave if (makeClass === 'ETH') in this function.
     if (makeClass === 'ETH') {
       value = BigNumber.from(makeAmount);
     } else if (takeClass === 'ETH') {
@@ -149,6 +152,50 @@ export class EthereumService implements IEthereumService {
     //       .div(10000),
     //   );
     // }
+    return value;
+  }
+
+  /**
+   * Returns the balance of editions of a ERC1155 token for a wallet address.
+   * @param contractAddress
+   * @param tokenId
+   * @param walletAddress
+   * @returns {Promise<BigInt>}
+   */
+  public async getErc1155TokenBalance(
+    contractAddress: string,
+    tokenId: string,
+    walletAddress: string,
+  ): Promise<BigInt> {
+    let value = BigInt(0);
+
+    try {
+      if (
+        !constants.REGEX_ETHEREUM_ADDRESS.test(contractAddress) ||
+        !constants.REGEX_ETHEREUM_ADDRESS.test(walletAddress) ||
+        !constants.REGEX_TOKEN_ID.test(tokenId)
+      ) {
+        throw new Error(`Invalid input data.`);
+      }
+
+      const erc1155Contract = new ethers.Contract(
+        contractAddress,
+        erc1155ContractABI,
+        this.ether,
+      );
+
+      this.logger.log(`
+        Calling balanceOf() on ERC1155 contract ${contractAddress} with wallet ${walletAddress} and token ${tokenId}.
+      `);
+      value = await erc1155Contract.balanceOf(walletAddress, tokenId);
+    } catch (e) {
+      value = BigInt(0);
+      this.logger.error(e);
+      this.logger.error(`
+        Unable to get ERC1155 token balance for wallet ${walletAddress} on contract ${contractAddress} and tokenId ${tokenId}.
+      `);
+    }
+
     return value;
   }
 

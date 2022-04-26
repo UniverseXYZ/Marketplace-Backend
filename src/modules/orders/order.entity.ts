@@ -86,6 +86,11 @@ export class Order {
   })
   matchedTxHash?: any;
 
+  @Column('varchar', {
+    nullable: true,
+  })
+  erc1155TokenBalance?: string;
+
   // @Column()
   // makePriceUsd: number;
   // @Column()

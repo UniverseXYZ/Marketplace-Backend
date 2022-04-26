@@ -57,6 +57,9 @@ export class Order {
 
   @Prop({ type: Array, trim: true, default: null })
   matchedTxHash: any[];
+
+  @Prop({ trim: true, default: null })
+  erc1155TokenBalance: string;
 }
 
 type OrderDocument = Order & Document;

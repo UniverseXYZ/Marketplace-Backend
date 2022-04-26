@@ -27,6 +27,12 @@ export interface IEthereumService {
     takeAmount: string,
   );
 
+  getErc1155TokenBalance(
+    contractAddress: string,
+    tokenId: string,
+    walletAddress: string,
+  ): Promise<BigInt>;
+
   verifyAllowance(
     assetClass: AssetClass,
     walletAddress: string,

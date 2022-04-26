@@ -234,6 +234,13 @@ export class DataLayerService implements IDataLayerService {
     return await await this.ordersModel.bulkSave(newOrders);
   }
 
+  public async updateErc1155TokenBalance(order: any, newBalance: string) {
+    await this.ordersModel.updateOne(
+      { hash: order.hash },
+      { erc1155TokenBalance: newBalance },
+    );
+  }
+
   public async cancelOrder(event: CancelOrder) {
     return await this.ordersModel.updateOne(
       {
@@ -300,6 +307,35 @@ export class DataLayerService implements IDataLayerService {
         {
           $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }],
         },
+      ],
+    });
+  }
+
+  public async getErc1155OrdersToStale(
+    contract: string,
+    tokenIds: Array<any>,
+    orderMaker: string,
+    utcTimestamp: number,
+  ) {
+    return await this.ordersModel.find({
+      $and: [
+        {
+          status: {
+            $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+          },
+        },
+        { side: OrderSide.SELL },
+        { maker: orderMaker },
+        { 'make.assetType.contract': contract },
+        {
+          'make.assetType.tokenId': {
+            $in: tokenIds,
+          },
+        },
+        {
+          $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
+        },
+        { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
       ],
     });
   }

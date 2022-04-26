@@ -36,6 +36,8 @@ export interface IDataLayerService {
 
   updateMany(newOrders: any);
 
+  updateErc1155TokenBalance(order: any, newBalance: string);
+
   cancelOrder(event: CancelOrder);
 
   staleOrder(order: any);
@@ -50,6 +52,13 @@ export interface IDataLayerService {
     maker: string,
     utcTimestamp: number,
   );
+
+  getErc1155OrdersToStale(
+    contract: string,
+    tokenIds: Array<any>,
+    orderMaker: string,
+    utcTimestamp: number,
+  )
 
   fetchOrdersWithHigherPrice(orderWithLowerPrice: OrderDocument);
 
