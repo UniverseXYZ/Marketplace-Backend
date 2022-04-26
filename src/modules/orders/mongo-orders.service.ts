@@ -1559,12 +1559,12 @@ export class OrdersService {
             order.make.assetType.tokenId,
             fromAddress.toLowerCase(),
           );
-        if (BigInt(requiredAmount) > erc1155TokenBalance) {
-          // if the wallet address has token balance less than the required amount - mark this order as stale.
+        if (BigInt(0) == erc1155TokenBalance) {
+          // if the wallet has 0 editions of the token - mark the order as stale
           this.logger.log(
             `Wallet ${fromAddress.toLowerCase()} has balance of ${erc1155TokenBalance} of ERC1155 token id ${
               order.make.assetType.tokenId
-            } on contract ${address.toLowerCase()} which is less than required ${requiredAmount}. Marking this order as stale.`,
+            } on contract ${address.toLowerCase()}. Marking this order as stale.`,
           );
 
           await this.ordersModel.updateOne(
@@ -1572,8 +1572,14 @@ export class OrdersService {
             { status: OrderStatus.STALE },
           );
           this.checkUnsubscribe(order.maker);
-        } else {
-          // if the wallet address has enough token balance - put this balance into order.erc1155TokenBalance
+        } else if (BigInt(requiredAmount) > erc1155TokenBalance) {
+          // if the wallet address has lower token balance than required - put this balance into order.erc1155TokenBalance
+          this.logger.log(
+            `Wallet ${fromAddress.toLowerCase()} has balance of ${erc1155TokenBalance} of ERC1155 token id ${
+              order.make.assetType.tokenId
+            } on contract ${address.toLowerCase()} which is lower than required ${requiredAmount}. Writing balance to order.erc1155TokenBalance.`,
+          );
+
           await this.ordersModel.updateOne(
             { hash: order.hash },
             { erc1155TokenBalance: erc1155TokenBalance.toString() },
