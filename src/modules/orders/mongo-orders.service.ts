@@ -1514,9 +1514,10 @@ export class OrdersService {
     } else if (erc1155Metadata) {
       // if it is a ERC1155 token transfer
       const utcTimestamp = Utils.getUtcTimestamp();
-      const erc1155tokenIds = erc1155Metadata.map((data) => {
+      let erc1155tokenIds = erc1155Metadata.map((data) => {
         return data.tokenId;
       });
+      erc1155tokenIds = [...new Set(erc1155tokenIds)];
 
       const erc1155Orders = await this.ordersModel.find({
         $and: [
