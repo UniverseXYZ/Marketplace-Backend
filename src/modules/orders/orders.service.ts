@@ -292,10 +292,10 @@ export class OrdersService {
       start: leftOrder.start,
       end: leftOrder.end,
       data: {
-        dataType: prepareDto.revenueSplits?.length
+        dataType: leftOrder.data.revenueSplits?.length
           ? constants.ORDER_DATA
           : constants.DATA_TYPE_0X,
-        revenueSplits: prepareDto.revenueSplits,
+        revenueSplits: leftOrder.data.revenueSplits,
       },
     });
     return rightOrder;
