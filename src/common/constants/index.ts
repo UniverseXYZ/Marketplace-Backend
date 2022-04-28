@@ -18,6 +18,8 @@ export const constants = {
   INVALID_ORDER_TYPE_ERROR: 'Invalid order type.',
   INVALID_SELL_ORDER_ASSET_ERROR: 'Invalid sell order asset.',
   WALLET_ADDRESS_ERROR: 'Please provide a valid wallet address.',
+  TOKEN_ID_ERROR: 'Please provide a valid token id.',
+  FORBIDDEN_CHARACTERS_ERROR: 'Forbidden characters.',
   INVALID_SALT_ERROR: 'Invalid salt for the order.',
   INVALID_CONTRACT_ADDRESS: 'Invalid contract address.',
   INVALID_ORDER_SIDE: 'Invalid order side.',
