@@ -134,38 +134,38 @@ export class OrdersService {
 
     // verify signature
     const encodedOrder = this.encode(order);
-    // const signerAddress = this.ethereumService.verifyTypedData(
-    //   {
-    //     name: 'Exchange',
-    //     version: '2',
-    //     chainId: this.ethereumService.getChainId(),
-    //     verifyingContract: this.config.values.MARKETPLACE_CONTRACT,
-    //   },
-    //   Utils.types,
-    //   encodedOrder,
-    //   data.signature,
-    // );
-    // if (signerAddress.toLowerCase() !== data.maker.toLowerCase()) {
-    //   throw new MarketplaceException(constants.INVALID_SIGNATURE_ERROR);
-    // }
+    const signerAddress = this.ethereumService.verifyTypedData(
+      {
+        name: 'Exchange',
+        version: '2',
+        chainId: this.ethereumService.getChainId(),
+        verifyingContract: this.config.values.MARKETPLACE_CONTRACT,
+      },
+      Utils.types,
+      encodedOrder,
+      data.signature,
+    );
+    if (signerAddress.toLowerCase() !== data.maker.toLowerCase()) {
+      throw new MarketplaceException(constants.INVALID_SIGNATURE_ERROR);
+    }
 
     // verify allowance for SELL orders
-    // if (
-    //   OrderSide.SELL === order.side &&
-    //   !(await this.ethereumService.verifyAllowance(
-    //     data.make.assetType.assetClass,
-    //     data.maker,
-    //     AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass
-    //       ? data.make.assetType.contracts
-    //       : [data.make.assetType.contract],
-    //     AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass
-    //       ? data.make.assetType.tokenIds
-    //       : [[data.make.assetType.tokenId]],
-    //     data.make.value,
-    //   ))
-    // ) {
-    //   throw new MarketplaceException(constants.NFT_ALLOWANCE_ERROR);
-    // }
+    if (
+      OrderSide.SELL === order.side &&
+      !(await this.ethereumService.verifyAllowance(
+        data.make.assetType.assetClass,
+        data.maker,
+        AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass
+          ? data.make.assetType.contracts
+          : [data.make.assetType.contract],
+        AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass
+          ? data.make.assetType.tokenIds
+          : [[data.make.assetType.tokenId]],
+        data.make.value,
+      ))
+    ) {
+      throw new MarketplaceException(constants.NFT_ALLOWANCE_ERROR);
+    }
     // verify allowance for BUY orders.
     if (
       OrderSide.BUY === order.side &&
