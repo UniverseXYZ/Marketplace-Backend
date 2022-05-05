@@ -669,7 +669,6 @@ export class OrdersService {
         break;
     }
 
-    queryBuilder.addOrderBy('order.createdAt', 'DESC');
     const items = await queryBuilder
       .offset(skippedItems)
       .limit(query.limit)
