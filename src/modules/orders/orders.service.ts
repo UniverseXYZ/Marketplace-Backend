@@ -481,7 +481,7 @@ export class OrdersService {
         queryBuilder
           .addSelect(
             this.addPriceSortQuery(
-              Number(query.sortBy) == 0 ? OrderSide.BUY : OrderSide.SELL,
+              Number(query.side) === 0 ? OrderSide.BUY : OrderSide.SELL,
             ),
             'usd_value',
           )
@@ -491,7 +491,7 @@ export class OrdersService {
         queryBuilder
           .addSelect(
             this.addPriceSortQuery(
-              Number(query.sortBy) == 0 ? OrderSide.BUY : OrderSide.SELL,
+              Number(query.side) === 0 ? OrderSide.BUY : OrderSide.SELL,
             ),
             'usd_value',
           )
