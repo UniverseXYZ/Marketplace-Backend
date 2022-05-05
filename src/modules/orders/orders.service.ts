@@ -653,12 +653,12 @@ export class OrdersService {
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.BUY), 'usd_value')
           .orderBy('usd_value', 'DESC');
         break;
       case SortOrderOptionsEnum.LowestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.BUY), 'usd_value')
           .orderBy('usd_value', 'ASC');
         break;
       case SortOrderOptionsEnum.RecentlyListed:
