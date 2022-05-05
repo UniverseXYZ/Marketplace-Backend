@@ -89,12 +89,24 @@ export class OrdersService {
     const order = this.convertToOrder(data);
     const utcTimestamp = Utils.getUtcTimestamp();
 
+    // @TODO Remove when the support for bundles is added
+    if (AssetClass.ERC721_BUNDLE === order.make.assetType.assetClass) {
+      throw new MarketplaceException('Support for bundles is coming up...');
+    }
+
     // Check if order for the nft already exists
-    if (order.side === OrderSide.SELL) {
+    // @TODO add support for ERC721_BUNDLE
+    if (
+      order.side === OrderSide.SELL &&
+      AssetClass.ERC721_BUNDLE !== data.make.assetType.assetClass
+    ) {
       const existingOrder = await this.orderRepository
         .createQueryBuilder('order')
         .where('side = :side', { side: OrderSide.SELL })
-        .where('status = :status', { status: OrderStatus.CREATED })
+        .where('(status = :status1 OR status = :status2)', {
+          status1: OrderStatus.CREATED,
+          status2: OrderStatus.PARTIALFILLED,
+        })
         .andWhere(`(order.start = 0 OR order.start < :start)`, {
           start: utcTimestamp,
         })
@@ -251,7 +263,7 @@ export class OrdersService {
     const order = this.orderRepository.create({
       type: orderDto.type,
       maker: orderDto.maker.toLowerCase(),
-      taker: orderDto.taker,
+      taker: orderDto.taker.toLowerCase(),
       make: orderDto.make,
       take: orderDto.take,
       salt: orderDto.salt,

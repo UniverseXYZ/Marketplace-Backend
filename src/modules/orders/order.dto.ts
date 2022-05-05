@@ -2,12 +2,15 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   IsBooleanString,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsNumberString,
   IsOptional,
   IsString,
   Matches,
+  Max,
+  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -65,12 +68,16 @@ export class OrderDto {
   make: Asset;
 
   @IsString()
+  @Matches(constants.REGEX_ETHEREUM_ADDRESS, {
+    message: constants.WALLET_ADDRESS_ERROR,
+  })
   @ApiProperty({
     example: '0x0000000000000000000000000000000000000000',
-    description: 'The wallet address who you want to take this asset',
-    required: false,
+    description:
+      'The wallet address who you want to take this asset. Use ZERO_ADDRESS for left orders.',
+    required: true,
   })
-  taker?: string;
+  taker: string;
 
   @ApiProperty({
     example: {
@@ -96,6 +103,9 @@ export class OrderDto {
   salt: number;
 
   @IsNumber()
+  @IsInt()
+  @Min(0)
+  @Max(constants.MAX_LISTING_TIMESTAMP)
   @ApiProperty({
     example: 0,
     description: 'uint - order cannot be filled before this time',
@@ -104,6 +114,9 @@ export class OrderDto {
   start: number;
 
   @IsNumber()
+  @IsInt()
+  @Min(0)
+  @Max(constants.MAX_LISTING_TIMESTAMP)
   @ApiProperty({
     example: 0,
     description: 'uint - order cannot be filled after this time',
