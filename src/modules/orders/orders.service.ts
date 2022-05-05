@@ -479,12 +479,22 @@ export class OrdersService {
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
+          .addSelect(
+            this.addPriceSortQuery(
+              Number(query.sortBy) == 0 ? OrderSide.BUY : OrderSide.SELL,
+            ),
+            'usd_value',
+          )
           .orderBy('usd_value', 'DESC');
         break;
       case SortOrderOptionsEnum.LowestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
+          .addSelect(
+            this.addPriceSortQuery(
+              Number(query.sortBy) == 0 ? OrderSide.BUY : OrderSide.SELL,
+            ),
+            'usd_value',
+          )
           .orderBy('usd_value', 'ASC');
         break;
       case SortOrderOptionsEnum.RecentlyListed:
@@ -494,7 +504,7 @@ export class OrdersService {
         queryBuilder.orderBy('order.createdAt', 'DESC');
         break;
     }
-    queryBuilder.addOrderBy('order.createdAt', 'DESC');
+
     const items = await queryBuilder
       .offset(skippedItems)
       .limit(query.limit)
@@ -653,12 +663,12 @@ export class OrdersService {
         break;
       case SortOrderOptionsEnum.HighestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(OrderSide.BUY), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
           .orderBy('usd_value', 'DESC');
         break;
       case SortOrderOptionsEnum.LowestPrice:
         queryBuilder
-          .addSelect(this.addPriceSortQuery(OrderSide.BUY), 'usd_value')
+          .addSelect(this.addPriceSortQuery(OrderSide.SELL), 'usd_value')
           .orderBy('usd_value', 'ASC');
         break;
       case SortOrderOptionsEnum.RecentlyListed:
