@@ -29,5 +29,6 @@ export const constants = {
   ORDER_ALREADY_FILLED_ERROR: 'Order has been filled.',
   NFT_ALLOWANCE_ERROR:
     'Some NFTs are not approved to be transferred or not owned by maker.',
-  ORDER_ALREADY_EXISTS: 'Order for this NFT already exists',
+  ORDER_ALREADY_EXISTS:
+    'NFT is already listed or has been scheduled for listing.',
 };

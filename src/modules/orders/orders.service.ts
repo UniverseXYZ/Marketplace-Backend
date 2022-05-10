@@ -107,9 +107,9 @@ export class OrdersService {
           status1: OrderStatus.CREATED,
           status2: OrderStatus.PARTIALFILLED,
         })
-        .andWhere(`(order.start = 0 OR order.start < :start)`, {
-          start: utcTimestamp,
-        })
+        // .andWhere(`(order.start = 0 OR order.start < :start)`, {
+        //   start: utcTimestamp,
+        // })
         .andWhere(`(order.end = 0 OR :end < order.end )`, {
           end: utcTimestamp,
         })
@@ -1136,7 +1136,31 @@ export class OrdersService {
    */
   public async staleOrder(event: TrackOrderDto) {
     const { fromAddress, toAddress, address, erc721TokenId } = event;
-    const matchedOne = await this.queryOne(address, erc721TokenId, fromAddress);
+    // const matchedOne = await this.queryOne(address, erc721TokenId, fromAddress);
+
+    // @TODO add support for ERC721_BUNDLE
+    const utcTimestamp = Utils.getUtcTimestamp();
+    const matchedOne = await this.orderRepository
+      .createQueryBuilder('order')
+      .where(
+        `
+          status = :status AND
+          maker = :maker AND
+          side = :side AND
+          (order.end = 0 OR :end < order.end ) AND
+          LOWER(make->'assetType'->>'contract') = :contract AND
+          make->'assetType'->>'tokenId' = :tokenId
+        `,
+        {
+          status: OrderStatus.CREATED,
+          maker: fromAddress.toLowerCase(),
+          side: OrderSide.SELL,
+          end: utcTimestamp,
+          contract: address.toLowerCase(),
+          tokenId: erc721TokenId,
+        },
+      )
+      .getOne();
     if (!matchedOne) {
       this.logger.error(
         `Failed to find this order: contract: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
