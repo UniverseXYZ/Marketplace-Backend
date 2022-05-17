@@ -2,11 +2,12 @@ import { AppConfig } from '../configuration/configuration.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import CoinGecko from 'coingecko-api';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DEV_TOKEN_ADDRESSES, PROD_TOKEN_ADDRESSES, TOKENS } from './tokens';
 
 @Injectable()
 export class CoingeckoService {
+  private logger;
   private coingeckoClient = null;
 
   public tokenUsdValues: { [key in TOKENS]: number } = {
@@ -26,6 +27,7 @@ export class CoingeckoService {
   };
 
   constructor(private readonly config: AppConfig) {
+    this.logger = new Logger(this.constructor.name);
     const client = new CoinGecko();
     this.coingeckoClient = client;
 
@@ -39,13 +41,16 @@ export class CoingeckoService {
 
   @Cron(CronExpression.EVERY_10_MINUTES)
   private async updatePrices() {
-    const [eth, dai, usdc, xyz, weth] = await Promise.all([
+    const [eth, dai, usdc, xyz, weth]: any = await Promise.all([
       this.coingeckoClient.coins.fetch(TOKENS.ETH),
       this.coingeckoClient.coins.fetch(TOKENS.DAI),
       this.coingeckoClient.coins.fetch(TOKENS.USDC),
       this.coingeckoClient.coins.fetch(TOKENS.XYZ),
       this.coingeckoClient.coins.fetch(TOKENS.WETH),
-    ]);
+    ]).catch((e) => {
+      this.logger.error('Could not update USD quotes for ERC20 tokens: ' + e);
+      return;
+    });
 
     const coinsList = {
       [TOKENS.ETH]: eth.data.market_data?.current_price?.usd,

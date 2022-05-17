@@ -31,29 +31,40 @@ export abstract class AbstractAssetType {
   @IsEnum(AssetClass)
   assetClass: AssetClass;
 
+  @Matches(constants.REGEX_ETHEREUM_ADDRESS, {
+    message: constants.WALLET_ADDRESS_ERROR,
+  })
   @IsString()
-  @IsOptional()
-  @ValidateIf((o) => o.assetClass !== AssetClass.ERC721_BUNDLE)
+  @ValidateIf(
+    (o) =>
+      o.assetClass !== AssetClass.ERC721_BUNDLE &&
+      o.assetClass !== AssetClass.ETH,
+  )
   contract?: string;
 
   @IsNumberString()
-  @IsOptional()
-  @ValidateIf((o) => o.assetClass !== AssetClass.ERC721_BUNDLE)
+  @ValidateIf(
+    (o) =>
+      o.assetClass === AssetClass.ERC721 || o.assetClass === AssetClass.ERC1155,
+  )
   tokenId?: string;
 
-  @IsArray()
-  @IsString({
+  @Matches(constants.REGEX_ETHEREUM_ADDRESS, {
+    message: constants.WALLET_ADDRESS_ERROR,
     each: true,
   })
+  @IsArray()
   @ValidateIf((o) => o.assetClass === AssetClass.ERC721_BUNDLE)
   contracts: string[];
 
-  @IsArray()
+  @IsArray({
+    each: true,
+  })
   @ValidateIf((o) => o.assetClass === AssetClass.ERC721_BUNDLE)
   tokenIds: string[][];
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
-    message: 'Forbidden characters.',
+    message: constants.FORBIDDEN_CHARACTERS_ERROR,
   })
   @IsOptional()
   @IsString()
@@ -62,7 +73,7 @@ export abstract class AbstractAssetType {
   bundleName?: string;
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
-    message: 'Forbidden characters.',
+    message: constants.FORBIDDEN_CHARACTERS_ERROR,
   })
   @IsOptional()
   @IsString()
@@ -90,7 +101,7 @@ export class BundleType implements IBundleType {
   tokenIds: string[][];
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
-    message: 'Forbidden characters.',
+    message: constants.FORBIDDEN_CHARACTERS_ERROR,
   })
   @IsOptional()
   @IsString()
@@ -98,7 +109,7 @@ export class BundleType implements IBundleType {
   bundleName?: string;
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
-    message: 'Forbidden characters.',
+    message: constants.FORBIDDEN_CHARACTERS_ERROR,
   })
   @IsOptional()
   @IsString()

@@ -7,6 +7,7 @@ export const constants = {
   DATA_TYPE_0X: '0x',
   ORDER_DATA: 'ORDER_DATA',
   ZERO_UUID: '00000000-0000-0000-0000-000000000000',
+  MAX_LISTING_TIMESTAMP: 2587683600, // January 01, 2052, 1am
 
   ORDER_TYPES: ['UNIVERSE_V1'],
 
@@ -18,6 +19,8 @@ export const constants = {
   INVALID_ORDER_TYPE_ERROR: 'Invalid order type.',
   INVALID_SELL_ORDER_ASSET_ERROR: 'Invalid sell order asset.',
   WALLET_ADDRESS_ERROR: 'Please provide a valid wallet address.',
+  TOKEN_ID_ERROR: 'Please provide a valid token id.',
+  FORBIDDEN_CHARACTERS_ERROR: 'Forbidden characters.',
   INVALID_SALT_ERROR: 'Invalid salt for the order.',
   INVALID_CONTRACT_ADDRESS: 'Invalid contract address.',
   INVALID_ORDER_SIDE: 'Invalid order side.',
@@ -26,5 +29,6 @@ export const constants = {
   ORDER_ALREADY_FILLED_ERROR: 'Order has been filled.',
   NFT_ALLOWANCE_ERROR:
     'Some NFTs are not approved to be transferred or not owned by maker.',
-  ORDER_ALREADY_EXISTS: 'Order for this NFT already exists',
+  ORDER_ALREADY_EXISTS:
+    'NFT is already listed or has been scheduled for listing.',
 };
