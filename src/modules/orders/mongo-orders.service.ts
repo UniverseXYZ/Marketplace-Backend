@@ -89,11 +89,20 @@ export class OrdersService {
     const order = this.convertToOrder(data);
     const utcTimestamp = Utils.getUtcTimestamp();
 
+    // @TODO Remove when the support for bundles is added
+    if (AssetClass.ERC721_BUNDLE === order.make.assetType.assetClass) {
+      throw new MarketplaceException('Support for bundles is coming up...');
+    }
+
     // Check if order for the nft already exists
-    if (order.side === OrderSide.SELL) {
+    // @TODO add support for ERC721_BUNDLE
+    if (
+      order.side === OrderSide.SELL &&
+      AssetClass.ERC721_BUNDLE !== data.make.assetType.assetClass
+    ) {
       const existingOrder = await this.ordersModel.findOne({
         side: OrderSide.SELL,
-        status: OrderStatus.CREATED,
+        status: { $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED] },
         make: {
           assetType: {
             tokenId: order.make.assetType.tokenId,
@@ -250,7 +259,7 @@ export class OrdersService {
     const order: Order = {
       type: orderDto.type,
       maker: orderDto.maker.toLowerCase(),
-      taker: orderDto.taker,
+      taker: orderDto.taker.toLowerCase(),
       make: orderDto.make,
       take: orderDto.take,
       salt: orderDto.salt,
@@ -584,7 +593,6 @@ export class OrdersService {
     ]);
 
     return [items, count];
-
   }
 
   /**
@@ -1359,7 +1367,7 @@ export class OrdersService {
     const value = {};
     for (const event of events) {
       try {
-        const queryResult = await this.ordersModel.updateOne( 
+        const queryResult = await this.ordersModel.updateOne(
           {
             hash: event.leftOrderHash,
             maker: event.leftMaker,
