@@ -106,15 +106,10 @@ export class OrdersService {
         make: {
           assetType: {
             tokenId: order.make.assetType.tokenId,
+            contract: order.make.assetType.contract.toLowerCase(),
           },
-          contract: order.make.assetType.contract.toLowerCase(),
         },
-        $and: [
-          {
-            $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
-          },
-          { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-        ],
+        $and: [{ $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] }],
       });
 
       if (existingOrder) {
@@ -1420,7 +1415,24 @@ export class OrdersService {
    */
   public async staleOrder(event: TrackOrderDto) {
     const { fromAddress, toAddress, address, erc721TokenId } = event;
-    const matchedOne = await this.queryOne(address, erc721TokenId, fromAddress);
+    // const matchedOne = await this.queryOne(address, erc721TokenId, fromAddress);
+
+    // @TODO add support for ERC721_BUNDLE
+    const utcTimestamp = Utils.getUtcTimestamp();
+    const matchedOne = await this.ordersModel.findOne({
+      $and: [
+        {
+          status: OrderStatus.CREATED,
+          side: OrderSide.SELL,
+          maker: fromAddress.toLowerCase(),
+          'make.assetType.contract': address.toLowerCase(),
+          'make.assetType.tokenId': erc721TokenId,
+        },
+        {
+          $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }],
+        },
+      ],
+    });
     if (!matchedOne) {
       this.logger.error(
         `Failed to find this order: contract: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
