@@ -109,12 +109,7 @@ export class OrdersService {
             contract: order.make.assetType.contract.toLowerCase(),
           },
         },
-        $and: [
-          // {
-          //   $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
-          // },
-          { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-        ],
+        $and: [{ $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] }],
       });
 
       if (existingOrder) {
