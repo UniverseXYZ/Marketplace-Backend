@@ -1,38 +1,30 @@
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { AttributesService } from './attributes.service';
-import { getModelToken } from '@nestjs/mongoose';
 import {
   NFTCollectionAttributes,
-  NFTCollectionAttributesDocument,
+  NFTCollectionAttributesrSchema,
 } from 'datascraper-schema';
-import { Model } from 'mongoose';
-
-const mockData: [string, Record<string, string>] = [
-  '0x69898c16f9153950cf07b9db36a0f3aeb2f51372',
-  {
-    DNA: 'human,elves',
-    head: 'pink punk head',
-  },
-];
+import { MongooseModule } from '@nestjs/mongoose';
+import {
+  rootMongooseTestModule,
+  closeInMongodConnection,
+} from '../../../test/DBhandler';
 
 describe('AttributesService', () => {
   let service: AttributesService;
 
-  const mockNftCollectionAttributesModel: Partial<
-    Model<NFTCollectionAttributesDocument>
-  > = {
-    aggregate: jest.fn().mockReturnThis(),
-  };
-
   beforeEach(async () => {
-    const module = await Test.createTestingModule({
-      providers: [
-        AttributesService,
-        {
-          provide: getModelToken(NFTCollectionAttributes.name),
-          useValue: mockNftCollectionAttributesModel,
-        },
+    const module: TestingModule = await Test.createTestingModule({
+      imports: [
+        rootMongooseTestModule(),
+        MongooseModule.forFeature([
+          {
+            name: NFTCollectionAttributes.name,
+            schema: NFTCollectionAttributesrSchema,
+          },
+        ]),
       ],
+      providers: [AttributesService],
     }).compile();
 
     service = module.get(AttributesService);
@@ -43,35 +35,38 @@ describe('AttributesService', () => {
   });
 
   describe('getTokenIdsByAttributes', () => {
-    it('should call aggregate with the correct query', async () => {
-      await service.getTokenIdsByAttributes(...mockData);
+    const documents = [
+      {
+        contractAddress: '0x2b7DD23595aC4c25e98dEf9D53ad2f455C6fE0E1',
+        attributes: {
+          dna: {
+            human: ['1', '2', '3'],
+            robot: ['4', '5', '6', '7'],
+          },
+        },
+      },
+      {
+        contractAddress: '0x69898c16f9153950cf07b9Db36A0f3AEb2F51372',
+        attributes: {
+          background: {
+            red: ['1', '2', '3'],
+            blue: ['4', '5', '6', '7'],
+          },
+        },
+      },
+    ];
 
-      expect(mockNftCollectionAttributesModel.aggregate).toBeCalledWith([
-        {
-          $match: {
-            contractAddress: '0x69898c16f9153950cf07b9db36a0f3aeb2f51372',
-          },
-        },
-        {
-          $project: {
-            tokens: {
-              $concatArrays: [
-                '$attributes.DNA.human',
-                '$attributes.DNA.elves',
-                '$attributes.head.pink punk head',
-              ],
-            },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            tokens: { $addToSet: '$tokens' },
-          },
-        },
-        { $unwind: '$tokens' },
-        { $unset: '_id' },
-      ]);
+    it('should return the correct token ids', async () => {
+      await service.nftCollectionAttributesModel.insertMany(documents);
+      const result = await service.getTokenIdsByAttributes(
+        '0x2b7DD23595aC4c25e98dEf9D53ad2f455C6fE0E1',
+        { dna: 'robot,human' },
+      );
+      expect(result).toEqual([{ tokens: ['4', '5', '6', '7', '1', '2', '3'] }]);
     });
+  });
+
+  afterAll(async () => {
+    await closeInMongodConnection();
   });
 });
