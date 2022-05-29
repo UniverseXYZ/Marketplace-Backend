@@ -33,26 +33,24 @@ export class AttributesService {
       });
     }
 
-    const tokenIds = await this.nftCollectionAttributesModel
-      .aggregate([
-        { $match: { contractAddress: collection } },
-        {
-          $project: {
-            tokens: {
-              $concatArrays: allTraitsArray,
-            },
+    const tokenIds = await this.nftCollectionAttributesModel.aggregate([
+      { $match: { contractAddress: collection } },
+      {
+        $project: {
+          tokens: {
+            $concatArrays: allTraitsArray,
           },
         },
-        {
-          $group: {
-            _id: null,
-            tokens: { $addToSet: '$tokens' },
-          },
+      },
+      {
+        $group: {
+          _id: null,
+          tokens: { $addToSet: '$tokens' },
         },
-        { $unwind: '$tokens' },
-        { $unset: '_id' },
-      ])
-      .collation({ locale: 'en', strength: 2 });
+      },
+      { $unwind: '$tokens' },
+      { $unset: '_id' },
+    ]);
 
     return tokenIds;
   }
