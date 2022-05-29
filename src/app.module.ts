@@ -13,6 +13,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongoDatabaseService } from './modules/mongo-database/mongo-database.service';
 import { MongoDatabaseModule } from './modules/mongo-database/mongo-database.module';
+import { AttributesModule } from './modules/attributes/attributes.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { MongoDatabaseModule } from './modules/mongo-database/mongo-database.mod
     HealthModule,
     EthereumModule,
     OrdersModule,
+    AttributesModule,
     CoingeckoModule,
     ScheduleModule.forRoot(),
   ],
