@@ -17,15 +17,8 @@ export class AttributesService {
     collection: string,
     traits: Record<string, string>,
   ): Promise<any> {
-    // * traits param should object like this:
-    // {
-    //   dna: 'human,elves',
-    //   background: 'green,red',
-    // }
-
     const allTraitsArray = [];
 
-    // construct fields for the database query
     for (const trait in traits) {
       traits[trait].split(',').forEach((type) => {
         const field = `$attributes.${trait}.${type}`;
