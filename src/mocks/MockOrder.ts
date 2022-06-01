@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-function */
 export class MockOrder {
   public findOne() {}
   public find() {}

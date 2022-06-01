@@ -91,15 +91,7 @@ export class OrdersService {
     // DTO does validate unexpected properties but if it's validating a value of multiple
     // types, i didn't find the way how to account for unexpected properties of the other type.
     // This has to happen before verifying the signature!
-    if (AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass) {
-      delete data.make.assetType.contract;
-      delete data.make.assetType.tokenId;
-    } else {
-      delete data.make.assetType.contracts;
-      delete data.make.assetType.tokenIds;
-      delete data.make.assetType.bundleName;
-      delete data.make.assetType.bundleDescription;
-    }
+    this.removeUnexpectedPropeties(data);
 
     const order = this.convertToOrder(data);
     const utcTimestamp = Utils.getUtcTimestamp();
@@ -187,6 +179,20 @@ export class OrdersService {
     // await this.staleOrdersWithHigherPrice(savedOrder);
     this.checkSubscribe(savedOrder.maker);
     return savedOrder;
+  }
+
+  public removeUnexpectedPropeties(data: CreateOrderDto) {
+    if (AssetClass.ERC721_BUNDLE === data.make.assetType.assetClass) {
+      delete data.make.assetType.contract;
+      delete data.make.assetType.tokenId;
+    } else {
+      delete data.make.assetType.contracts;
+      delete data.make.assetType.tokenIds;
+      delete data.make.assetType.bundleName;
+      delete data.make.assetType.bundleDescription;
+    }
+
+    return data;
   }
 
   public async prepareOrderExecution(hash: string, data: PrepareTxDto) {
@@ -342,8 +348,12 @@ export class OrdersService {
   }
 
   public async queryAll(query: QueryDto) {
-    query.page = Number(query.page) || 1;
-    query.limit = !Number(query.limit)
+    const isValidPageNumber = (number: number) =>
+      !isNaN(number) && Number(number) !== 0;
+
+    query.page = isValidPageNumber(query.page) ? Number(query.page) : 1;
+
+    query.limit = !isValidPageNumber(query.limit)
       ? constants.DEFAULT_LIMIT
       : Number(query.limit) <= constants.OFFSET_LIMIT
       ? Number(query.limit)
@@ -405,6 +415,7 @@ export class OrdersService {
    * @param tokenId nft token tokenId
    */
   public async fetchLastAndBestOffer(contract: string, tokenId: string) {
+    //TODO: Add these validations to all services with contract and token id params
     if (!constants.REGEX_ETHEREUM_ADDRESS.test(contract)) {
       throw new MarketplaceException(constants.INVALID_CONTRACT_ADDRESS);
     }
@@ -426,7 +437,7 @@ export class OrdersService {
       );
 
     return {
-      bestOffer: bestOffer[0] || null,
+      bestOffer: (bestOffer && bestOffer.length && bestOffer[0]) || null,
       lastOffer,
     };
   }

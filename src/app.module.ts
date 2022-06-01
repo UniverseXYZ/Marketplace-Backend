@@ -12,8 +12,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongoDatabaseService } from './modules/mongo-database/mongo-database.service';
 import { MongoDatabaseModule } from './modules/mongo-database/mongo-database.module';
-import { DataLayerModule } from './modules/data-layer/data-layer.module';
-import { DataLayerService } from './modules/data-layer/daya-layer.service';
 
 @Module({
   imports: [

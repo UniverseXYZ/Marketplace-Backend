@@ -23,6 +23,35 @@ export const validSellETHOrder: any = {
   type: 'UNIVERSE_V1',
   start: 0,
   end: 0,
+  side: OrderSide.SELL,
+  data: { dataType: 'ORDER_DATA', revenueSplits: [] },
+  signature:
+    '0x7f39b39e26410c73f4ea1a42c6fc92e593b0dbe9770d50adf253403ce57e9a500d0feab35aa3ef2bcadae17d867118707574653bb273d8a7e86a5358f24424731b',
+};
+
+export const validSellETHBundle: any = {
+  salt: validSalt,
+  maker: maker,
+  make: {
+    assetType: {
+      assetClass: AssetClass.ERC721_BUNDLE,
+      contracts: [
+        '0x5a322b56ed080c559da183b69aa720d19690eaf2',
+        '0x5a322b56ed080c559da183b69aa720d19690eaf3',
+      ],
+      tokenIds: ['1933', '1934'],
+    },
+    value: '1',
+  },
+  taker: '0x0000000000000000000000000000000000000000',
+  take: {
+    assetType: { assetClass: AssetClass.ETH },
+    value: '100000000000000000',
+  },
+  type: 'UNIVERSE_V1',
+  start: 0,
+  end: 0,
+  side: OrderSide.SELL,
   data: { dataType: 'ORDER_DATA', revenueSplits: [] },
   signature:
     '0x7f39b39e26410c73f4ea1a42c6fc92e593b0dbe9770d50adf253403ce57e9a500d0feab35aa3ef2bcadae17d867118707574653bb273d8a7e86a5358f24424731b',
@@ -47,6 +76,7 @@ export const invalidETHAssetClassSellETHOrder: any = {
   type: 'UNIVERSE_V1',
   start: 0,
   end: 0,
+  side: OrderSide.SELL,
   data: { dataType: 'ORDER_DATA', revenueSplits: [] },
   signature:
     '0x7f39b39e26410c73f4ea1a42c6fc92e593b0dbe9770d50adf253403ce57e9a500d0feab35aa3ef2bcadae17d867118707574653bb273d8a7e86a5358f24424731b',
@@ -74,6 +104,7 @@ export const validSellERC20Order: any = {
   type: 'UNIVERSE_V1',
   start: 0,
   end: 0,
+  side: OrderSide.SELL,
   data: { dataType: 'ORDER_DATA', revenueSplits: [] },
 };
 
@@ -100,6 +131,7 @@ export const validBuyERC20Order: any = {
   salt: validSalt,
   start: 0,
   end: 1651817780,
+  side: OrderSide.BUY,
   data: { dataType: 'ORDER_DATA', revenueSplits: [] },
   signature:
     '0x98cb14e26822f5c09981085bdb569e704f1a1aa4ad0a425dc3ad001a3cf0922c18e236879d095ca51d0a1ad5369e0c0a3112a9e91fae676f38f89234030737ef1c',
