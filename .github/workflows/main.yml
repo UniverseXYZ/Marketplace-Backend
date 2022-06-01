@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-    tags:        
+    tags:
       - dev*
       - alpha*
   pull_request:
@@ -17,166 +17,166 @@ env:
   ECR_REPOSITORY_EXISTS: ${{ secrets.ECR_REPOSITORY != '' }}
 
 jobs:
-  dump_contexts_to_log:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Dump GitHub context
-        id: github_context_step
-        run: echo '${{ toJSON(github) }}'
-      - name: Dump job context
-        run: echo '${{ toJSON(job) }}'
-      - name: Dump steps context
-        run: echo '${{ toJSON(steps) }}'
-      - name: Dump runner context
-        run: echo '${{ toJSON(runner) }}'
-      - name: Dump strategy context
-        run: echo '${{ toJSON(strategy) }}'
-      - name: Dump matrix context
-        run: echo '${{ toJSON(matrix) }}'
+  # dump_contexts_to_log:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Dump GitHub context
+  #       id: github_context_step
+  #       run: echo '${{ toJSON(github) }}'
+  #     - name: Dump job context
+  #       run: echo '${{ toJSON(job) }}'
+  #     - name: Dump steps context
+  #       run: echo '${{ toJSON(steps) }}'
+  #     - name: Dump runner context
+  #       run: echo '${{ toJSON(runner) }}'
+  #     - name: Dump strategy context
+  #       run: echo '${{ toJSON(strategy) }}'
+  #     - name: Dump matrix context
+  #       run: echo '${{ toJSON(matrix) }}'
 
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository code
-      uses: actions/checkout@v2
+      - name: Checkout repository code
+        uses: actions/checkout@v2
 
-    - name: Notify Slack
-      if: success()
-      id: slack
-      env:
-        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-      uses: voxmedia/github-action-slack-notify-build@v1
-      with:
-        channel: infra-ci-kekdao
-        status: ":pepegalight: STARTED"
-        color: warning
+      - name: Notify Slack
+        if: success()
+        id: slack
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        uses: voxmedia/github-action-slack-notify-build@v1
+        with:
+          channel: infra-ci-kekdao
+          status: ':pepegalight: STARTED'
+          color: warning
 
-    - name: Get branch name (merge)
-      if: ${{ (github.event_name != 'pull_request') && (github.ref_type != 'tag') }}
-      shell: bash
-      run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | tr / -)" >> $GITHUB_ENV
+      - name: Get branch name (merge)
+        if: ${{ (github.event_name != 'pull_request') && (github.ref_type != 'tag') }}
+        shell: bash
+        run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | tr / -)" >> $GITHUB_ENV
 
-    - name: Get branch name (pull request)
-      if: github.event_name == 'pull_request'
-      shell: bash
-      run: echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF}/${GITHUB_REF#refs/pull/} | tr / -)" >> $GITHUB_ENV
+      - name: Get branch name (pull request)
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF}/${GITHUB_REF#refs/pull/} | tr / -)" >> $GITHUB_ENV
 
-    - name: Get tag name
-      if: github.ref_type == 'tag'
-      shell: bash
-      run: echo "BRANCH_NAME=$(echo ${{ github.ref_name }})" >> $GITHUB_ENV
+      - name: Get tag name
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: echo "BRANCH_NAME=$(echo ${{ github.ref_name }})" >> $GITHUB_ENV
 
-    - name: Set version
-      id: vars
-      shell: bash
-      run: |
-        branchName=${{ env.BRANCH_NAME }}
-        prefix=$(echo "${branchName}-")
-        echo "IMAGE_TAG=$(echo $prefix)$(echo ${GITHUB_SHA} | cut -c1-7)"  >> $GITHUB_ENV
+      - name: Set version
+        id: vars
+        shell: bash
+        run: |
+          branchName=${{ env.BRANCH_NAME }}
+          prefix=$(echo "${branchName}-")
+          echo "IMAGE_TAG=$(echo $prefix)$(echo ${GITHUB_SHA} | cut -c1-7)"  >> $GITHUB_ENV
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Save ECR registry to env
-      shell: bash
-      run: |
-        echo "ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
+      - name: Save ECR registry to env
+        shell: bash
+        run: |
+          echo "ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
 
-    - name: Echo image tag
-      run: |
-        echo "Version to set in deployment manifests: ${IMAGE_TAG}"
+      - name: Echo image tag
+        run: |
+          echo "Version to set in deployment manifests: ${IMAGE_TAG}"
 
-    - name: Fetch Amazon ECR repo from secrets if exists
-      if: env.ECR_REPOSITORY_EXISTS == 'true'
-      run: echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}" >> $GITHUB_ENV
+      - name: Fetch Amazon ECR repo from secrets if exists
+        if: env.ECR_REPOSITORY_EXISTS == 'true'
+        run: echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}" >> $GITHUB_ENV
 
-    - name: Fetch Amazon ECR repo from repo name
-      if: env.ECR_REPOSITORY_EXISTS == 'false'
-      shell: bash
-      run: |
-        repoShortName=${GITHUB_REPOSITORY#*/}
-        repoShortNameLower=${repoShortName,,}
-        echo "ECR_REPOSITORY=${repoShortNameLower}" >> $GITHUB_ENV
+      - name: Fetch Amazon ECR repo from repo name
+        if: env.ECR_REPOSITORY_EXISTS == 'false'
+        shell: bash
+        run: |
+          repoShortName=${GITHUB_REPOSITORY#*/}
+          repoShortNameLower=${repoShortName,,}
+          echo "ECR_REPOSITORY=${repoShortNameLower}" >> $GITHUB_ENV
 
-    - name: Build, tag and push the image
-      run: |
-        docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ${GITHUB_WORKSPACE}
-        docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+      - name: Build, tag and push the image
+        run: |
+          docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ${GITHUB_WORKSPACE}
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
 
-    - name: Notify Slack success
-      if: success()
-      env:
-        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-      uses: voxmedia/github-action-slack-notify-build@v1
-      with:
-        message_id: ${{ steps.slack.outputs.message_id }}
-        channel: infra-ci-kekdao
-        status: ":white_check_mark: ${{ env.IMAGE_TAG }}"
-        color: good
+      - name: Notify Slack success
+        if: success()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        uses: voxmedia/github-action-slack-notify-build@v1
+        with:
+          message_id: ${{ steps.slack.outputs.message_id }}
+          channel: infra-ci-kekdao
+          status: ':white_check_mark: ${{ env.IMAGE_TAG }}'
+          color: good
 
-    - name: Notify Slack failure
-      if: failure()
-      env:
-        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-      uses: voxmedia/github-action-slack-notify-build@v1
-      with:
-        message_id: ${{ steps.slack.outputs.message_id }}
-        channel: infra-ci-kekdao
-        status: ":octagonal_sign: FAILED"
-        color: danger
+      - name: Notify Slack failure
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        uses: voxmedia/github-action-slack-notify-build@v1
+        with:
+          message_id: ${{ steps.slack.outputs.message_id }}
+          channel: infra-ci-kekdao
+          status: ':octagonal_sign: FAILED'
+          color: danger
 
-    - name: Logout from Amazon ECR
-      if: always()
-      run: |
-        docker logout ${{ steps.login-ecr.outputs.registry }}
+      - name: Logout from Amazon ECR
+        if: always()
+        run: |
+          docker logout ${{ steps.login-ecr.outputs.registry }}
 
-    # when a new release is created with tag starting with dev or alpha,
-    # CI will checkout eks-app repo, update img tag in corresponding environment overlay, and push
-    # this will trigger flux to upgrade pod, no manual step needed.
-    - name: Setup Kustomize
-      if: |
-        startsWith(github.ref_name, 'dev') ||
-        startsWith(github.ref_name, 'alpha')
-      uses: imranismail/setup-kustomize@v1
+      # when a new release is created with tag starting with dev or alpha,
+      # CI will checkout eks-app repo, update img tag in corresponding environment overlay, and push
+      # this will trigger flux to upgrade pod, no manual step needed.
+      - name: Setup Kustomize
+        if: |
+          startsWith(github.ref_name, 'dev') ||
+          startsWith(github.ref_name, 'alpha')
+        uses: imranismail/setup-kustomize@v1
 
-    - name: Checkout kek-infrastructure-eks-app repo
-      if: |
-        startsWith(github.ref_name, 'dev') ||
-        startsWith(github.ref_name, 'alpha')
-      uses: actions/checkout@v3
-      with:
-        repository: UniverseXYZ/kek-infrastructure-eks-app
-        ref: main
-        token: ${{ secrets.GH_CI_PAT }}  # GitHub CI Personal Access Token
-        path: kek-infrastructure-eks-app
+      - name: Checkout kek-infrastructure-eks-app repo
+        if: |
+          startsWith(github.ref_name, 'dev') ||
+          startsWith(github.ref_name, 'alpha')
+        uses: actions/checkout@v3
+        with:
+          repository: UniverseXYZ/kek-infrastructure-eks-app
+          ref: main
+          token: ${{ secrets.GH_CI_PAT }} # GitHub CI Personal Access Token
+          path: kek-infrastructure-eks-app
 
-    - name: update image tag in dev namespace
-      if: startsWith(github.ref_name, 'dev')
-      shell: bash
-      run: |
-        cd kek-infrastructure-eks-app/universe-apps/environments/dev
-        kustomize edit set image ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
-        git config --local user.email github-actions@github.com
-        git config --local user.name github-actions
-        git commit -am "[CI][${ECR_REPOSITORY}]update image tag to ${IMAGE_TAG}"
-        git push
+      - name: update image tag in dev namespace
+        if: startsWith(github.ref_name, 'dev')
+        shell: bash
+        run: |
+          cd kek-infrastructure-eks-app/universe-apps/environments/dev
+          kustomize edit set image ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+          git config --local user.email github-actions@github.com
+          git config --local user.name github-actions
+          git commit -am "[CI][${ECR_REPOSITORY}]update image tag to ${IMAGE_TAG}"
+          git push
 
-    - name: update image tag in alpha namespace
-      if: startsWith(github.ref_name, 'alpha')
-      shell: bash
-      run: |
-        cd kek-infrastructure-eks-app/universe-apps/environments/alpha
-        kustomize edit set image ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
-        git config --local user.email github-actions@github.com
-        git config --local user.name github-actions
-        git commit -am "[CI][${ECR_REPOSITORY}]update image tag to ${IMAGE_TAG}"
-        git push
+      - name: update image tag in alpha namespace
+        if: startsWith(github.ref_name, 'alpha')
+        shell: bash
+        run: |
+          cd kek-infrastructure-eks-app/universe-apps/environments/alpha
+          kustomize edit set image ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+          git config --local user.email github-actions@github.com
+          git config --local user.name github-actions
+          git commit -am "[CI][${ECR_REPOSITORY}]update image tag to ${IMAGE_TAG}"
+          git push
