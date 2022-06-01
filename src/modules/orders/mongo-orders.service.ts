@@ -191,7 +191,7 @@ export class OrdersService {
 
   public async prepareOrderExecution(hash: string, data: PrepareTxDto) {
     // 1. get sell/left order
-    const leftOrder = await this.getOrderByHash(hash);
+    const leftOrder = await this.dataLayerService.getOrderByHash(hash);
     if (leftOrder) {
       if (leftOrder.status !== OrderStatus.CREATED) {
         throw new MarketplaceException(constants.ORDER_ALREADY_FILLED_ERROR);
@@ -340,11 +340,6 @@ export class OrdersService {
     };
   }
 
-  public async getOrderByHash(hash: string) {
-    const order = await this.ordersModel.findOne({ hash });
-    return order;
-  }
-
   public async queryAll(query: QueryDto) {
     query.page = Number(query.page) || 1;
     query.limit = !Number(query.limit)
@@ -355,706 +350,54 @@ export class OrdersService {
 
     const skippedItems = (query.page - 1) * query.limit;
 
-    const queryFilters = [{ status: OrderStatus.CREATED }] as any;
+    const side = Number(query.side);
 
-    if (query.side) {
-      const numberSide = Number(query.side);
-      if (numberSide !== OrderSide.BUY && numberSide !== OrderSide.SELL) {
-        throw new MarketplaceException(constants.INVALID_ORDER_SIDE);
-      }
-      queryFilters.side = numberSide;
+    if (side && side !== OrderSide.BUY && side !== OrderSide.SELL) {
+      throw new MarketplaceException(constants.INVALID_ORDER_SIDE);
     }
 
     const utcTimestamp = Utils.getUtcTimestamp();
 
-    if (!!query.hasOffers) {
-      // Get all buy orders
-      const buyOffers = await this.ordersModel.find({
-        $and: [
-          {
-            status: OrderStatus.CREATED,
-            side: OrderSide.BUY,
-          },
-          {
-            $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
-          },
-          { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-        ],
-      });
+    const { prices, addresses, decimals } = this.getERC20TokensInfo();
 
-      const innerQuery = [];
-
-      // Search for any sell orders that have offers
-      buyOffers.forEach((offer) => {
-        // Offers(buy orders) have the nft info in 'take'
-        const tokenId = offer.take.assetType.tokenId;
-        const contract = offer.take.assetType.contract;
-        if (tokenId && contract) {
-          innerQuery.push({
-            make: {
-              assetType: {
-                tokenId: tokenId,
-              },
-              contract: contract.toLowerCase(),
-            },
-          });
-        }
-      });
-
-      // If query is empty --> there are no orders with offers
-      if (!innerQuery.length) {
-        return [[], 0];
-      }
-      queryFilters['$and'] = innerQuery;
-    }
-
-    if (query.maker) {
-      queryFilters.maker = query.maker.toLowerCase();
-    }
-
-    if (query.assetClass) {
-      const assetClasses = query.assetClass.replace(/\s/g, '').split(',');
-      queryFilters.push({
-        $or: [
-          {
-            'make.assetType.assetClass': {
-              $in: assetClasses,
-            },
-          },
-          {
-            'take.assetType.assetClass': {
-              $in: assetClasses,
-            },
-          },
-        ],
-      });
-    }
-
-    if (query.collection) {
-      const collections = query.collection
-        .split(',')
-        .map((c) => c.toLowerCase());
-
-      queryFilters.push({
-        $or: [
-          {
-            'make.assetType.contract': {
-              $in: collections,
-            },
-          },
-          {
-            'take.assetType.contract': {
-              $in: collections,
-            },
-          },
-          {
-            'make.assetType.contracts': {
-              $in: collections,
-            },
-          },
-          {
-            'take.assetType.contracts': {
-              $in: collections,
-            },
-          },
-        ],
-      });
-    }
-
-    if (query.tokenIds) {
-      const tokenIds = query.tokenIds.replace(/\s/g, '').split(',');
-
-      queryFilters.push({
-        $or: [
-          {
-            'make.assetType.tokenId': {
-              $in: tokenIds,
-            },
-          },
-          {
-            'take.assetType.tokenId': {
-              $in: tokenIds,
-            },
-          },
-          {
-            'make.assetType.tokenIds': {
-              $in: tokenIds,
-            },
-          },
-          {
-            'take.assetType.tokenIds': {
-              $in: tokenIds,
-            },
-          },
-        ],
-      });
-    }
-
-    if (query.beforeTimestamp) {
-      const milisecTimestamp = Number(query.beforeTimestamp) * 1000;
-      const utcDate = new Date(milisecTimestamp);
-
-      queryFilters.push({
-        createdAt: { $gt: utcDate.toDateString() },
-      });
-    }
-
-    if (query.token) {
-      if (query.token === constants.ZERO_ADDRESS) {
-        queryFilters.push({
-          'take.assetType.assetClass': AssetClass.ETH,
-        });
-      } else {
-        // REGEX SEARCH IS NOT PERFORMANT
-        // DOCUMENTDB DOESNT SUPPORT COLLATION INDICES
-        // query.token address MUST BE UPPERCASE CONTRACT ADDRESS
-        queryFilters.push({
-          'take.assetType.contract': query.token,
-        });
-      }
-    }
-
-    if (query.minPrice) {
-      const weiPrice = web3.utils.toWei(query.minPrice);
-
-      queryFilters.push({
-        $expr: { $gte: [{ $toInt: '$take.value' }, parseFloat(weiPrice)] },
-      });
-    }
-
-    if (query.maxPrice) {
-      const weiPrice = web3.utils.toWei(query.maxPrice);
-
-      queryFilters.push({
-        $expr: { $lte: [{ $toInt: '$take.value' }, parseFloat(weiPrice)] },
-      });
-    }
-
-    let sort = {} as any;
-    let aggregation = [] as any;
-    switch (Number(query.sortBy)) {
-      case SortOrderOptionsEnum.EndingSoon:
-        aggregation = this.addEndSortingAggregation();
-        sort.orderSort = 1;
-        break;
-      case SortOrderOptionsEnum.HighestPrice:
-        aggregation = this.addPriceSortingAggregation(OrderSide.SELL);
-        sort.usd_value = -1;
-        break;
-      case SortOrderOptionsEnum.LowestPrice:
-        aggregation = this.addPriceSortingAggregation(OrderSide.SELL);
-        sort.usd_value = 1;
-        break;
-      case SortOrderOptionsEnum.RecentlyListed:
-        sort.createdAt = -1;
-        break;
-      default:
-        sort.createdAt = -1;
-        break;
-    }
-
-    // _id is unique and will return consistent sorting
-    // results because other sorting params are not unique
-    sort = {
-      ...sort,
-      createdAt: -1,
-      _id: -1,
-    };
-
-    if (aggregation.length) {
-      aggregation = [
-        ...aggregation,
-        {
-          $match: { $and: queryFilters },
-        },
-        {
-          $sort: sort,
-        },
-        { $skip: skippedItems },
-        { $limit: query.limit },
-      ];
-
-      const [items, count] = await Promise.all([
-        this.ordersModel.aggregate(aggregation),
-        this.ordersModel.countDocuments({ $and: queryFilters }),
-      ]);
-
-      return [items, count];
-    }
-
-    const [items, count] = await Promise.all([
-      this.ordersModel
-        .find({ $and: queryFilters })
-        .sort({ ...sort })
-        .skip(skippedItems)
-        .limit(query.limit),
-      this.ordersModel.countDocuments({ $and: queryFilters }),
-    ]);
-
-    return [items, count];
+    return this.dataLayerService.queryAll(
+      query,
+      utcTimestamp,
+      skippedItems,
+      prices,
+      addresses,
+      decimals,
+    );
   }
 
-  /**
-   * Returns active sell orders
-   * @param query QueryDto
-   * @returns [Order[], number]
-   */
-  public async queryBrowsePage(query: QueryDto) {
-    query.page = Number(query.page) || 1;
-    query.limit = !Number(query.limit)
-      ? constants.DEFAULT_LIMIT
-      : Number(query.limit) <= constants.OFFSET_LIMIT
-      ? Number(query.limit)
-      : constants.OFFSET_LIMIT;
-
-    const skippedItems = (query.page - 1) * query.limit;
-    const utcTimestamp = Utils.getUtcTimestamp();
-
-    const queryFilters = [
-      {
-        status: OrderStatus.CREATED,
-        side: OrderSide.SELL,
-      },
-      {
-        $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
-      },
-      { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-    ] as any;
-
-    if (!!query.hasOffers) {
-      // Get all buy orders
-      const buyOffers = await this.ordersModel.find({
-        $and: [
-          {
-            status: OrderStatus.CREATED,
-            side: OrderSide.BUY,
-          },
-          {
-            $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
-          },
-          { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-        ],
-      });
-
-      // const queryText = '';
-      const innerQuery = [];
-
-      // Search for any sell orders that have offers
-      buyOffers.forEach((offer) => {
-        // Offers(buy orders) have the nft info in 'take'
-        const tokenId = offer.take.assetType.tokenId;
-        const contract = offer.take.assetType.contract;
-        if (tokenId && contract) {
-          innerQuery.push({
-            make: { assetType: { tokenId, contract } },
-          });
-        }
-      });
-
-      // If query is empty --> there are no orders with offers
-      if (!innerQuery.length) {
-        return [[], 0];
-      }
-      queryFilters.push({ $or: innerQuery });
-    }
-
-    if (query.maker) {
-      queryFilters.push({ maker: query.maker.toLowerCase() });
-    }
-
-    if (query.assetClass) {
-      const assetClasses = query.assetClass.replace(/\s/g, '').split(',');
-
-      queryFilters.push({
-        'make.assetType.assetClass': {
-          $in: assetClasses,
-        },
-      });
-    }
-
-    if (query.collection) {
-      const collections = query.collection
-        .split(',')
-        .map((c) => c.toLowerCase());
-
-      queryFilters.push({
-        $or: [
-          {
-            'make.assetType.contract': {
-              $in: collections,
-            },
-          },
-          {
-            'take.assetType.contract': {
-              $in: collections,
-            },
-          },
-          {
-            'make.assetType.contracts': {
-              $in: collections,
-            },
-          },
-          {
-            'take.assetType.contracts': {
-              $in: collections,
-            },
-          },
-        ],
-      });
-    }
-
-    if (query.tokenIds) {
-      const tokenIds = query.tokenIds.replace(/\s/g, '').split(',');
-
-      queryFilters.push({
-        $or: [
-          {
-            'make.assetType.tokenId': {
-              $in: tokenIds,
-            },
-          },
-          {
-            'take.assetType.tokenId': {
-              $in: tokenIds,
-            },
-          },
-          {
-            'make.assetType.tokenIds': {
-              $in: tokenIds,
-            },
-          },
-          {
-            'take.assetType.tokenIds': {
-              $in: tokenIds,
-            },
-          },
-        ],
-      });
-    }
-
-    if (query.beforeTimestamp) {
-      const milisecTimestamp = Number(query.beforeTimestamp) * 1000;
-      const utcDate = new Date(milisecTimestamp);
-
-      queryFilters.push({
-        createdAt: { $gt: utcDate.toDateString() },
-      });
-    }
-
-    if (query.token) {
-      if (query.token === constants.ZERO_ADDRESS) {
-        queryFilters.push({
-          'take.assetType.assetClass': AssetClass.ETH,
-        });
-      } else {
-        // REGEX SEARCH IS NOT PERFORMANT
-        // DOCUMENTDB DOESNT SUPPORT COLLATION INDICES
-        // query.token address MUST BE UPPERCASE CONTRACT ADDRESS
-        queryFilters.push({
-          'take.assetType.contract': query.token,
-        });
-      }
-    }
-
-    if (query.minPrice) {
-      const weiPrice = web3.utils.toWei(query.minPrice);
-
-      queryFilters.push({
-        $expr: { $gte: [{ $toInt: '$take.value' }, parseFloat(weiPrice)] },
-      });
-    }
-
-    if (query.maxPrice) {
-      const weiPrice = web3.utils.toWei(query.maxPrice);
-
-      queryFilters.push({
-        $expr: { $lte: [{ $toInt: '$take.value' }, parseFloat(weiPrice)] },
-      });
-    }
-
-    let sort = {} as any;
-    let aggregation = [] as any;
-    switch (Number(query.sortBy)) {
-      case SortOrderOptionsEnum.EndingSoon:
-        aggregation = this.addEndSortingAggregation();
-        sort.orderSort = 1;
-        break;
-      case SortOrderOptionsEnum.HighestPrice:
-        aggregation = this.addPriceSortingAggregation(OrderSide.SELL);
-        sort.usd_value = -1;
-        break;
-      case SortOrderOptionsEnum.LowestPrice:
-        aggregation = this.addPriceSortingAggregation(OrderSide.SELL);
-        sort.usd_value = 1;
-        break;
-      case SortOrderOptionsEnum.RecentlyListed:
-        sort.createdAt = -1;
-        break;
-      default:
-        sort.createdAt = -1;
-        break;
-    }
-
-    // _id is unique and will return consistent sorting
-    // results because other sorting params are not unique
-    sort = {
-      ...sort,
-      createdAt: -1,
-      _id: -1,
-    };
-
-    if (aggregation.length) {
-      aggregation = [
-        ...aggregation,
-        {
-          $match: { $and: queryFilters },
-        },
-        {
-          $sort: sort,
-        },
-        { $skip: skippedItems },
-        { $limit: query.limit },
-      ];
-
-      const [items, count] = await Promise.all([
-        this.ordersModel.aggregate(aggregation),
-        this.ordersModel.countDocuments({ $and: queryFilters }),
-      ]);
-
-      return [items, count];
-    }
-
-    const [items, count] = await Promise.all([
-      this.ordersModel
-        .find({ $and: queryFilters })
-        .sort({ ...sort })
-        .skip(skippedItems)
-        .limit(query.limit),
-      this.ordersModel.countDocuments({ $and: queryFilters }),
-    ]);
-
-    return [items, count];
-  }
-
-  private addEndSortingAggregation() {
-    // We want to show orders with offers in ascending order but also show offers without offers at the end
-    return [
-      {
-        $addFields: {
-          orderSort: {
-            $switch: {
-              branches: [
-                {
-                  case: {
-                    $eq: ['$end', 0],
-                  },
-                  // Workaround which is safe to use until year 2255
-                  then: Number.MAX_SAFE_INTEGER,
-                },
-              ],
-              default: '$end',
-            },
-          },
-        },
-      },
+  private getERC20TokensInfo() {
+    const prices = [
+      this.coingecko.tokenUsdValues[TOKENS.ETH],
+      this.coingecko.tokenUsdValues[TOKENS.USDC],
+      this.coingecko.tokenUsdValues[TOKENS.XYZ],
+      this.coingecko.tokenUsdValues[TOKENS.DAI],
+      this.coingecko.tokenUsdValues[TOKENS.WETH],
     ];
+
+    const addresses = [
+      this.coingecko.tokenAddresses[TOKENS.ETH],
+      this.coingecko.tokenAddresses[TOKENS.USDC],
+      this.coingecko.tokenAddresses[TOKENS.XYZ],
+      this.coingecko.tokenAddresses[TOKENS.DAI],
+      this.coingecko.tokenAddresses[TOKENS.WETH],
+    ];
+
+    const decimals = [
+      TOKEN_DECIMALS[TOKENS.ETH],
+      TOKEN_DECIMALS[TOKENS.USDC],
+      TOKEN_DECIMALS[TOKENS.XYZ],
+      TOKEN_DECIMALS[TOKENS.DAI],
+      TOKEN_DECIMALS[TOKENS.WETH],
+    ];
+
+    return { prices, addresses, decimals };
   }
 
-  private addPriceSortingAggregation(orderSide: OrderSide) {
-    if (orderSide === OrderSide.BUY) {
-      return [
-        {
-          $addFields: {
-            usd_value: {
-              $switch: {
-                branches: [
-                  {
-                    case: {
-                      $eq: ['$make.assetType.assetClass', AssetClass.ETH],
-                    },
-                    then: {
-                      $divide: [
-                        { $toDecimal: '$make.value' },
-                        Math.pow(10, TOKEN_DECIMALS[TOKENS.ETH]) *
-                          this.coingecko.tokenUsdValues[TOKENS.ETH],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$make.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.DAI],
-                      ],
-                    },
-                    then: {
-                      $divide: [
-                        { $toDecimal: '$make.value' },
-                        Math.pow(10, TOKEN_DECIMALS[TOKENS.DAI]) *
-                          this.coingecko.tokenUsdValues[TOKENS.DAI],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$make.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.WETH],
-                      ],
-                    },
-                    then: {
-                      $divide: [
-                        { $toDecimal: '$make.value' },
-                        Math.pow(10, TOKEN_DECIMALS[TOKENS.WETH]) *
-                          this.coingecko.tokenUsdValues[TOKENS.WETH],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$make.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.USDC],
-                      ],
-                    },
-                    then: {
-                      $divide: [
-                        { $toDecimal: '$make.value' },
-                        Math.pow(10, TOKEN_DECIMALS[TOKENS.USDC]) *
-                          this.coingecko.tokenUsdValues[TOKENS.USDC],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$make.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.XYZ],
-                      ],
-                    },
-                    then: {
-                      $divide: [
-                        { $toDecimal: '$make.value' },
-                        Math.pow(10, TOKEN_DECIMALS[TOKENS.XYZ]) *
-                          this.coingecko.tokenUsdValues[TOKENS.XYZ],
-                      ],
-                    },
-                  },
-                ],
-                default: 0,
-              },
-            },
-          },
-        },
-      ];
-    } else {
-      return [
-        {
-          $addFields: {
-            usd_value: {
-              $switch: {
-                branches: [
-                  {
-                    case: {
-                      $eq: ['$take.assetType.assetClass', AssetClass.ETH],
-                    },
-                    then: {
-                      $multiply: [
-                        {
-                          $divide: [
-                            { $toDecimal: '$take.value' },
-                            { $pow: [10, TOKEN_DECIMALS[TOKENS.ETH]] },
-                          ],
-                        },
-                        this.coingecko.tokenUsdValues[TOKENS.ETH],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.DAI],
-                      ],
-                    },
-                    then: {
-                      $multiply: [
-                        {
-                          $divide: [
-                            { $toDecimal: '$take.value' },
-                            { $pow: [10, TOKEN_DECIMALS[TOKENS.DAI]] },
-                          ],
-                        },
-                        this.coingecko.tokenUsdValues[TOKENS.DAI],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.WETH],
-                      ],
-                    },
-                    then: {
-                      $multiply: [
-                        {
-                          $divide: [
-                            { $toDecimal: '$take.value' },
-                            { $pow: [10, TOKEN_DECIMALS[TOKENS.WETH]] },
-                          ],
-                        },
-                        this.coingecko.tokenUsdValues[TOKENS.WETH],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.USDC],
-                      ],
-                    },
-                    then: {
-                      $multiply: [
-                        {
-                          $divide: [
-                            { $toDecimal: '$take.value' },
-                            { $pow: [10, TOKEN_DECIMALS[TOKENS.USDC]] },
-                          ],
-                        },
-                        this.coingecko.tokenUsdValues[TOKENS.USDC],
-                      ],
-                    },
-                  },
-                  {
-                    case: {
-                      $eq: [
-                        '$take.assetType.contract',
-                        this.coingecko.tokenAddresses[TOKENS.XYZ],
-                      ],
-                    },
-                    then: {
-                      $multiply: [
-                        {
-                          $divide: [
-                            { $toDecimal: '$take.value' },
-                            { $pow: [10, TOKEN_DECIMALS[TOKENS.XYZ]] },
-                          ],
-                        },
-                        this.coingecko.tokenUsdValues[TOKENS.XYZ],
-                      ],
-                    },
-                  },
-                ],
-                default: 0,
-              },
-            },
-          },
-        },
-      ];
-    }
-  }
   /**
    *
    * @param contract nft token address
@@ -1069,44 +412,17 @@ export class OrdersService {
     }
 
     const utcTimestamp = Utils.getUtcTimestamp();
+    const { prices, addresses, decimals } = this.getERC20TokensInfo();
 
-    const [bestOffer, lastOffer] = await Promise.all([
-      this.ordersModel.aggregate([
-        ...this.addPriceSortingAggregation(OrderSide.SELL),
-        {
-          $match: {
-            status: OrderStatus.CREATED,
-            side: OrderSide.BUY,
-            end: { $gt: utcTimestamp },
-            'take.assetType.tokenId': tokenId,
-            'take.assetType.contract': contract.toLowerCase(),
-          },
-        },
-        {
-          $sort: {
-            usd_value: -1,
-            createdAt: -1,
-            _ud: -1,
-          },
-        },
-        { $limit: 1 },
-      ]),
-      this.ordersModel
-        .findOne({
-          status: OrderStatus.FILLED,
-          $or: [
-            {
-              'take.assetType.tokenId': tokenId,
-              'make.assetType.contract': contract.toLowerCase(),
-            },
-            {
-              'take.assetType.tokenId': tokenId,
-              'make.assetType.contract': contract.toLowerCase(),
-            },
-          ],
-        })
-        .sort({ updatedAt: -1 }),
-    ]);
+    const [bestOffer, lastOffer] =
+      await this.dataLayerService.getBestAndLastOffer(
+        utcTimestamp,
+        tokenId,
+        contract,
+        prices,
+        addresses,
+        decimals,
+      );
 
     return {
       bestOffer: bestOffer[0] || null,
@@ -1146,27 +462,13 @@ export class OrdersService {
    */
   public async queryOne(contract: string, tokenId: string, maker = '') {
     const utcTimestamp = Utils.getUtcTimestamp();
-    const queryFilters = [
-      { status: OrderStatus.CREATED },
-      { side: OrderSide.SELL },
-      {
-        $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
-      },
-      { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-    ] as any;
 
-    if (maker) {
-      queryFilters.push({ maker: maker.toLowerCase() });
-    }
+    const results = await this.dataLayerService.queryOrders(
+      utcTimestamp,
+      maker,
+      contract,
+    );
 
-    queryFilters.push({
-      $or: [
-        { 'make.assetType.contract': contract.toLowerCase() },
-        { 'make.assetType.contracts': contract.toLowerCase() },
-      ],
-    });
-
-    const results = await this.ordersModel.find({ $and: queryFilters });
     if (results.length <= 0) {
       return null;
     }
@@ -1196,9 +498,9 @@ export class OrdersService {
     const value = {};
     for (const event of events) {
       try {
-        const leftOrder = await this.ordersModel.findOne({
-          hash: event.leftOrderHash,
-        });
+        const leftOrder = await this.dataLayerService.getOrderByHash(
+          event.leftOrderHash,
+        );
 
         if (leftOrder) {
           if (
@@ -1233,7 +535,8 @@ export class OrdersService {
                 "Invalid left order. Doesn't contain nft info.",
               );
             }
-            await this.ordersModel.updateOne({ _id: leftOrder._id }, leftOrder);
+
+            await this.dataLayerService.updateById(leftOrder);
             this.checkUnsubscribe(leftOrder.maker);
 
             value[event.txHash] = 'success';
@@ -1281,31 +584,10 @@ export class OrdersService {
   }
 
   public async fetchListingHistory(contract: string, tokenId: string) {
-    const queryFilters = [
-      {
-        $or: [
-          {
-            'make.assetType.contract': contract,
-          },
-          { 'take.assetType.contract': contract },
-        ],
-      },
-      {
-        $or: [
-          {
-            'make.assetType.tokenId': tokenId,
-          },
-          { 'take.assetType.tokenId': tokenId },
-        ],
-      },
-    ] as any;
-
-    const [listingHistory, count] = await Promise.all([
-      this.ordersModel.find({ $and: queryFilters }).sort({ createdAt: -1 }),
-      this.ordersModel.countDocuments({ $and: queryFilters }),
-    ]);
-
-    return [listingHistory, count];
+    return await this.dataLayerService.getOrderListingHistoryAndCount(
+      contract,
+      tokenId,
+    );
   }
 
   private async markRelatedOrdersAsStale(leftOrder: Order) {
@@ -1325,21 +607,10 @@ export class OrdersService {
       );
     }
 
-    // 1. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
-    const queryFilters = {
-      side: OrderSide.SELL,
-      status: OrderStatus.CREATED,
-      maker: orderCreator.toLowerCase(),
-      'make.assetType.tokenId': orderNftInfo.assetType.tokenId,
-    } as any;
-
-    // ETH orders don't have contract
-    if (orderNftInfo.assetType.contract) {
-      queryFilters['make.assetType.contract'] =
-        orderNftInfo.assetType.contract.toLowerCase();
-    }
-
-    const sellOffers = await this.ordersModel.find({ ...queryFilters });
+    const sellOffers = await this.dataLayerService.queryStaleOrders(
+      orderCreator,
+      orderNftInfo,
+    );
 
     this.logger.log(
       `Found ${sellOffers.length} sell offers related to an order match`,
@@ -1350,7 +621,7 @@ export class OrdersService {
         offer.status = OrderStatus.STALE;
         this.checkUnsubscribe(offer.maker);
       });
-      await this.ordersModel.bulkSave(sellOffers);
+      await this.dataLayerService.updateMany(sellOffers);
     }
   }
 
@@ -1366,23 +637,7 @@ export class OrdersService {
     const value = {};
     for (const event of events) {
       try {
-        const queryResult = await this.ordersModel.updateOne(
-          {
-            hash: event.leftOrderHash,
-            maker: event.leftMaker,
-            status: {
-              $in: [
-                OrderStatus.CREATED,
-                OrderStatus.STALE,
-                OrderStatus.CANCELLED,
-              ],
-            },
-          },
-          {
-            status: OrderStatus.CANCELLED,
-            cancelledTxHash: event.txHash,
-          },
-        );
+        const queryResult = await this.dataLayerService.cancelOrder(event);
 
         value[event.txHash] = queryResult.acknowledged
           ? 'success'
@@ -1453,10 +708,9 @@ export class OrdersService {
     }
 
     this.logger.log(`Found matching order by alchemy: ${matchedOne.hash}`);
-    await this.ordersModel.updateOne(
-      { hash: matchedOne.hash },
-      { status: OrderStatus.STALE },
-    );
+
+    await this.dataLayerService.staleOrder(matchedOne);
+
     this.checkUnsubscribe(matchedOne.maker);
   }
 
@@ -1474,12 +728,9 @@ export class OrdersService {
     walletAddress = walletAddress.toLowerCase();
 
     // if we are still interested in this address, don't unsubscribe
-    const pendingOrders = await this.ordersModel
-      .find({
-        maker: walletAddress,
-        status: { $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED] },
-      })
-      .limit(2);
+    const pendingOrders = await this.dataLayerService.fetchPendingOrders(
+      walletAddress,
+    );
 
     if (pendingOrders.length === 0) {
       this.httpService
@@ -1525,18 +776,10 @@ export class OrdersService {
         AssetClass.ERC721 === orderWithLowerPrice.make.assetType.assetClass ||
         AssetClass.ERC1155 === orderWithLowerPrice.make.assetType.assetClass
       ) {
-        ordersWithHigherPrice = await this.ordersModel.find({
-          _id: { $not: orderWithLowerPrice._id },
-          status: OrderStatus.CREATED,
-          side: OrderSide.SELL,
-          contract: orderWithLowerPrice.make.assetType.contract.toLowerCase(),
-          'make.assetType.assetClass': {
-            $in: [AssetClass.ERC721, AssetClass.ERC1155],
-          },
-          'make.assetType.tokenId': orderWithLowerPrice.make.assetType.tokenId,
-          //TODO: Fix this when we migrate to mongodb
-          'take.value': { $gt: orderWithLowerPrice.take.value },
-        });
+        ordersWithHigherPrice =
+          await this.dataLayerService.fetchOrdersWithHigherPrice(
+            orderWithLowerPrice,
+          );
       } else if (
         AssetClass.ERC721_BUNDLE ===
         orderWithLowerPrice.make.assetType.assetClass
@@ -1547,7 +790,7 @@ export class OrdersService {
       for (const orderWithHigherPrice of ordersWithHigherPrice) {
         orderWithHigherPrice.status = OrderStatus.STALE;
       }
-      await this.ordersModel.bulkSave(ordersWithHigherPrice);
+      await this.dataLayerService.updateMany(ordersWithHigherPrice);
     }
   }
 
@@ -1559,26 +802,10 @@ export class OrdersService {
   private async getCollectionFloorPrice(collection: string): Promise<string> {
     const utcTimestamp = Utils.getUtcTimestamp();
 
-    const lowestOrder = await this.ordersModel
-      .findOne({
-        $and: [
-          {
-            status: OrderStatus.CREATED,
-            side: OrderSide.SELL,
-            'make.assetType.contract': collection.toLowerCase(),
-            'take.assetType.assetClass': AssetClass.ETH,
-          },
-          {
-            $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
-          },
-          { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-        ],
-      })
-      .sort({ 'take.value': 1 });
-
-    // We need collation support in order to sort numberic strings properly
-    // https://stackoverflow.com/questions/16126437/how-to-make-a-mongodb-query-sort-on-strings-with-number-postfix
-    // .collation({ locale: 'en_US', numericOrdering: true });
+    const lowestOrder = await this.dataLayerService.fetchLowestOrder(
+      collection,
+      utcTimestamp,
+    );
 
     if (!lowestOrder) {
       return '';
@@ -1594,39 +821,8 @@ export class OrdersService {
    * @returns {Promise<string>}
    */
   private async getCollectionVolumeTraded(collection: string): Promise<string> {
-    let value = '0';
+    const orders = await this.dataLayerService.fetchVolumeTraded(collection);
 
-    //TODO: Finish this when we have real mongo db
-    // $toDecimal isn't supported
-    const orders = await this.ordersModel
-      .aggregate([
-        {
-          $addFields: {
-            numericValue: { $toDecimal: '$take.value' },
-          },
-        },
-        {
-          $match: {
-            status: OrderStatus.FILLED,
-            side: OrderSide.SELL,
-            contract: collection.toLowerCase(),
-            'make.assetType.assetClass': AssetClass.ETH,
-            'make.assetType.contract': collection.toLowerCase(),
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            sum: { $sum: '$take.value' },
-          },
-        },
-      ])
-      .exec();
-
-    if (orders) {
-      value = orders[0].numericValue;
-    }
-
-    return value;
+    return orders;
   }
 }

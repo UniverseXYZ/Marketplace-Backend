@@ -66,7 +66,7 @@ export class OrdersController extends BaseController {
   @UsePipes(MarketplaceValidationPipe)
   async fetchBrowsePage(@Query() query: QueryDto) {
     try {
-      return await this.orderService.queryBrowsePage(query);
+      return await this.orderService.queryAll(query);
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
