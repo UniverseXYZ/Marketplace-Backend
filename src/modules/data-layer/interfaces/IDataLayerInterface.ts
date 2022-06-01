@@ -48,6 +48,13 @@ export interface IDataLayerService {
 
   queryStaleOrders(orderCreator: string, orderNftInfo: Asset);
 
+  queryOrderForStale(
+    tokenId: string,
+    contract: string,
+    maker: string,
+    utcTimestamp: number,
+  );
+
   fetchOrdersWithHigherPrice(orderWithLowerPrice: OrderDocument);
 
   fetchLowestOrder(collection: string, utcTimestamp: number);

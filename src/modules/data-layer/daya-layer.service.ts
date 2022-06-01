@@ -45,19 +45,14 @@ export class DataLayerService implements IDataLayerService {
   ) {
     return await this.ordersModel.findOne({
       side: OrderSide.SELL,
-      status: OrderStatus.CREATED,
+      status: { $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED] },
       make: {
         assetType: {
           tokenId: tokenId,
+          contract: contract.toLowerCase(),
         },
-        contract: contract.toLowerCase(),
       },
-      $and: [
-        {
-          $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
-        },
-        { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-      ],
+      $and: [{ $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] }],
     });
   }
 
@@ -274,6 +269,28 @@ export class DataLayerService implements IDataLayerService {
 
     const sellOffers = await this.ordersModel.find(queryFilters);
     return sellOffers;
+  }
+
+  async queryOrderForStale(
+    tokenId: string,
+    contract: string,
+    maker: string,
+    utcTimestamp: number,
+  ) {
+    return await this.ordersModel.findOne({
+      $and: [
+        {
+          status: OrderStatus.CREATED,
+          side: OrderSide.SELL,
+          maker: maker,
+          'make.assetType.contract': contract.toLowerCase(),
+          'make.assetType.tokenId': tokenId,
+        },
+        {
+          $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }],
+        },
+      ],
+    });
   }
 
   async fetchOrdersWithHigherPrice(orderWithLowerPrice: OrderDocument) {

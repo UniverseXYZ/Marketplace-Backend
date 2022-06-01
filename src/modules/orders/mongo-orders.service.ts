@@ -64,9 +64,6 @@ export class OrdersService {
     @Inject(DATA_LAYER_SERVICE)
     private readonly dataLayerService: IDataLayerService,
 
-    @InjectModel(Order.name)
-    private readonly ordersModel: Model<OrderDocument>,
-
     private readonly coingecko: CoingeckoService,
   ) {
     const watchdogUrl = R.path(['WATCHDOG_URL'], config.values);
@@ -104,17 +101,11 @@ export class OrdersService {
     // Check if order for the nft already exists
     // @TODO add support for ERC721_BUNDLE
     if (order.side === OrderSide.SELL) {
-      const existingOrder = await this.ordersModel.findOne({
-        side: OrderSide.SELL,
-        status: { $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED] },
-        make: {
-          assetType: {
-            tokenId: order.make.assetType.tokenId,
-            contract: order.make.assetType.contract.toLowerCase(),
-          },
-        },
-        $and: [{ $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] }],
-      });
+      const existingOrder = await this.dataLayerService.findExistingActiveOrder(
+        order.make.assetType.tokenId,
+        order.make.assetType.contract,
+        utcTimestamp,
+      );
 
       if (existingOrder) {
         throw new MarketplaceException(constants.ORDER_ALREADY_EXISTS);
@@ -690,20 +681,13 @@ export class OrdersService {
 
     // @TODO add support for ERC721_BUNDLE
     const utcTimestamp = Utils.getUtcTimestamp();
-    const matchedOne = await this.ordersModel.findOne({
-      $and: [
-        {
-          status: OrderStatus.CREATED,
-          side: OrderSide.SELL,
-          maker: fromAddress.toLowerCase(),
-          'make.assetType.contract': address.toLowerCase(),
-          'make.assetType.tokenId': erc721TokenId,
-        },
-        {
-          $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }],
-        },
-      ],
-    });
+    const matchedOne = await this.dataLayerService.queryOrderForStale(
+      erc721TokenId,
+      address,
+      fromAddress,
+      utcTimestamp,
+    );
+
     if (!matchedOne) {
       this.logger.error(
         `Failed to find this order: contract: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
