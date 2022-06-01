@@ -10,4 +10,6 @@ export interface IDataLayerService {
     contract: string,
     utcTimestamp: number,
   );
+
+  getSaltByWalletAddress(walletAddress: string): Promise<number>;
 }

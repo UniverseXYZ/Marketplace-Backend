@@ -48,4 +48,22 @@ export class DataLayerService implements IDataLayerService {
       ],
     });
   }
+
+  /**
+   * Returns the "salt" for a wallet address.
+   * Salt equals the number of orders in the orders table for this wallet plus 1.
+   * This method does not do walletAddress validation check.
+   * @param walletAddress
+   * @returns {Promise<number>}
+   */
+  public async getSaltByWalletAddress(walletAddress: string): Promise<number> {
+    let value = 1;
+
+    const count = await this.ordersModel.countDocuments({
+      maker: walletAddress.toLowerCase(),
+    });
+    value = value + count;
+
+    return value;
+  }
 }

@@ -12,4 +12,8 @@ export class MockDataLayerService implements IDataLayerService {
   ) {
     return null;
   }
+
+  async getSaltByWalletAddress(walletAddress: string) {
+    return 0;
+  }
 }

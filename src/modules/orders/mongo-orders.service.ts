@@ -111,10 +111,7 @@ export class OrdersService {
 
     // Check if order for the nft already exists
     // @TODO add support for ERC721_BUNDLE
-    if (
-      order.side === OrderSide.SELL &&
-      AssetClass.ERC721_BUNDLE !== data.make.assetType.assetClass
-    ) {
+    if (order.side === OrderSide.SELL) {
       const existingOrder = await this.ordersModel.findOne({
         side: OrderSide.SELL,
         status: { $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED] },
@@ -132,16 +129,8 @@ export class OrdersService {
       }
     }
 
-    // Sell orders cannot have ETH as the asset.
-    if (
-      OrderSide.SELL === order.side &&
-      AssetClass.ETH === order.make.assetType.assetClass
-    ) {
-      throw new MarketplaceException(constants.INVALID_SELL_ORDER_ASSET_ERROR);
-    }
-
     // check salt along with the signature (just in case)
-    const salt = await this.getSaltByWalletAddress(data.maker);
+    const salt = await this.dataLayerService.getSaltByWalletAddress(data.maker);
     if (salt !== data.salt) {
       throw new MarketplaceException(constants.INVALID_SALT_ERROR);
     }
@@ -292,7 +281,7 @@ export class OrdersService {
     } else if (AssetClass.ERC20 === order.make.assetType.assetClass) {
       order.side = OrderSide.BUY;
     } else {
-      throw new MarketplaceException('Invalid asset class.');
+      throw new MarketplaceException(constants.INVALID_ASSET_CLASS);
     }
     order.hash = hashOrderKey(
       order.maker.toLowerCase(),
@@ -1469,24 +1458,6 @@ export class OrdersService {
       { status: OrderStatus.STALE },
     );
     this.checkUnsubscribe(matchedOne.maker);
-  }
-
-  /**
-   * Returns the "salt" for a wallet address.
-   * Salt equals the number of orders in the orders table for this wallet plus 1.
-   * This method does not do walletAddress validation check.
-   * @param walletAddress
-   * @returns {Promise<number>}
-   */
-  public async getSaltByWalletAddress(walletAddress: string): Promise<number> {
-    let value = 1;
-
-    const count = await this.ordersModel.countDocuments({
-      maker: walletAddress.toLowerCase(),
-    });
-    value = value + count;
-
-    return value;
   }
 
   /**
