@@ -1,26 +1,12 @@
 export class MockOrder {
-  public findOne() {
-    return this;
-  }
-  public find() {
-    return this;
-  }
-  public create() {
-    return this;
-  }
-  public aggregate() {
-    return this;
-  }
-  public countDocuments() {
-    return this;
-  }
-  public updateOne() {
-    return this;
-  }
-  public sort() {
-    return this;
-  }
-  public bulkSave() {
-    return this;
-  }
+  public findOne() {}
+  public find() {}
+  public create() {}
+  public aggregate() {}
+  public countDocuments() {}
+  public updateOne() {}
+  public sort() {}
+  public bulkSave() {}
+  public limit() {}
+  public skip() {}
 }

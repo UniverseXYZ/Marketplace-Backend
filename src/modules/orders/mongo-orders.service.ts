@@ -193,6 +193,7 @@ export class OrdersService {
     // 1. get sell/left order
     const leftOrder = await this.dataLayerService.getOrderByHash(hash);
     if (leftOrder) {
+      //TODO: What happens if the order is canceled?
       if (leftOrder.status !== OrderStatus.CREATED) {
         throw new MarketplaceException(constants.ORDER_ALREADY_FILLED_ERROR);
       }

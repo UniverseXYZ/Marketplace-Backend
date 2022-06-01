@@ -156,28 +156,30 @@ export class DataLayerService implements IDataLayerService {
     contract: string,
     tokenId: string,
   ) {
-    const queryFilters = [
-      {
-        $or: [
-          {
-            'make.assetType.contract': contract,
-          },
-          { 'take.assetType.contract': contract },
-        ],
-      },
-      {
-        $or: [
-          {
-            'make.assetType.tokenId': tokenId,
-          },
-          { 'take.assetType.tokenId': tokenId },
-        ],
-      },
-    ] as any;
+    const queryFilters = {
+      $and: [
+        {
+          $or: [
+            {
+              'make.assetType.contract': contract,
+            },
+            { 'take.assetType.contract': contract },
+          ],
+        },
+        {
+          $or: [
+            {
+              'make.assetType.tokenId': tokenId,
+            },
+            { 'take.assetType.tokenId': tokenId },
+          ],
+        },
+      ],
+    } as any;
 
     const [listingHistory, count] = await Promise.all([
-      this.ordersModel.find({ $and: queryFilters }).sort({ createdAt: -1 }),
-      this.ordersModel.countDocuments({ $and: queryFilters }),
+      this.ordersModel.find(queryFilters).sort({ createdAt: -1 }),
+      this.ordersModel.countDocuments(queryFilters),
     ]);
 
     return [listingHistory, count];
@@ -246,7 +248,7 @@ export class DataLayerService implements IDataLayerService {
   public async fetchPendingOrders(walletAddress: string) {
     const pendingOrders = await this.ordersModel
       .find({
-        maker: walletAddress,
+        maker: walletAddress.toLowerCase(),
         status: { $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED] },
       })
       .limit(2);
@@ -270,7 +272,7 @@ export class DataLayerService implements IDataLayerService {
         orderNftInfo.assetType.contract.toLowerCase();
     }
 
-    const sellOffers = await this.ordersModel.find({ ...queryFilters });
+    const sellOffers = await this.ordersModel.find(queryFilters);
     return sellOffers;
   }
 
@@ -296,6 +298,7 @@ export class DataLayerService implements IDataLayerService {
     // .collation({ locale: 'en_US', numericOrdering: true });
 
     //TODO:: Check if price sorting is implemented correctly
+    // Cast take.value to decimal and sort
 
     return await this.ordersModel
       .findOne({
@@ -316,34 +319,32 @@ export class DataLayerService implements IDataLayerService {
   }
 
   async fetchVolumeTraded(collection: string) {
-    const orders = await this.ordersModel
-      .aggregate([
-        {
-          $addFields: {
-            numericValue: { $toDecimal: '$take.value' },
-          },
+    const orders = await this.ordersModel.aggregate([
+      {
+        $addFields: {
+          numericValue: { $toDecimal: '$take.value' },
         },
-        {
-          $match: {
-            status: OrderStatus.FILLED,
-            side: OrderSide.SELL,
-            contract: collection.toLowerCase(),
-            'make.assetType.assetClass': AssetClass.ETH,
-            'make.assetType.contract': collection.toLowerCase(),
-          },
+      },
+      {
+        $match: {
+          status: OrderStatus.FILLED,
+          side: OrderSide.SELL,
+          contract: collection.toLowerCase(),
+          'make.assetType.assetClass': AssetClass.ETH,
+          'make.assetType.contract': collection.toLowerCase(),
         },
-        {
-          $group: {
-            _id: null,
-            sum: { $sum: '$take.value' },
-          },
+      },
+      {
+        $group: {
+          _id: null,
+          sum: { $sum: '$take.value' },
         },
-      ])
-      .exec();
+      },
+    ]);
 
     let value = '0';
 
-    if (orders) {
+    if (orders && orders.length) {
       value = orders[0].numericValue;
     }
 
