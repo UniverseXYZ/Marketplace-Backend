@@ -92,4 +92,8 @@ export class MockDataLayerService implements IDataLayerService {
   async getSaltByWalletAddress(walletAddress: string) {
     return 0;
   }
+
+  queryOrderForStale() {
+    throw new Error('Method not implemented.');
+  }
 }

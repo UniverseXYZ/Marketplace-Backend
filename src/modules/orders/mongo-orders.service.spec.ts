@@ -203,21 +203,6 @@ describe('Orders Service', () => {
       );
     });
 
-    it('throws if sell order has ETH as assetClass', async () => {
-      jest
-        .spyOn(orderService, 'convertToOrder')
-        .mockImplementationOnce((data) => data as any);
-
-      expect(
-        async () =>
-          await orderService.createOrderAndCheckSubscribe(
-            invalidETHAssetClassSellETHOrder,
-          ),
-      ).rejects.toThrowError(
-        new MarketplaceException(constants.INVALID_SELL_ORDER_ASSET_ERROR),
-      );
-    });
-
     it('throws if salt is invalid', async () => {
       // getSaltByWalletAddress should return salt not equal to the salt from the order dto
       jest

@@ -15,7 +15,7 @@ import {
   OrderSide,
   OrderStatus,
 } from 'src/modules/orders/order.types';
-import * as mongodb from 'mongoose/node_modules/mongodb';
+import * as mongodb from 'mongodb';
 import { constants } from 'src/common/constants';
 import web3 from 'web3';
 import { SortOrderOptionsEnum } from '../orders/order.sort';

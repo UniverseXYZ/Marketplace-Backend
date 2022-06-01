@@ -18,17 +18,13 @@ import {
   GetSaltParamsDto,
 } from './order.dto';
 import { OrderStatus } from './order.types';
-import { OrdersService } from './orders.service';
+import { OrdersService } from './mongo-orders.service';
 import { BaseController } from '../../common/base.controller';
 import { MarketplaceValidationPipe } from '../../common/pipes/marketplace-validation.pipe';
-import { OrdersService as MongoOrdersService } from './mongo-orders.service';
 @Controller('orders')
 @ApiTags('Orderbook')
 export class OrdersController extends BaseController {
-  constructor(
-    private orderService: OrdersService,
-    private mongoOrderService: MongoOrdersService,
-  ) {
+  constructor(private orderService: OrdersService) {
     super(OrdersController.name);
   }
 
@@ -144,12 +140,8 @@ export class OrdersController extends BaseController {
   @ApiOperation({ summary: 'Create an order.' })
   async createOrder(@Body() body: CreateOrderDto) {
     try {
-      const [postgresResult, mongoResult] = await Promise.all([
-        await this.orderService.createOrderAndCheckSubscribe(body),
-        await this.mongoOrderService.createOrderAndCheckSubscribe(body),
-      ]);
-
-      return postgresResult;
+      const result = await this.orderService.createOrderAndCheckSubscribe(body);
+      return result;
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);

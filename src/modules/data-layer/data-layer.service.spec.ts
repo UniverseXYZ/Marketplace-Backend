@@ -84,19 +84,14 @@ describe('Data Layer Service', () => {
       expect(orderModel.findOne).toBeCalled();
       expect(orderModel.findOne).toHaveBeenCalledWith({
         side: OrderSide.SELL,
-        status: OrderStatus.CREATED,
+        status: { $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED] },
         make: {
           assetType: {
             tokenId: tokenId,
+            contract: contract.toLowerCase(),
           },
-          contract: contract.toLowerCase(),
         },
-        $and: [
-          {
-            $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
-          },
-          { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-        ],
+        $and: [{ $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] }],
       });
     });
   });

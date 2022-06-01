@@ -1,6 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { InjectRepository } from '@nestjs/typeorm';
 import R from 'ramda';
 import {
   encodeAssetClass,
@@ -8,7 +7,6 @@ import {
   encodeOrderData,
   hashOrderKey,
 } from '../../common/utils/order-encoder';
-import { Repository } from 'typeorm';
 import { AppConfig } from '../configuration/configuration.service';
 import {
   CancelOrder,
@@ -19,7 +17,6 @@ import {
   PrepareTxDto,
   QueryDto,
 } from './order.dto';
-import { Order as PostgresOrder } from './order.entity';
 import {
   OrderSide,
   OrderStatus,
@@ -32,13 +29,9 @@ import {
 import { MarketplaceException } from '../../common/exceptions/MarketplaceException';
 import { constants } from '../../common/constants';
 import { Utils } from '../../common/utils';
-import web3 from 'web3';
-import { SortOrderOptionsEnum } from './order.sort';
 import { CoingeckoService } from '../coingecko/coingecko.service';
 import { TOKENS, TOKEN_DECIMALS } from '../coingecko/tokens';
 import { Order, OrderDocument } from './schema/order.schema';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import {
   ETHEREUM_SERVICE,
   IEthereumService,
@@ -184,6 +177,14 @@ export class OrdersService {
     }
 
     return data;
+  }
+
+  public async getOrderByHash(hash: string) {
+    return await this.dataLayerService.getOrderByHash(hash);
+  }
+
+  public async getSaltByWalletAddress(address: string) {
+    return await this.dataLayerService.getSaltByWalletAddress(address);
   }
 
   public async prepareOrderExecution(hash: string, data: PrepareTxDto) {

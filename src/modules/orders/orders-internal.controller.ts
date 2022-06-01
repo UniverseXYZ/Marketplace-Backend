@@ -2,16 +2,12 @@ import { Body, Controller, Put, UsePipes } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { BaseController } from '../../common/base.controller';
 import { CancelOrderDto, MatchOrderDto, TrackOrderDto } from './order.dto';
-import { OrdersService } from './orders.service';
-import { OrdersService as MongoOrdersService } from './mongo-orders.service';
+import { OrdersService } from './mongo-orders.service';
 
 @Controller('internal')
 @ApiTags('Orderbook')
 export class OrdersInternalController extends BaseController {
-  constructor(
-    private orderService: OrdersService,
-    private mongoOrderService: MongoOrdersService,
-  ) {
+  constructor(private orderService: OrdersService) {
     super(OrdersInternalController.name);
   }
 
@@ -22,11 +18,8 @@ export class OrdersInternalController extends BaseController {
   })
   async matchOrder(@Body() body: MatchOrderDto) {
     try {
-      const [postgreResult, mongoResult] = await Promise.all([
-        this.orderService.matchOrders(body.events),
-        this.mongoOrderService.matchOrders(body.events),
-      ]);
-      return postgreResult;
+      const result = await this.orderService.matchOrders(body.events);
+      return result;
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
@@ -40,11 +33,8 @@ export class OrdersInternalController extends BaseController {
   })
   async cancelOrder(@Body() body: CancelOrderDto) {
     try {
-      const [postgreResult, mongoResult] = await Promise.all([
-        this.orderService.cancelOrders(body.events),
-        this.mongoOrderService.cancelOrders(body.events),
-      ]);
-      return postgreResult;
+      const result = await this.orderService.cancelOrders(body.events);
+      return result;
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
@@ -55,10 +45,6 @@ export class OrdersInternalController extends BaseController {
   async trackOrder(@Body() body: TrackOrderDto) {
     try {
       await this.orderService.staleOrder(body);
-      const [postgreResult, mongoResult] = await Promise.all([
-        this.orderService.staleOrder(body),
-        this.mongoOrderService.staleOrder(body),
-      ]);
       return 'OK';
     } catch (e) {
       this.logger.error(e);

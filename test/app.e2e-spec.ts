@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { waffle, ethers, upgrades, web3 } from 'hardhat';
-import { OrdersService } from '../src/modules/orders/orders.service';
+import { OrdersService } from '../src/modules/orders/mongo-orders.service';
 import { EthereumService } from '../src/modules/ethereum/ethereum.service';
 import { Utils } from '../src/common/utils';
 import { constants } from '../src/common/constants';
