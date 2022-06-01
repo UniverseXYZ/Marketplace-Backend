@@ -10,10 +10,11 @@ import { HttpModule } from '@nestjs/axios';
 import { AppConfigModule } from '../configuration/configuration.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Order, OrderSchema } from './schema/order.schema';
-import { OrdersService } from './mongo-orders.service';
+import { OrdersService as MongoOrdersService } from './mongo-orders.service';
+import { OrdersService } from './orders.service';
 
 @Module({
-  providers: [OrdersService],
+  providers: [OrdersService, MongoOrdersService],
   controllers: [
     OrdersController,
     OrderEncodersController,
