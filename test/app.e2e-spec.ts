@@ -9,7 +9,7 @@ import { EthereumService } from '../src/modules/ethereum/ethereum.service';
 import { Utils } from '../src/common/utils';
 import { constants } from '../src/common/constants';
 import { MockOrdersService } from './MockOrderService';
-import { MockEthereumService } from './MockEthereumService';
+import { MockEthereumService } from './MockDataLayerService';
 
 const DAO_FEE = 2500;
 const DAO_ADDRESS = '0x67b93852482113375666a310ac292D61dDD4bbb9';

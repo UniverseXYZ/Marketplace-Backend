@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import R from 'ramda';
 import {
@@ -40,6 +40,14 @@ import web3 from 'web3';
 import { SortOrderOptionsEnum } from './order.sort';
 import { CoingeckoService } from '../coingecko/coingecko.service';
 import { TOKENS, TOKEN_DECIMALS } from '../coingecko/tokens';
+import {
+  ETHEREUM_SERVICE,
+  IEthereumService,
+} from '../ethereum/interface/IEthereumService';
+import {
+  DATA_LAYER_SERVICE,
+  IDataLayerService,
+} from '../data-layer/interfaces/IDataLayerInterface';
 
 @Injectable()
 export class OrdersService {
@@ -49,7 +57,10 @@ export class OrdersService {
   constructor(
     private readonly config: AppConfig,
     private readonly httpService: HttpService,
-    private readonly ethereumService: EthereumService,
+    @Inject(ETHEREUM_SERVICE)
+    private readonly ethereumService: IEthereumService,
+    @Inject(DATA_LAYER_SERVICE)
+    private readonly dataLayerService: IDataLayerService,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly coingecko: CoingeckoService,

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { InjectRepository } from '@nestjs/typeorm';
 import R from 'ramda';
@@ -29,7 +29,6 @@ import {
   BundleType,
   Asset,
 } from './order.types';
-import { EthereumService } from '../ethereum/ethereum.service';
 import { MarketplaceException } from '../../common/exceptions/MarketplaceException';
 import { constants } from '../../common/constants';
 import { Utils } from '../../common/utils';
@@ -40,6 +39,14 @@ import { TOKENS, TOKEN_DECIMALS } from '../coingecko/tokens';
 import { Order, OrderDocument } from './schema/order.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import {
+  ETHEREUM_SERVICE,
+  IEthereumService,
+} from '../ethereum/interface/IEthereumService';
+import {
+  IDataLayerService,
+  DATA_LAYER_SERVICE,
+} from 'src/modules/data-layer/interfaces/IDataLayerInterface';
 
 @Injectable()
 export class OrdersService {
@@ -48,16 +55,24 @@ export class OrdersService {
 
   constructor(
     private readonly config: AppConfig,
+
     private readonly httpService: HttpService,
-    private readonly ethereumService: EthereumService,
+
+    @Inject(ETHEREUM_SERVICE)
+    private readonly ethereumService: IEthereumService,
+
+    @Inject(DATA_LAYER_SERVICE)
+    private readonly dataLayerService: IDataLayerService,
+
     @InjectModel(Order.name)
     private readonly ordersModel: Model<OrderDocument>,
+
     private readonly coingecko: CoingeckoService,
   ) {
     const watchdogUrl = R.path(['WATCHDOG_URL'], config.values);
-    if (R.isNil(watchdogUrl)) {
-      throw new Error('Watchdog endpoint is missing');
-    }
+    // if (R.isNil(watchdogUrl)) {
+    //   throw new Error('Watchdog endpoint is missing');
+    // }
     this.watchdogUrl = watchdogUrl;
     this.logger = new Logger(OrdersService.name);
   }
@@ -179,7 +194,7 @@ export class OrdersService {
       throw new MarketplaceException(constants.NFT_ALLOWANCE_ERROR);
     }
 
-    const savedOrder = await this.ordersModel.create(order);
+    const savedOrder = await this.dataLayerService.createOrder(order);
     // await this.staleOrdersWithHigherPrice(savedOrder);
     this.checkSubscribe(savedOrder.maker);
     return savedOrder;
@@ -1509,7 +1524,7 @@ export class OrdersService {
     }
   }
 
-  protected async checkSubscribe(maker: string) {
+  public async checkSubscribe(maker: string) {
     // if it is already subscribed, that's ok.
     this.httpService
       .post(`${this.watchdogUrl}/v1/subscribe`, {

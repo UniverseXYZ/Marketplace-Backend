@@ -6,13 +6,14 @@ import { HealthModule } from './modules/health/health.module';
 import { TypeOrmDefaultConfigService } from './modules/database/database.providers';
 import configuration from './modules/configuration';
 import { DatabaseModule } from './modules/database/database.module';
-import { EthereumModule } from './modules/ethereum/ethereum.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { CoingeckoModule } from './modules/coingecko/coingecko.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongoDatabaseService } from './modules/mongo-database/mongo-database.service';
 import { MongoDatabaseModule } from './modules/mongo-database/mongo-database.module';
+import { DataLayerModule } from './modules/data-layer/data-layer.module';
+import { DataLayerService } from './modules/data-layer/daya-layer.service';
 
 @Module({
   imports: [
@@ -32,7 +33,6 @@ import { MongoDatabaseModule } from './modules/mongo-database/mongo-database.mod
       useExisting: MongoDatabaseService,
     }),
     HealthModule,
-    EthereumModule,
     OrdersModule,
     CoingeckoModule,
     ScheduleModule.forRoot(),

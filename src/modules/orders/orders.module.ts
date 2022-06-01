@@ -12,9 +12,19 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Order, OrderSchema } from './schema/order.schema';
 import { OrdersService as MongoOrdersService } from './mongo-orders.service';
 import { OrdersService } from './orders.service';
+import { DataLayerModule } from 'src/modules/data-layer/data-layer.module';
+import { DATA_LAYER_SERVICE } from '../data-layer/interfaces/IDataLayerInterface';
+import { DataLayerService } from '../data-layer/daya-layer.service';
 
 @Module({
-  providers: [OrdersService, MongoOrdersService],
+  providers: [
+    OrdersService,
+    MongoOrdersService,
+    {
+      useClass: DataLayerService,
+      provide: DATA_LAYER_SERVICE,
+    },
+  ],
   controllers: [
     OrdersController,
     OrderEncodersController,

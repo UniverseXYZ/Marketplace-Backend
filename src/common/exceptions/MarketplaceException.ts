@@ -1,7 +1,4 @@
-import { 
-  HttpException, 
-  HttpStatus,
-} from '@nestjs/common';
+import { HttpException, HttpStatus } from '@nestjs/common';
 
 /**
  * MarketplaceException class.
@@ -9,10 +6,13 @@ import {
  */
 export class MarketplaceException extends HttpException {
   constructor(message = 'Bad Request') {
-    super({
+    super(
+      {
         status: HttpStatus.BAD_REQUEST,
-        error: 'Marketplace Exception', 
-        message: message, 
-    }, HttpStatus.BAD_REQUEST);
+        error: 'Marketplace Exception',
+        message: message,
+      },
+      HttpStatus.BAD_REQUEST,
+    );
   }
 }
