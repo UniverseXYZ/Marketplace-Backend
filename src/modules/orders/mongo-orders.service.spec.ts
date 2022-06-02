@@ -179,9 +179,9 @@ describe('Orders Service', () => {
     });
 
     it('throws if active sell order for nft exists', async () => {
-      // findExistingActiveOrder should return non empty object
+      // findExistingOrder should return non empty object
       jest
-        .spyOn(dataLayerService, 'findExistingActiveOrder')
+        .spyOn(dataLayerService, 'findExistingOrder')
         .mockImplementationOnce(() => ({}));
 
       expect(

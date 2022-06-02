@@ -38,7 +38,7 @@ export class DataLayerService implements IDataLayerService {
     return newOrder;
   }
 
-  public async findExistingActiveOrder(
+  public async findExistingOrder(
     tokenId: string,
     contract: string,
     utcTimestamp: number,

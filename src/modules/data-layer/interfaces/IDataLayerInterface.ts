@@ -11,11 +11,7 @@ export const DATA_LAYER_SERVICE = 'DATA LAYER SERVICE';
 export interface IDataLayerService {
   createOrder(order: CreateOrderDto);
 
-  findExistingActiveOrder(
-    tokenId: string,
-    contract: string,
-    utcTimestamp: number,
-  );
+  findExistingOrder(tokenId: string, contract: string, utcTimestamp: number);
 
   getSaltByWalletAddress(walletAddress: string): Promise<number>;
 

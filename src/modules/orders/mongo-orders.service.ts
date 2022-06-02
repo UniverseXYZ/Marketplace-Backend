@@ -94,7 +94,7 @@ export class OrdersService {
     // Check if order for the nft already exists
     // @TODO add support for ERC721_BUNDLE
     if (order.side === OrderSide.SELL) {
-      const existingOrder = await this.dataLayerService.findExistingActiveOrder(
+      const existingOrder = await this.dataLayerService.findExistingOrder(
         order.make.assetType.tokenId,
         order.make.assetType.contract,
         utcTimestamp,
