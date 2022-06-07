@@ -54,14 +54,14 @@ export abstract class AbstractAssetType {
     each: true,
   })
   @IsArray()
-  @ValidateIf((o) => o.assetClass === AssetClass.ERC721_BUNDLE)
-  contracts: string[];
+  @ValidateIf((o) => o.assetClass !== AssetClass.ERC721_BUNDLE)
+  contracts?: string[];
 
   @IsArray({
     each: true,
   })
-  @ValidateIf((o) => o.assetClass === AssetClass.ERC721_BUNDLE)
-  tokenIds: string[][];
+  @ValidateIf((o) => o.assetClass !== AssetClass.ERC721_BUNDLE)
+  tokenIds?: string[][];
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
     message: constants.FORBIDDEN_CHARACTERS_ERROR,
