@@ -40,11 +40,15 @@ export interface IDataLayerService {
 
   cancelOrder(event: CancelOrder);
 
-  staleOrder(order: any);
+  staleOrders(orders: any);
 
   fetchPendingOrders(walletAddress: string);
 
-  queryStaleOrders(orderCreator: string, orderNftInfo: Asset);
+  queryStaleOrders(
+    orderCreator: string,
+    orderNftInfo: Asset,
+    orderTaker: string,
+  );
 
   queryOrderForStale(
     tokenId: string,

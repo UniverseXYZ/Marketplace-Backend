@@ -499,6 +499,7 @@ export class OrdersService {
   }
 
   /**
+   * @Deprecated
    * used to find the order which
    * @param contract nft token address
    * @param tokenId nft token tokenId
@@ -571,14 +572,20 @@ export class OrdersService {
             this.setMatchedTxHash(leftOrder, event);
 
             // Populate taker
-            if (leftOrder.make.assetType.tokenId) {
+            if (
+              leftOrder.make.assetType.tokenId ||
+              leftOrder.make.assetType.tokenIds
+            ) {
               const orderMaker = leftOrder.maker;
               if (orderMaker.toLowerCase() === event.leftMaker.toLowerCase()) {
                 leftOrder.taker = event.rightMaker.toLowerCase();
               } else {
                 leftOrder.taker = event.leftMaker.toLowerCase();
               }
-            } else if (leftOrder.take.assetType.tokenId) {
+            } else if (
+              leftOrder.take.assetType.tokenId ||
+              leftOrder.take.assetType.tokenIds
+            ) {
               const orderTaker = leftOrder.maker;
               if (orderTaker.toLowerCase() === event.leftMaker.toLowerCase()) {
                 leftOrder.taker = event.rightMaker.toLowerCase();
@@ -704,35 +711,33 @@ export class OrdersService {
 
     if (erc721TokenId) {
       // if it is a ERC721 token transfer
-      // @TODO add support for ERC721_BUNDLE
       const utcTimestamp = Utils.getUtcTimestamp();
-      const matchedOne = await this.dataLayerService.queryOrderForStale(
+      const ordersToStale = await this.dataLayerService.queryOrderForStale(
         erc721TokenId,
         address,
         fromAddress,
         utcTimestamp,
       );
-      if (!matchedOne) {
-        this.logger.error(
-          `Failed to find this order: contract: ${address}, ERC721 tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
-        );
-        return;
-      }
-      if (OrderStatus.FILLED == matchedOne.status) {
+
+      if (ordersToStale.length) {
         this.logger.log(
-          `The order is already filled. Can't mark it as stale. Event: ${JSON.stringify(
-            event,
-          )}. Order: ${JSON.stringify(matchedOne)}`,
+          `Found orders to stale from Watchdog: ${ordersToStale
+            .map((order) => {
+              return order.hash;
+            })
+            .join(', ')}`,
         );
-        return;
+
+        await this.dataLayerService.staleOrders(ordersToStale);
+
+        ordersToStale.forEach((order) => {
+          this.checkUnsubscribe(order.maker);
+        });
+      } else {
+        this.logger.error(
+          `Failed to find this order to stale from Watchdog: contract: ${address}, tokenId: ${erc721TokenId}, from: ${fromAddress}, to: ${toAddress}`,
+        );
       }
-
-      this.logger.log(`
-        Found ERC721 matching order by alchemy: ${matchedOne.hash}
-      `);
-      await this.dataLayerService.staleOrder(matchedOne);
-
-      this.checkUnsubscribe(matchedOne.maker);
     } else if (erc1155Metadata) {
       // if it is a ERC1155 token transfer
       const utcTimestamp = Utils.getUtcTimestamp();
@@ -767,7 +772,7 @@ export class OrdersService {
             } on contract ${address.toLowerCase()}. Marking this order as stale.`,
           );
 
-          await this.dataLayerService.staleOrder(order);
+          await this.dataLayerService.staleOrders(order);
           this.checkUnsubscribe(order.maker);
         } else if (BigInt(requiredAmount) > erc1155TokenBalance) {
           // if the wallet address has lower token balance than required - put this balance into order.erc1155TokenBalance
@@ -840,17 +845,34 @@ export class OrdersService {
       });
   }
 
-  private async markRelatedOrdersAsStale(leftOrder: Order, event: MatchOrder) {
+  /**
+   * Marks related left orders as stale.
+   * Note that only OrderSide.SELL related orders will be stale.
+   * That means we do not do anything with related OrderSide.BUY orders (offers!)
+   * as they will not show up anywhere.
+   * @param {Order} matchedOrder - an order that has been matched.
+   * @throws {MarketplaceException}
+   */
+  private async markRelatedOrdersAsStale(
+    matchedOrder: Order,
+    event: MatchOrder,
+  ) {
     let orderNftInfo: Asset = null;
     let orderCreator = '';
 
     // Take nft info either from 'take' or 'make'.
-    if (leftOrder.make.assetType.tokenId) {
-      orderNftInfo = leftOrder.make;
-      orderCreator = leftOrder.maker;
-    } else if (leftOrder.take.assetType.tokenId) {
-      orderNftInfo = leftOrder.take;
-      orderCreator = leftOrder.taker;
+    if (
+      matchedOrder.make.assetType.tokenId ||
+      matchedOrder.make.assetType.tokenIds
+    ) {
+      orderNftInfo = matchedOrder.make;
+      orderCreator = matchedOrder.maker;
+    } else if (
+      matchedOrder.take.assetType.tokenId ||
+      matchedOrder.take.assetType.tokenIds
+    ) {
+      orderNftInfo = matchedOrder.take;
+      orderCreator = matchedOrder.taker;
     } else {
       throw new MarketplaceException(
         "Invalid left order. Doesn't contain nft info.",
@@ -860,6 +882,7 @@ export class OrdersService {
     const sellOffers = await this.dataLayerService.queryStaleOrders(
       orderCreator,
       orderNftInfo,
+      matchedOrder.taker,
     );
 
     this.logger.log(
