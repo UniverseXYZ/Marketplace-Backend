@@ -633,7 +633,6 @@ export class OrdersService {
     }
 
     const sellOffers = await this.dataLayerService.queryStaleOrders(
-      orderCreator,
       orderNftInfo,
       matchedOrder.taker,
     );
@@ -702,7 +701,7 @@ export class OrdersService {
     const { fromAddress, toAddress, address, erc721TokenId } = event;
 
     const utcTimestamp = Utils.getUtcTimestamp();
-    const ordersToStale = await this.dataLayerService.queryOrderForStale(
+    const ordersToStale = await this.dataLayerService.queryOrdersForStale(
       erc721TokenId,
       address,
       fromAddress,

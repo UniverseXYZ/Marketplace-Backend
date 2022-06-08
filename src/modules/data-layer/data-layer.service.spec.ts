@@ -7,6 +7,7 @@ import {
   validBuyERC20Order,
   validSellERC20Order,
   validSellETHOrder,
+  validSellETHBundle,
 } from '../../../test/order.mocks';
 import { MockAppConfig } from '../../mocks/MockAppConfig';
 import { MockOrder } from '../../mocks/MockOrder';
@@ -311,16 +312,22 @@ describe('Data Layer Service', () => {
     });
   });
 
-  describe('staleOrder', () => {
+  describe('staleOrders', () => {
     it('should call db with correct query', async () => {
-      jest.spyOn(orderModel, 'updateOne');
+      jest.spyOn(orderModel, 'bulkWrite');
 
-      await dataLayerService.staleOrder(validSellERC20Order);
+      await dataLayerService.staleOrders([validSellERC20Order]);
 
-      expect(orderModel.updateOne).toBeCalledWith(
-        { hash: validSellERC20Order.hash },
-        { status: OrderStatus.STALE },
-      );
+      expect(orderModel.bulkWrite).toBeCalledWith([
+        {
+          updateOne: {
+            filter: { hash: validSellERC20Order.hash },
+            update: {
+                status: OrderStatus.STALE,
+            },
+          },
+        }
+      ]);
     });
   });
 
@@ -386,35 +393,107 @@ describe('Data Layer Service', () => {
   });
 
   describe('queryStaleOrders', () => {
-    const creator = '0xCr3At0r';
-    const erc20OrderNftInfo = validSellERC20Order.take;
-    const ethOrderNftInfo = validSellETHOrder.take;
+    const orderTaker = '0xCr3At0r';
+    const erc721OrderNftInfo = validSellERC20Order.make;
 
-    it('should call db with correct query (without contract)', async () => {
-      jest.spyOn(orderModel, 'find');
-
-      await dataLayerService.queryStaleOrders(creator, ethOrderNftInfo);
+    it('should call db with correct query (with contract)', async () => {
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return []; // otherwise .find will return undefined bc of the DB connection.
+      });
+      await dataLayerService.queryStaleOrders(erc721OrderNftInfo, orderTaker);
 
       expect(orderModel.find).toBeCalledWith({
-        side: OrderSide.SELL,
-        status: OrderStatus.CREATED,
-        maker: creator.toLowerCase(),
-        'make.assetType.tokenId': ethOrderNftInfo.assetType.tokenId,
+        $and: [
+          { side: OrderSide.SELL },
+          { status: OrderStatus.CREATED },
+          { taker: orderTaker.toLowerCase() },
+          {
+            $or: [
+              {
+                'make.assetType.tokenId': erc721OrderNftInfo.assetType.tokenId,
+                'make.assetType.contract':
+                  erc721OrderNftInfo.assetType.contract.toLowerCase(),
+              },
+              {
+                'make.assetType.contracts':
+                  erc721OrderNftInfo.assetType.contract.toLowerCase(),
+              },
+            ]
+          },
+        ]
       });
     });
 
-    it('should call db with correct query (with contract)', async () => {
-      jest.spyOn(orderModel, 'find');
-      await dataLayerService.queryStaleOrders(creator, erc20OrderNftInfo);
-
-      expect(orderModel.find).toBeCalledWith({
-        side: OrderSide.SELL,
-        status: OrderStatus.CREATED,
-        maker: creator.toLowerCase(),
-        'make.assetType.tokenId': erc20OrderNftInfo.assetType.tokenId,
-        'make.assetType.contract':
-          erc20OrderNftInfo.assetType.contract.toLowerCase(),
+    it('should return 1 ERC721 order', async () => {
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return [validSellETHOrder];
       });
+
+      const ordersToStale = await dataLayerService.queryStaleOrders(
+        validSellETHOrder.make,
+        validSellETHOrder.taker,
+      );
+
+      expect(orderModel.find).toBeCalledTimes(1);
+      expect(ordersToStale).toHaveLength(1);
+      expect(ordersToStale[0]).toHaveProperty('make.assetType.contract');
+      expect(ordersToStale[0].make.assetType.contract)
+        .toEqual(validSellETHOrder.make.assetType.contract);
+    });
+
+    it('should return 1 ERC721_BUNDLE order', async () => {
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return [validSellETHBundle];
+      });
+
+      const ordersToStale = await dataLayerService.queryStaleOrders(
+        validSellETHBundle.make,
+        validSellETHBundle.taker,
+      );
+
+      expect(orderModel.find).toBeCalledTimes(1);
+      expect(ordersToStale).toHaveLength(1);
+      expect(ordersToStale[0].make.assetType.contracts[1])
+        .toEqual(validSellETHBundle.make.assetType.contracts[1]);
+    });
+  });
+
+  describe('queryOrdersForStale', () => {
+    it('should return 1 ERC721 order', async () => {
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return [validSellETHOrder];
+      });
+      
+      const ordersToStale = await dataLayerService.queryOrdersForStale(
+        '99',
+        '0xcontract',
+        '0xmaker',
+        Utils.getUtcTimestamp(),
+      );
+
+      expect(orderModel.find).toBeCalledTimes(1);
+      expect(ordersToStale).toHaveLength(1);
+      expect(ordersToStale[0]).toHaveProperty('make.assetType.contract');
+      expect(ordersToStale[0].make.assetType.contract)
+        .toEqual(validSellETHOrder.make.assetType.contract);
+    });
+
+    it('should return 1 ERC721_BUNDLE order', async () => {
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return [validSellETHBundle];
+      });
+
+      const ordersToStale = await dataLayerService.queryOrdersForStale(
+        validSellETHBundle.make.assetType.tokenIds[1][0],
+        validSellETHBundle.make.assetType.contracts[1],
+        validSellETHBundle.maker,
+        Utils.getUtcTimestamp(),
+      );
+
+      expect(orderModel.find).toBeCalledTimes(1);
+      expect(ordersToStale).toHaveLength(1);
+      expect(ordersToStale[0].make.assetType.contracts[1])
+        .toEqual(validSellETHBundle.make.assetType.contracts[1]);
     });
   });
 

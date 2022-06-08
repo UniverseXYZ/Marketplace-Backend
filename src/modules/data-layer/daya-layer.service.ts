@@ -263,11 +263,7 @@ export class DataLayerService implements IDataLayerService {
     return pendingOrders;
   }
 
-  async queryStaleOrders(
-    orderCreator: string,
-    orderNftInfo: Asset,
-    orderTaker: string,
-  ) {
+  async queryStaleOrders(orderNftInfo: Asset, orderTaker: string) {
     // 1. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
 
     const value = [];
@@ -287,8 +283,7 @@ export class DataLayerService implements IDataLayerService {
         $and: [
           { side: OrderSide.SELL },
           { status: OrderStatus.CREATED },
-          // { maker: orderCreator.toLowerCase() },
-          { taker: orderTaker },
+          { taker: orderTaker.toLowerCase() },
           { 'make.assetType.assetClass': AssetClass.ERC721_BUNDLE },
           {
             'make.assetType.contracts': {
@@ -331,8 +326,7 @@ export class DataLayerService implements IDataLayerService {
         $and: [
           { side: OrderSide.SELL },
           { status: OrderStatus.CREATED },
-          // { maker: orderCreator.toLowerCase() },
-          { taker: orderTaker },
+          { taker: orderTaker.toLowerCase() },
           {
             $or: [
               {
@@ -383,7 +377,7 @@ export class DataLayerService implements IDataLayerService {
    * @param utcTimestamp
    * @returns {Order[]} array of orders.
    */
-  async queryOrderForStale(
+  async queryOrdersForStale(
     tokenId: string,
     contract: string,
     maker: string,

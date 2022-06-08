@@ -39,13 +39,13 @@ export class MockDataLayerService implements IDataLayerService {
   cancelOrder(event: CancelOrder) {
     throw new Error('Method not implemented.');
   }
-  staleOrder(order: any) {
+  staleOrders(order: any) {
     throw new Error('Method not implemented.');
   }
   fetchPendingOrders(walletAddress: string) {
     throw new Error('Method not implemented.');
   }
-  queryStaleOrders(orderCreator: string, orderNftInfo: Asset) {
+  queryStaleOrders(orderNftInfo: Asset, orderTaker: string) {
     throw new Error('Method not implemented.');
   }
   fetchOrdersWithHigherPrice(orderWithLowerPrice: OrderDocument) {
@@ -89,7 +89,7 @@ export class MockDataLayerService implements IDataLayerService {
     return 0;
   }
 
-  queryOrderForStale() {
+  queryOrdersForStale() {
     throw new Error('Method not implemented.');
   }
 }
