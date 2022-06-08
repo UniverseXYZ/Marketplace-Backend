@@ -712,7 +712,7 @@ export class OrdersService {
     if (erc721TokenId) {
       // if it is a ERC721 token transfer
       const utcTimestamp = Utils.getUtcTimestamp();
-      const ordersToStale = await this.dataLayerService.queryOrderForStale(
+      const ordersToStale = await this.dataLayerService.queryOrdersForStale(
         erc721TokenId,
         address,
         fromAddress,
@@ -880,7 +880,6 @@ export class OrdersService {
     }
 
     const sellOffers = await this.dataLayerService.queryStaleOrders(
-      orderCreator,
       orderNftInfo,
       matchedOrder.taker,
     );

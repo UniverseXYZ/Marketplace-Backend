@@ -8,6 +8,7 @@ export class MockOrder {
   public updateOne() {}
   public sort() {}
   public bulkSave() {}
+  public bulkWrite() {}
   public limit() {}
   public skip() {}
 }
