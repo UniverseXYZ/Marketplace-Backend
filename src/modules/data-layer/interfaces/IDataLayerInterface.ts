@@ -58,7 +58,7 @@ export interface IDataLayerService {
     erc1155tokenIds: Array<any>,
     orderMaker: string,
     utcTimestamp: number,
-  )
+  );
 
   fetchOrdersWithHigherPrice(orderWithLowerPrice: OrderDocument);
 
