@@ -2,7 +2,7 @@ import { Body, Controller, Put, UsePipes } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { BaseController } from '../../common/base.controller';
 import { CancelOrderDto, MatchOrderDto, TrackOrderDto } from './order.dto';
-import { OrdersService } from './orders.service';
+import { OrdersService } from './mongo-orders.service';
 
 @Controller('internal')
 @ApiTags('Orderbook')
@@ -18,7 +18,8 @@ export class OrdersInternalController extends BaseController {
   })
   async matchOrder(@Body() body: MatchOrderDto) {
     try {
-      return await this.orderService.matchOrders(body.events);
+      const result = await this.orderService.matchOrders(body.events);
+      return result;
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
@@ -32,7 +33,8 @@ export class OrdersInternalController extends BaseController {
   })
   async cancelOrder(@Body() body: CancelOrderDto) {
     try {
-      return await this.orderService.cancelOrders(body.events);
+      const result = await this.orderService.cancelOrders(body.events);
+      return result;
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);

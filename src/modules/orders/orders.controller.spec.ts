@@ -1,9 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe, HttpException } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  HttpException,
+} from '@nestjs/common';
 import { expect } from 'chai';
 import request from 'supertest';
 import { AppModule } from '../../app.module';
-import { OrdersService } from './orders.service';
+import { OrdersService } from './mongo-orders.service';
 import { OrdersController } from './orders.controller';
 import { EthereumService } from '../ethereum/ethereum.service';
 import { Utils } from '../../common/utils';
@@ -27,7 +31,7 @@ describe('Validation tests for the Create Order endpoint', () => {
       .overrideProvider(OrdersService)
       .useClass(MockOrdersService)
       // turning off logging otherwise it's going to output a ton of exceptions!
-      .setLogger(new MockLogger)
+      .setLogger(new MockLogger())
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -88,38 +92,47 @@ describe('Validation tests for the Create Order endpoint', () => {
 
   it(`should return make.assetType.assetClass must be a valid enum value`, async () => {
     const order = JSON.parse(JSON.stringify(validOrder));
-    
+
     order.make.assetType.assetClass = 'non existing class';
     let response = await request(app.getHttpServer())
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array').that.includes('make.assetType.assetClass must be a valid enum value');
-  
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes('make.assetType.assetClass must be a valid enum value');
+
     order.make.assetType.assetClass = 'ERC721-right-junk';
     response = await request(app.getHttpServer())
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array').that.includes('make.assetType.assetClass must be a valid enum value');
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes('make.assetType.assetClass must be a valid enum value');
 
     order.make.assetType.assetClass = 'left-junk-ERC721';
     response = await request(app.getHttpServer())
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array').that.includes('make.assetType.assetClass must be a valid enum value');
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes('make.assetType.assetClass must be a valid enum value');
   });
 
   it(`should return make.assetType.Please provide a valid wallet address.`, async () => {
     const order = JSON.parse(JSON.stringify(validOrder));
 
-    order.make.assetType.contracts[1] = 'junk-0xaaaaaaaaaabbbbbbbbbbccccccccccdddddddddd';
+    order.make.assetType.contracts[1] =
+      'junk-0xaaaaaaaaaabbbbbbbbbbccccccccccdddddddddd';
     const response = await request(app.getHttpServer())
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array').that.includes('make.assetType.Please provide a valid wallet address.');
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes('make.assetType.Please provide a valid wallet address.');
   });
 
   it(`should return We had an error processing your request.`, async () => {
@@ -131,29 +144,35 @@ describe('Validation tests for the Create Order endpoint', () => {
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.a('string').that.equals('We had an error processing your request.');
+    expect(response.body.message)
+      .to.be.a('string')
+      .that.equals('We had an error processing your request.');
   });
 
   it(`should return ${constants.INVALID_ORDER_TYPE_ERROR}`, async () => {
-    const order = JSON.parse(JSON.stringify(validOrder))
+    const order = JSON.parse(JSON.stringify(validOrder));
 
     order.type = 'junk type';
     const response = await request(app.getHttpServer())
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.a('string').that.equals(constants.INVALID_ORDER_TYPE_ERROR);
+    expect(response.body.message)
+      .to.be.a('string')
+      .that.equals(constants.INVALID_ORDER_TYPE_ERROR);
   });
 
   it(`should return ${constants.WALLET_ADDRESS_ERROR}`, async () => {
     let order = JSON.parse(JSON.stringify(validOrder));
-    
+
     order.maker = 'junk wallet address';
     let response = await request(app.getHttpServer())
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array').that.includes(constants.WALLET_ADDRESS_ERROR);
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes(constants.WALLET_ADDRESS_ERROR);
 
     order = JSON.parse(JSON.stringify(validOrder));
     order.taker = '0xaaaaaaaaaabbbbbbbbbbccccccccccdddddddddd-junk';
@@ -161,35 +180,38 @@ describe('Validation tests for the Create Order endpoint', () => {
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array').that.includes(constants.WALLET_ADDRESS_ERROR);
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes(constants.WALLET_ADDRESS_ERROR);
 
     delete order.taker;
     response = await request(app.getHttpServer())
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array').that.includes(constants.WALLET_ADDRESS_ERROR);
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes(constants.WALLET_ADDRESS_ERROR);
   });
 
   it(`should return asset type errors`, async () => {
     const order = JSON.parse(JSON.stringify(validOrder));
 
     order.make.assetType.assetClass = AssetClass.ERC721;
-    order.make.assetType.contract = 'junk-0xaaaaaaaaaabbbbbbbbbbccccccccccdddddddddd';
+    order.make.assetType.contract =
+      'junk-0xaaaaaaaaaabbbbbbbbbbccccccccccdddddddddd';
     order.make.assetType.tokenId = 'stringAndNumber777';
     order.make.assetType.junkField = 'junkValue';
-    order.make.value = 555; 
+    order.make.value = 555;
     const response = await request(app.getHttpServer())
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array')
-      .that
-      .includes('make.assetType.Please provide a valid wallet address.')
-      .and
-      .includes('make.assetType.tokenId must be a number string')
-      .and
-      .includes('make.value must be a number string');
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes('make.assetType.Please provide a valid wallet address.')
+      .and.includes('make.assetType.tokenId must be a number string')
+      .and.includes('make.value must be a number string');
   });
 
   it(`should return Validation failed`, async () => {
@@ -200,7 +222,9 @@ describe('Validation tests for the Create Order endpoint', () => {
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.a('string').that.equals('Validation failed');
+    expect(response.body.message)
+      .to.be.a('string')
+      .that.equals('Validation failed');
   });
 
   it(`should return salt`, async () => {
@@ -211,7 +235,11 @@ describe('Validation tests for the Create Order endpoint', () => {
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array').that.includes('salt must be a number conforming to the specified constraints');
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes(
+        'salt must be a number conforming to the specified constraints',
+      );
 
     order = JSON.parse(JSON.stringify(validOrder));
 
@@ -220,26 +248,28 @@ describe('Validation tests for the Create Order endpoint', () => {
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array').that.includes('salt should not be empty');
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes('salt should not be empty');
   });
 
   it(`should return signature, end and start`, async () => {
     const order = JSON.parse(JSON.stringify(validOrder));
 
     delete order.signature;
-    order.end = 'string'
+    order.end = 'string';
     order.start = 9999999999999999999999999;
     const response = await request(app.getHttpServer())
       .post('/orders/order/')
       .send(order)
       .expect(400);
-    expect(response.body.message).to.be.an('array')
-      .that
-      .includes('signature should not be empty')
-      .and
-      .includes('end must be an integer number')
-      .and
-      .includes(`start must not be greater than ${constants.MAX_LISTING_TIMESTAMP}`);
+    expect(response.body.message)
+      .to.be.an('array')
+      .that.includes('signature should not be empty')
+      .and.includes('end must be an integer number')
+      .and.includes(
+        `start must not be greater than ${constants.MAX_LISTING_TIMESTAMP}`,
+      );
   });
 
   afterAll(async () => {

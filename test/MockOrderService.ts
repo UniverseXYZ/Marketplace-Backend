@@ -1,8 +1,8 @@
-import { OrdersService } from '../src/modules/orders/orders.service';
+import { OrdersService } from '../src/modules/orders/mongo-orders.service';
 import { Order } from '../src/modules/orders/order.entity';
 
 export class MockOrdersService extends OrdersService {
-  protected async checkSubscribe(order: Order) {
+  public async checkSubscribe(maker: string) {
     // do not do anything in the mock!
   }
 }

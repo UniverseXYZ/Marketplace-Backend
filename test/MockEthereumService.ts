@@ -1,9 +1,36 @@
-import { EthereumService } from '../src/modules/ethereum/ethereum.service';
+import { FallbackProvider } from '@ethersproject/providers';
+import { IEthereumService } from 'src/modules/ethereum/interface/IEthereumService';
 import { AssetClass } from '../src/modules/orders/order.types';
 
-export class MockEthereumService extends EthereumService {
+export class MockEthereumService implements IEthereumService {
+  ether: FallbackProvider;
+  exchange: any;
+
+  getChainId(): number {
+    throw new Error('Method not implemented.');
+  }
+
+  prepareMatchTx(
+    left: any,
+    signatureLeft: string,
+    right: any,
+    from: string,
+    value: string,
+  ) {
+    throw new Error('Method not implemented.');
+  }
+
+  calculateTxValue(
+    makeClass: string,
+    makeAmount: string,
+    takeClass: string,
+    takeAmount: string,
+  ) {
+    throw new Error('Method not implemented.');
+  }
+
   public verifyTypedData(domain, types, value, signature): string {
-    return '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+    throw new Error('Method not implemented.');
   }
 
   public async verifyAllowance(

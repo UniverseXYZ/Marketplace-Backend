@@ -7,9 +7,9 @@ import {
   Query,
   Logger,
   UsePipes,
+  Inject,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { EthereumService } from '../ethereum/ethereum.service';
 import {
   OrderDto,
   CreateOrderDto,
@@ -18,17 +18,13 @@ import {
   GetSaltParamsDto,
 } from './order.dto';
 import { OrderStatus } from './order.types';
-import { OrdersService } from './orders.service';
+import { OrdersService } from './mongo-orders.service';
 import { BaseController } from '../../common/base.controller';
 import { MarketplaceValidationPipe } from '../../common/pipes/marketplace-validation.pipe';
-
 @Controller('orders')
 @ApiTags('Orderbook')
 export class OrdersController extends BaseController {
-  constructor(
-    private orderService: OrdersService,
-    private ethereumService: EthereumService,
-  ) {
+  constructor(private orderService: OrdersService) {
     super(OrdersController.name);
   }
 
@@ -66,7 +62,7 @@ export class OrdersController extends BaseController {
   @UsePipes(MarketplaceValidationPipe)
   async fetchBrowsePage(@Query() query: QueryDto) {
     try {
-      return await this.orderService.queryBrowsePage(query);
+      return await this.orderService.queryAll(query);
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
@@ -144,7 +140,8 @@ export class OrdersController extends BaseController {
   @ApiOperation({ summary: 'Create an order.' })
   async createOrder(@Body() body: CreateOrderDto) {
     try {
-      return await this.orderService.createOrderAndCheckSubscribe(body);
+      const result = await this.orderService.createOrderAndCheckSubscribe(body);
+      return result;
     } catch (e) {
       this.logger.error(e);
       this.errorResponse(e);
