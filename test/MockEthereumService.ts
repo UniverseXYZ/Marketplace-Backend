@@ -33,6 +33,14 @@ export class MockEthereumService implements IEthereumService {
     throw new Error('Method not implemented.');
   }
 
+  getErc1155TokenBalance(
+    contractAddress: string,
+    tokenId: string,
+    walletAddress: string,
+  ): Promise<BigInt> {
+    throw new Error('Method not implemented.');
+  }
+
   public async verifyAllowance(
     assetClass: AssetClass,
     walletAddress: string,

@@ -36,6 +36,9 @@ export class MockDataLayerService implements IDataLayerService {
   updateMany(newOrders: any) {
     throw new Error('Method not implemented.');
   }
+  updateErc1155TokenBalance(order: any, newBalance: string) {
+    throw new Error('Method not implemented.');
+  }
   cancelOrder(event: CancelOrder) {
     throw new Error('Method not implemented.');
   }
@@ -90,6 +93,15 @@ export class MockDataLayerService implements IDataLayerService {
   }
 
   queryOrderForStale() {
+    throw new Error('Method not implemented.');
+  }
+
+  getErc1155OrdersToStale(
+    contract: string,
+    erc1155tokenIds: Array<any>,
+    orderMaker: string,
+    utcTimestamp: number,
+  ) {
     throw new Error('Method not implemented.');
   }
 }
