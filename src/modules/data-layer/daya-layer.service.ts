@@ -12,6 +12,7 @@ import { IDataLayerService } from './interfaces/IDataLayerInterface';
 import {
   Asset,
   AssetClass,
+  AssetType,
   OrderSide,
   OrderStatus,
 } from 'src/modules/orders/order.types';
@@ -19,6 +20,8 @@ import * as mongodb from 'mongodb';
 import { constants } from 'src/common/constants';
 import web3 from 'web3';
 import { SortOrderOptionsEnum } from '../orders/order.sort';
+import { Utils } from 'src/common/utils';
+
 @Injectable()
 export class DataLayerService implements IDataLayerService {
   private logger;
@@ -214,10 +217,18 @@ export class DataLayerService implements IDataLayerService {
     return await this.ordersModel.updateOne({ _id: newOrder._id }, newOrder);
   }
 
-  public async staleOrder(order: any) {
-    return await this.ordersModel.updateOne(
-      { hash: order.hash },
-      { status: OrderStatus.STALE },
+  public async staleOrders(orders: any) {
+    await this.ordersModel.bulkWrite(
+      orders.map((order) => {
+        return {
+          updateOne: {
+            filter: { hash: order.hash },
+            update: {
+              status: OrderStatus.STALE,
+            },
+          },
+        };
+      }),
     );
   }
 
@@ -240,6 +251,7 @@ export class DataLayerService implements IDataLayerService {
       },
     );
   }
+
   public async fetchPendingOrders(walletAddress: string) {
     const pendingOrders = await this.ordersModel
       .find({
@@ -251,46 +263,169 @@ export class DataLayerService implements IDataLayerService {
     return pendingOrders;
   }
 
-  async queryStaleOrders(orderCreator: string, orderNftInfo: Asset) {
+  async queryStaleOrders(orderNftInfo: Asset, orderTaker: string) {
     // 1. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
 
-    const queryFilters = {
-      side: OrderSide.SELL,
-      status: OrderStatus.CREATED,
-      maker: orderCreator.toLowerCase(),
-      'make.assetType.tokenId': orderNftInfo.assetType.tokenId,
-    } as any;
+    const value = [];
+    let ordersToStale = [];
+    let queryFilters = {} as any;
 
-    // ETH orders don't have contract
-    if (orderNftInfo.assetType.contract) {
-      queryFilters['make.assetType.contract'] =
-        orderNftInfo.assetType.contract.toLowerCase();
+    if (orderNftInfo.assetType.tokenIds) {
+      // if the matched order is a AssetClass.ERC721_BUNDLE, then we only filter
+      // sell bundles because a sell non-bundle order cannot be related to
+      // a matched bundle!
+      // In other words: a matched bundle order can only be an executed listing, or it can
+      // be an executed bundle offer to a bundle listing. This function only needs to return
+      // OrderSide.SELL orders that are related to executed offers.
+      // That means if the matched (executed) order is a bundle, then its related OrderSide.SELL
+      // listing (if any) is also a bundle.
+      queryFilters = {
+        $and: [
+          { side: OrderSide.SELL },
+          { status: OrderStatus.CREATED },
+          { taker: orderTaker.toLowerCase() },
+          { 'make.assetType.assetClass': AssetClass.ERC721_BUNDLE },
+          {
+            'make.assetType.contracts': {
+              $in: orderNftInfo.assetType.contracts.map((contract) => {
+                return contract.toLowerCase();
+              }),
+            },
+          },
+        ],
+      };
+
+      ordersToStale = await this.ordersModel.find(queryFilters);
+      ordersToStale.forEach((order) => {
+        // if the related sell order is an AssetClass.ERC721_BUNDLE order, then the only case
+        // when a sell bundle order is related to a matched bundle order is when the matched order is
+        // an offer to this sell order.
+        // We'd need to go through all contracts and all tokenIds to understand if this sell bundle
+        // order is the initial sell, but it's enough if at least 1 NFT from the matched order is listed
+        // in the sell order to mark this sell order as stale.
+        for (let i = 0; i < order.make.assetType.contracts.length; i++) {
+          const contract = order.make.assetType.contracts[i];
+          const matchedOrderContractIndex =
+            orderNftInfo.assetType.contracts.indexOf(contract);
+          if (
+            -1 !== matchedOrderContractIndex &&
+            Utils.getArraysIntersection(
+              order.make.assetType.tokenIds[i],
+              orderNftInfo.assetType.tokenIds[matchedOrderContractIndex],
+            ).length
+          ) {
+            value.push(order);
+            break;
+          }
+        }
+      });
+    } else {
+      // if the matched order is not a bundle
+
+      queryFilters = {
+        $and: [
+          { side: OrderSide.SELL },
+          { status: OrderStatus.CREATED },
+          { taker: orderTaker.toLowerCase() },
+          {
+            $or: [
+              {
+                'make.assetType.contract':
+                  orderNftInfo.assetType.contract.toLowerCase(),
+                'make.assetType.tokenId': orderNftInfo.assetType.tokenId,
+              },
+              {
+                'make.assetType.contracts':
+                  orderNftInfo.assetType.contract.toLowerCase(),
+              },
+            ],
+          },
+        ],
+      };
+
+      ordersToStale = await this.ordersModel.find(queryFilters);
+      ordersToStale.forEach((order) => {
+        // if it's an AssetClass.ERC721_BUNDLE order
+        if (AssetClass.ERC721_BUNDLE == order.make.assetType.assetClass) {
+          const contractIndex = order.make.assetType.contracts.indexOf(
+            orderNftInfo.assetType.contract.toLowerCase(),
+          );
+          if (
+            -1 !== contractIndex &&
+            order.make.assetType.tokenIds[contractIndex].includes(
+              orderNftInfo.assetType.tokenId,
+            )
+          ) {
+            value.push(order);
+          }
+        } else {
+          value.push(order);
+        }
+      });
     }
 
-    const sellOffers = await this.ordersModel.find(queryFilters);
-    return sellOffers;
+    return value;
   }
 
-  async queryOrderForStale(
+  /**
+   * Returns array of orders to be marked as stale.
+   * Technically there should be no more than 1 order to be marked as stale,
+   * but just in case we're querying an array.
+   * @param tokenId
+   * @param contract
+   * @param maker
+   * @param utcTimestamp
+   * @returns {Order[]} array of orders.
+   */
+  async queryOrdersForStale(
     tokenId: string,
     contract: string,
     maker: string,
     utcTimestamp: number,
   ) {
-    return await this.ordersModel.findOne({
+    const value = [];
+    const orders = await this.ordersModel.find({
       $and: [
         {
           status: OrderStatus.CREATED,
           side: OrderSide.SELL,
           maker: maker,
-          'make.assetType.contract': contract.toLowerCase(),
-          'make.assetType.tokenId': tokenId,
+        },
+        {
+          $or: [
+            {
+              'make.assetType.contract': contract.toLowerCase(),
+              'make.assetType.tokenId': tokenId,
+            },
+            {
+              'make.assetType.contracts': contract.toLowerCase(),
+            },
+          ],
         },
         {
           $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }],
         },
       ],
     });
+
+    orders.forEach((order) => {
+      // if it's an AssetClass.ERC721_BUNDLE order
+      if (AssetClass.ERC721_BUNDLE == order.make.assetType.assetClass) {
+        const contractIndex = order.make.assetType.contracts.indexOf(
+          contract.toLowerCase(),
+        );
+        if (
+          -1 !== contractIndex &&
+          order.make.assetType.tokenIds[contractIndex].includes(tokenId)
+        ) {
+          value.push(order);
+        }
+      } else {
+        value.push(order);
+      }
+    });
+
+    return value;
   }
 
   async fetchOrdersWithHigherPrice(orderWithLowerPrice: OrderDocument) {

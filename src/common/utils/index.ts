@@ -45,4 +45,23 @@ export class Utils {
   public static getUtcTimestamp() {
     return Math.floor(new Date().getTime() / 1000);
   }
+
+  /**
+   * Returns intersection of 2 single-dimension arrays.
+   * E.g. for [1, 2, 3] and [2, 3, 4, 5] returns [2, 3].
+   * @param array1
+   * @param array2
+   * @returns {Array}
+   */
+  public static getArraysIntersection(
+    array1: Array<any>,
+    array2: Array<any>,
+  ): Array<any> {
+    let value = array1.filter((value) => {
+      return array2.includes(value);
+    });
+    value = [...new Set(value)];
+
+    return value;
+  }
 }

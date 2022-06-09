@@ -38,13 +38,13 @@ export interface IDataLayerService {
 
   cancelOrder(event: CancelOrder);
 
-  staleOrder(order: any);
+  staleOrders(orders: any);
 
   fetchPendingOrders(walletAddress: string);
 
-  queryStaleOrders(orderCreator: string, orderNftInfo: Asset);
+  queryStaleOrders(orderNftInfo: Asset, orderTaker: string);
 
-  queryOrderForStale(
+  queryOrdersForStale(
     tokenId: string,
     contract: string,
     maker: string,

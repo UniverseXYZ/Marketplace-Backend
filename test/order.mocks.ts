@@ -39,9 +39,9 @@ export const validSellETHBundle: any = {
         '0x5a322b56ed080c559da183b69aa720d19690eaf2',
         '0x5a322b56ed080c559da183b69aa720d19690eaf3',
       ],
-      tokenIds: ['1933', '1934'],
+      tokenIds: [['1933'], ['1934']],
     },
-    value: '1',
+    value: '2',
   },
   taker: '0x0000000000000000000000000000000000000000',
   take: {

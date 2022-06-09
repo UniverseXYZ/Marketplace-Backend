@@ -55,13 +55,13 @@ export abstract class AbstractAssetType {
   })
   @IsArray()
   @ValidateIf((o) => o.assetClass === AssetClass.ERC721_BUNDLE)
-  contracts: string[];
+  contracts?: string[];
 
   @IsArray({
     each: true,
   })
   @ValidateIf((o) => o.assetClass === AssetClass.ERC721_BUNDLE)
-  tokenIds: string[][];
+  tokenIds?: string[][];
 
   @Matches(constants.REGEX_JS_INSENSITIVE, {
     message: constants.FORBIDDEN_CHARACTERS_ERROR,
