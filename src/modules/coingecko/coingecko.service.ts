@@ -3,7 +3,16 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 import CoinGecko from 'coingecko-api';
 import { Injectable, Logger } from '@nestjs/common';
-import { DEV_TOKEN_ADDRESSES, PROD_TOKEN_ADDRESSES, TOKENS } from './tokens';
+import {
+  DEV_TOKEN_ADDRESSES,
+  PROD_TOKEN_ADDRESSES,
+  TOKENS,
+  TOKEN_SYMBOLS,
+} from './tokens';
+import { Token } from './tokens.entity';
+import { TokenPricesDocument } from '../orders/schema/token-prices.schema';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 
 @Injectable()
 export class CoingeckoService {
@@ -26,7 +35,11 @@ export class CoingeckoService {
     [TOKENS.WETH]: '',
   };
 
-  constructor(private readonly config: AppConfig) {
+  constructor(
+    private readonly config: AppConfig,
+    @InjectModel(Token.name)
+    private readonly tokensModel: Model<TokenPricesDocument>,
+  ) {
     this.logger = new Logger(this.constructor.name);
     const client = new CoinGecko();
     this.coingeckoClient = client;
@@ -60,6 +73,38 @@ export class CoingeckoService {
       [TOKENS.WETH]: weth.data.market_data?.current_price?.usd,
     };
 
+    for (const token in coinsList) {
+      if (coinsList.hasOwnProperty(token)) {
+        const priceInUsd = coinsList[token];
+
+        if (token) {
+          const newTokenData = {
+            symbol: TOKEN_SYMBOLS[token],
+            usd: priceInUsd,
+            name: token,
+          };
+          const savedToken = await this.findTokenByName(token);
+          await this.updateTokenById(savedToken._id, newTokenData);
+        }
+      }
+    }
+
     this.tokenUsdValues = coinsList;
+  }
+
+  public async findTokenByName(token: string) {
+    return await this.tokensModel.findOne({
+      name: token,
+    });
+  }
+
+  public async updateTokenById(id: number, tokenData: any) {
+    return await this.tokensModel.updateOne({ _id: id }, tokenData);
+  }
+
+  public async queryByName(token: string) {
+    return await this.tokensModel.findOne({
+      name: token,
+    });
   }
 }

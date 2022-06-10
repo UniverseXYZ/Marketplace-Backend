@@ -6,12 +6,12 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { 
-  // IAsset, 
-  Asset, 
-  IOrderData, 
-  OrderSide, 
-  OrderStatus 
+import {
+  // IAsset,
+  Asset,
+  IOrderData,
+  OrderSide,
+  OrderStatus,
 } from './order.types';
 
 @Entity('orders')

@@ -1,12 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import {
-  Asset,
-  IOrderData,
-  OrderData,
-  OrderSide,
-  OrderStatus,
-} from '../order.types';
+import { Asset, OrderData, OrderSide, OrderStatus } from '../order.types';
 
 @Schema({ timestamps: true, collection: 'marketplace-orders' })
 export class Order {

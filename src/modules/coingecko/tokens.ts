@@ -7,6 +7,14 @@ export enum TOKENS {
   USDC = 'usd-coin',
 }
 
+export const TOKEN_SYMBOLS = {
+  ethereum: 'ETH',
+  weth: 'WETH',
+  dai: 'DAI',
+  'universe-xyz': 'XYZ',
+  'usd-coin': 'USDC',
+};
+
 export const DEV_TOKEN_ADDRESSES: { [key in TOKENS]: string } = {
   [TOKENS.ETH]: constants.ZERO_ADDRESS,
   [TOKENS.WETH]: '0xc778417e063141139fce010982780140aa0cd5ab',
