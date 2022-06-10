@@ -1,19 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CoingeckoService } from './coingecko.service';
-import { TokensController } from './coingecko.controller';
+import { CoingeckoServiceExtend } from './coingecko-extend.service';
+import { CoingeckoController } from './coingecko.controller';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Token } from './tokens.entity';
-import { TokenPricesSchema } from '../orders/schema/token-prices.schema';
+import { TokenPricesSchema } from './schema/token-prices.schema';
 import {
   rootMongooseTestModule,
   closeInMongodConnection,
 } from '../../../test/DBhandler';
 import { AppConfig } from '../configuration/configuration.service';
 import { MockAppConfig } from '../../mocks/MockAppConfig';
-import { TokenDTO } from './token.dto';
+import { CreateTokenPriceDTO } from './create-token-price.dto';
+import { TokenPrice } from './token-price.entity';
 
 describe('Coingecko Service', () => {
   let coingeckoService: CoingeckoService = null;
+  let coingeckoServiceExtend: CoingeckoServiceExtend = null;
   
 
   beforeEach(async () => {
@@ -22,13 +24,13 @@ describe('Coingecko Service', () => {
         rootMongooseTestModule(),
         MongooseModule.forFeature([
           {
-            name: Token.name,
+            name: TokenPrice.name,
             schema: TokenPricesSchema,
           },
         ]),
       ],
-      controllers: [TokensController],
-      providers: [CoingeckoService],
+      controllers: [CoingeckoController],
+      providers: [CoingeckoService, CoingeckoServiceExtend],
     }).useMocker((token) => {
 
       if (token === AppConfig) {
@@ -38,6 +40,7 @@ describe('Coingecko Service', () => {
     }).compile();
 
     coingeckoService = module.get(CoingeckoService);
+    coingeckoServiceExtend = module.get(CoingeckoServiceExtend);
   });
 
   describe('getTokenByName', () => {
@@ -49,7 +52,7 @@ describe('Coingecko Service', () => {
     });
 
     it('should return null if name is invalid', async () => {
-      const mockedTokensData: TokenDTO[] = [
+      const mockedTokensData: CreateTokenPriceDTO[] = [
         {
           symbol: 'ETH',
           usd: 2000,
@@ -73,7 +76,7 @@ describe('Coingecko Service', () => {
 
   describe('updateTokenById', () => {
     beforeEach(async () => {
-      const mockedTokensData: TokenDTO[] = [
+      const mockedTokensData: CreateTokenPriceDTO[] = [
         {
           symbol: 'ETH',
           usd: 2000,
@@ -97,6 +100,30 @@ describe('Coingecko Service', () => {
 
       expect(tokensModel.updateOne).toBeCalledWith({ _id: ethereumMockedData._id }, ethereumMockedData);
     });
+  });
+
+  describe('updatePrices', () => {
+
+    it('should get the prices from the DB even if the coingecko api is down', async () => {
+      const mockedTokensData: CreateTokenPriceDTO[] = [
+        {
+          symbol: 'ETH',
+          usd: 2000,
+          name: 'ethereum'
+        },
+        {
+          symbol: 'DAI',
+          usd: 1,
+          name: 'dai'
+        },
+      ];
+      await coingeckoService.tokensModel.insertMany(mockedTokensData);
+
+      expect(async () => await coingeckoServiceExtend.updatePricesExtended()).rejects.toThrowError();
+      const result = await coingeckoService.queryByName('ethereum');
+      expect(result).toMatchObject(mockedTokensData[0]);
+    });
+
   });
 
   afterAll(async () => {

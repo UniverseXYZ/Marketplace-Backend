@@ -6,7 +6,7 @@ import {
 } from 'typeorm';
 
 @Entity('token-prices')
-export class Token {
+export class TokenPrice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

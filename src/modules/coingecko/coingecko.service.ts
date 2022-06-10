@@ -9,11 +9,11 @@ import {
   TOKENS,
   TOKEN_SYMBOLS,
 } from './tokens';
-import { Token } from './tokens.entity';
-import { TokenPricesDocument } from '../orders/schema/token-prices.schema';
+import { TokenPricesDocument } from './schema/token-prices.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { TokenDTO } from './token.dto';
+import { CreateTokenPriceDTO } from './create-token-price.dto';
+import { TokenPrice } from './token-price.entity';
 
 @Injectable()
 export class CoingeckoService {
@@ -38,7 +38,7 @@ export class CoingeckoService {
 
   constructor(
     private readonly config: AppConfig,
-    @InjectModel(Token.name)
+    @InjectModel(TokenPrice.name)
     readonly tokensModel: Model<TokenPricesDocument>,
   ) {
     this.logger = new Logger(this.constructor.name);
@@ -54,7 +54,7 @@ export class CoingeckoService {
   }
 
   @Cron(CronExpression.EVERY_10_MINUTES)
-  private async updatePrices() {
+  protected async updatePrices() {
     const [eth, dai, usdc, xyz, weth]: any = await Promise.all([
       this.coingeckoClient.coins.fetch(TOKENS.ETH),
       this.coingeckoClient.coins.fetch(TOKENS.DAI),
@@ -79,7 +79,7 @@ export class CoingeckoService {
         const priceInUsd = coinsList[token];
 
         if (token) {
-          const newTokenData: TokenDTO = {
+          const newTokenData: CreateTokenPriceDTO = {
             symbol: TOKEN_SYMBOLS[token],
             usd: priceInUsd,
             name: token,
@@ -93,7 +93,7 @@ export class CoingeckoService {
     this.tokenUsdValues = coinsList;
   }
 
-  public async updateTokenById(id: number, tokenData: TokenDTO) {
+  public async updateTokenById(id: number, tokenData: CreateTokenPriceDTO) {
     return await this.tokensModel.updateOne({ _id: id }, tokenData);
   }
 

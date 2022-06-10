@@ -4,9 +4,9 @@ import { BaseController } from '../../common/base.controller';
 import { CoingeckoService } from './coingecko.service';
 
 @Controller('tokenPrices')
-export class TokensController extends BaseController {
+export class CoingeckoController extends BaseController {
   constructor(private coingeckoService: CoingeckoService) {
-    super(TokensController.name);
+    super(CoingeckoController.name);
   }
 
   @Get(':token')
