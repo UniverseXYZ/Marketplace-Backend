@@ -13,6 +13,7 @@ import { Token } from './tokens.entity';
 import { TokenPricesDocument } from '../orders/schema/token-prices.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { TokenDTO } from './token.dto';
 
 @Injectable()
 export class CoingeckoService {
@@ -78,12 +79,12 @@ export class CoingeckoService {
         const priceInUsd = coinsList[token];
 
         if (token) {
-          const newTokenData = {
+          const newTokenData: TokenDTO = {
             symbol: TOKEN_SYMBOLS[token],
             usd: priceInUsd,
             name: token,
           };
-          const savedToken = await this.findTokenByName(token);
+          const savedToken = await this.queryByName(token);
           await this.updateTokenById(savedToken._id, newTokenData);
         }
       }
@@ -92,13 +93,7 @@ export class CoingeckoService {
     this.tokenUsdValues = coinsList;
   }
 
-  public async findTokenByName(token: string) {
-    return await this.tokensModel.findOne({
-      name: token,
-    });
-  }
-
-  public async updateTokenById(id: number, tokenData: any) {
+  public async updateTokenById(id: number, tokenData: TokenDTO) {
     return await this.tokensModel.updateOne({ _id: id }, tokenData);
   }
 

@@ -10,6 +10,7 @@ import {
 } from '../../../test/DBhandler';
 import { AppConfig } from '../configuration/configuration.service';
 import { MockAppConfig } from '../../mocks/MockAppConfig';
+import { TokenDTO } from './token.dto';
 
 describe('Coingecko Service', () => {
   let coingeckoService: CoingeckoService = null;
@@ -48,7 +49,7 @@ describe('Coingecko Service', () => {
     });
 
     it('should return null if name is invalid', async () => {
-      const mockedTokensData = [
+      const mockedTokensData: TokenDTO[] = [
         {
           symbol: 'ETH',
           usd: 2000,
@@ -72,7 +73,7 @@ describe('Coingecko Service', () => {
 
   describe('updateTokenById', () => {
     beforeEach(async () => {
-      const mockedTokensData = [
+      const mockedTokensData: TokenDTO[] = [
         {
           symbol: 'ETH',
           usd: 2000,
@@ -89,8 +90,8 @@ describe('Coingecko Service', () => {
 
     it('should call db with correct query', async () => {
       const ethereumMockedData = await coingeckoService.queryByName('ethereum');
-      console.log(ethereumMockedData);
       const tokensModel = coingeckoService.tokensModel;
+
       jest.spyOn(tokensModel, 'updateOne');
       await coingeckoService.updateTokenById(ethereumMockedData._id, ethereumMockedData);
 
