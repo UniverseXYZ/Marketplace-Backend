@@ -101,4 +101,8 @@ export class CoingeckoService {
       name: token,
     });
   }
+
+  public async queryAll() {
+    return await this.tokensModel.find({});
+  }
 }

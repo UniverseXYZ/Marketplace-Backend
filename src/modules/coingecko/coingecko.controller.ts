@@ -9,6 +9,16 @@ export class CoingeckoController extends BaseController {
     super(CoingeckoController.name);
   }
 
+  @Get('')
+  async getTokenPrices() {
+    try {
+      return await this.coingeckoService.queryAll();
+    } catch (e) {
+      this.logger.error(e);
+      this.errorResponse(e);
+    }
+  }
+
   @Get(':token')
   async getToken(@Param('token') token: string) {
     try {
