@@ -1,4 +1,4 @@
-import { constants } from './../../common/constants/index';
+import { constants } from '../../common/constants/index';
 export enum TOKENS {
   ETH = 'ethereum',
   WETH = 'weth',

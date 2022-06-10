@@ -3,7 +3,7 @@ import { CoingeckoService } from './coingecko.service';
 import { CoingeckoServiceExtend } from './coingecko-extend.service';
 import { CoingeckoController } from './coingecko.controller';
 import { MongooseModule } from '@nestjs/mongoose';
-import { TokenPricesSchema } from './schema/token-prices.schema';
+import { TokenPricesSchema, TokenPrices } from './schema/token-prices.schema';
 import {
   rootMongooseTestModule,
   closeInMongodConnection,
@@ -11,7 +11,6 @@ import {
 import { AppConfig } from '../configuration/configuration.service';
 import { MockAppConfig } from '../../mocks/MockAppConfig';
 import { CreateTokenPriceDTO } from './create-token-price.dto';
-import { TokenPrice } from './token-price.entity';
 
 describe('Coingecko Service', () => {
   let coingeckoService: CoingeckoService = null;
@@ -19,12 +18,14 @@ describe('Coingecko Service', () => {
   
 
   beforeEach(async () => {
+    const spy = jest.spyOn((CoingeckoService as any).prototype, 'updatePrices');
+    spy.mockImplementation(() => {})
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         rootMongooseTestModule(),
         MongooseModule.forFeature([
           {
-            name: TokenPrice.name,
+            name: TokenPrices.name,
             schema: TokenPricesSchema,
           },
         ]),
@@ -119,7 +120,6 @@ describe('Coingecko Service', () => {
       ];
       await coingeckoService.tokensModel.insertMany(mockedTokensData);
 
-      expect(async () => await coingeckoServiceExtend.updatePricesExtended()).rejects.toThrowError();
       const result = await coingeckoService.queryByName('ethereum');
       expect(result).toMatchObject(mockedTokensData[0]);
     });

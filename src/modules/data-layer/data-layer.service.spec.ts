@@ -16,7 +16,7 @@ import { DataLayerService } from './daya-layer.service';
 import { Model } from 'mongoose';
 import { Utils } from '../../common/utils';
 import { AssetClass, OrderSide, OrderStatus } from '../orders/order.types';
-import { PROD_TOKEN_ADDRESSES, TOKENS } from '../coingecko/tokens';
+import { PROD_TOKEN_ADDRESSES, TOKENS } from '../coingecko/tokens.config';
 import { CancelOrder } from '../orders/order.dto';
 
 const moduleMocker = new ModuleMocker(global);

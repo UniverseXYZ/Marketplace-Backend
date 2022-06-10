@@ -8,12 +8,11 @@ import {
   PROD_TOKEN_ADDRESSES,
   TOKENS,
   TOKEN_SYMBOLS,
-} from './tokens';
-import { TokenPricesDocument } from './schema/token-prices.schema';
+} from './tokens.config';
+import { TokenPricesDocument, TokenPrices } from './schema/token-prices.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateTokenPriceDTO } from './create-token-price.dto';
-import { TokenPrice } from './token-price.entity';
 
 @Injectable()
 export class CoingeckoService {
@@ -38,7 +37,7 @@ export class CoingeckoService {
 
   constructor(
     private readonly config: AppConfig,
-    @InjectModel(TokenPrice.name)
+    @InjectModel(TokenPrices.name)
     readonly tokensModel: Model<TokenPricesDocument>,
   ) {
     this.logger = new Logger(this.constructor.name);
