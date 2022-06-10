@@ -38,7 +38,7 @@ export class CoingeckoService {
   constructor(
     private readonly config: AppConfig,
     @InjectModel(Token.name)
-    private readonly tokensModel: Model<TokenPricesDocument>,
+    readonly tokensModel: Model<TokenPricesDocument>,
   ) {
     this.logger = new Logger(this.constructor.name);
     const client = new CoinGecko();
