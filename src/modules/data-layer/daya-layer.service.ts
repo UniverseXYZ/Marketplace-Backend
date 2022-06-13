@@ -5,8 +5,7 @@ import {
   CreateOrderDto,
   QueryDto,
 } from 'src/modules/orders/order.dto';
-import { Order } from 'src/modules/orders/order.entity';
-import { OrderDocument } from 'src/modules/orders/schema/order.schema';
+import { Order, OrderDocument } from '../orders/schema/order.schema';
 import { Model } from 'mongoose';
 import { IDataLayerService } from './interfaces/IDataLayerInterface';
 import {
@@ -57,6 +56,101 @@ export class DataLayerService implements IDataLayerService {
       },
       $and: [{ $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] }],
     });
+  }
+
+  /**
+   * Returns whether or not a ERC721_BUNDLE order (defined by tokenIds & contracts) contains
+   * an NFT that is currently listed.
+   * @param tokenIds - array of arrays of tokenIds
+   * @param contracts
+   * @param utcTimestamp
+   * @returns {Promise<boolean>}
+   */
+  public async bundleContainsListedNft(
+    tokenIds: Array<any>,
+    contracts: Array<any>,
+    utcTimestamp: number,
+  ): Promise<boolean> {
+    let value = false;
+
+    const existingOrders = await this.ordersModel.find({
+      $and: [
+        { side: OrderSide.SELL },
+        { status: OrderStatus.CREATED },
+        {
+          $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }],
+        },
+        {
+          $or: [
+            {
+              'make.assetType.contracts': {
+                $in: contracts.map((contract) => {
+                  return contract.toLowerCase();
+                }),
+              },
+            },
+            {
+              'make.assetType.contract': {
+                $in: contracts.map((contract) => {
+                  return contract.toLowerCase();
+                }),
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    // let's do for instead of forEach() to save a couple of executions.
+    for (let i = 0; i < existingOrders.length; i++) {
+      const existingOrder = existingOrders[i];
+      // if existingOrder is an AssetClass.ERC721_BUNDLE order
+      if (AssetClass.ERC721_BUNDLE == existingOrder.make.assetType.assetClass) {
+        for (
+          let j = 0;
+          j < existingOrder.make.assetType.contracts.length;
+          j++
+        ) {
+          try {
+            const contractIndex = contracts.indexOf(
+              existingOrder.make.assetType.contracts[j],
+            );
+            if (
+              -1 !== contractIndex &&
+              Utils.getArraysIntersection(
+                tokenIds[contractIndex],
+                existingOrder.make.assetType.tokenIds[j],
+              ).length
+            ) {
+              value = true;
+              break;
+            }
+          } catch (e) {
+            this.logger.warn(
+              `${AssetClass.ERC721_BUNDLE} order with hash ${existingOrder.hash} likely has incorrect structure.`,
+            );
+            this.logger.warn(e);
+          }
+        }
+      } else {
+        const contractIndex = contracts.indexOf(
+          existingOrder.make.assetType.contract,
+        );
+        if (
+          -1 !== contractIndex &&
+          tokenIds[contractIndex].includes(existingOrder.make.assetType.tokenId)
+        ) {
+          value = true;
+          break;
+        }
+      }
+
+      if (value) {
+        break; // single return statement policy yeah ;)
+      }
+    }
+
+    return value;
   }
 
   /**
@@ -213,7 +307,7 @@ export class DataLayerService implements IDataLayerService {
     return results;
   }
 
-  public async updateById(newOrder: any) {
+  public async updateById(newOrder: any): Promise<any> {
     return await this.ordersModel.updateOne({ _id: newOrder._id }, newOrder);
   }
 
@@ -232,11 +326,11 @@ export class DataLayerService implements IDataLayerService {
     );
   }
 
-  public async updateMany(newOrders: any) {
+  public async updateMany(newOrders: any): Promise<any> {
     return await await this.ordersModel.bulkSave(newOrders);
   }
 
-  public async cancelOrder(event: CancelOrder) {
+  public async cancelOrder(event: CancelOrder): Promise<any> {
     return await this.ordersModel.updateOne(
       {
         hash: event.leftOrderHash,
@@ -263,7 +357,10 @@ export class DataLayerService implements IDataLayerService {
     return pendingOrders;
   }
 
-  async queryStaleOrders(orderNftInfo: Asset, orderTaker: string) {
+  async queryStaleOrders(
+    orderNftInfo: Asset,
+    orderTaker: string,
+  ): Promise<Array<Order>> {
     // 1. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
 
     const value = [];
@@ -382,7 +479,7 @@ export class DataLayerService implements IDataLayerService {
     contract: string,
     maker: string,
     utcTimestamp: number,
-  ) {
+  ): Promise<Array<Order>> {
     const value = [];
     const orders = await this.ordersModel.find({
       $and: [
@@ -955,5 +1052,74 @@ export class DataLayerService implements IDataLayerService {
         },
       },
     ];
+  }
+
+  /**
+   * Returns an active SELL ERC721_BUNDLE order by the bundle data and
+   * SELL order maker.
+   * Returns null if not found.
+   * @param bundle
+   * @param maker - SELL ERC721_BUNDLE order maker.
+   * @returns {Promise<Order|null>}
+   */
+  public async getSellOrderByBundleAndMaker(bundle: Asset, maker: string): Promise<Order|null> {
+    let value: Order = null;
+
+    const utcTimestamp = Utils.getUtcTimestamp();
+    const sellBundleOrders = await this.ordersModel.find({
+      $and: [
+        { side: OrderSide.SELL },
+        { status: OrderStatus.CREATED },
+        { maker: maker },
+        { 'make.value': bundle.value },
+        {
+          $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
+        },
+        { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
+        {
+          'make.assetType.contracts': {
+            $all: bundle.assetType.contracts,
+          },
+        },
+      ],
+    });
+    for (let i = 0; i < sellBundleOrders.length; i++) {
+      const sellBundleOrder = sellBundleOrders[i];
+      if (
+        sellBundleOrder.make.value === bundle.value &&
+        sellBundleOrder.make.assetType.contracts.length ===
+          bundle.assetType.contracts.length
+      ) {
+        for (
+          let j = 0;
+          j < sellBundleOrder.make.assetType.contracts.length;
+          j++
+        ) {
+          const contract = sellBundleOrder.make.assetType.contracts[j];
+          const contractIndex = bundle.assetType.contracts.indexOf(contract);
+          if (
+            -1 == contractIndex ||
+            sellBundleOrder.make.assetType.tokenIds[j].length !=
+              Utils.getArraysIntersection(
+                sellBundleOrder.make.assetType.tokenIds[j],
+                bundle.assetType.tokenIds[contractIndex],
+              ).length
+          ) {
+            break;
+          }
+
+          if (j === sellBundleOrder.make.assetType.contracts.length - 1) {
+            // bingo if reached this line!
+            value = sellBundleOrder;
+          }
+        }
+      }
+
+      if (value) {
+        break;
+      }
+    }
+
+    return value;
   }
 }

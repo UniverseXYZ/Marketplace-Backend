@@ -135,7 +135,7 @@ describe('Validation tests for the Create Order endpoint', () => {
       .that.includes('make.assetType.Please provide a valid wallet address.');
   });
 
-  it(`should return We had an error processing your request.`, async () => {
+  it(`should return Invalid bundle data.`, async () => {
     const order = JSON.parse(JSON.stringify(validOrder));
 
     order.make.assetType.tokenIds[0] = [];
@@ -146,7 +146,7 @@ describe('Validation tests for the Create Order endpoint', () => {
       .expect(400);
     expect(response.body.message)
       .to.be.a('string')
-      .that.equals('We had an error processing your request.');
+      .that.equals('Invalid bundle data.');
   });
 
   it(`should return ${constants.INVALID_ORDER_TYPE_ERROR}`, async () => {

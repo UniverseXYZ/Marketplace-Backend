@@ -9,8 +9,8 @@ import {
   validSellETHOrder,
   validSellETHBundle,
 } from '../../../test/order.mocks';
-import { MockAppConfig } from '../../mocks/MockAppConfig';
-import { MockOrder } from '../../mocks/MockOrder';
+import { MockAppConfig } from '../../../test/MockAppConfig';
+import { MockOrder } from '../../../test/MockOrder';
 import { AppConfig } from '../configuration/configuration.service';
 import { Order } from '../orders/order.entity';
 import { DataLayerService } from './daya-layer.service';
@@ -453,6 +453,7 @@ describe('Data Layer Service', () => {
 
       expect(orderModel.find).toBeCalledTimes(1);
       expect(ordersToStale).toHaveLength(1);
+      expect(ordersToStale[0]).toHaveProperty('make.assetType.contracts');
       expect(ordersToStale[0].make.assetType.contracts[1])
         .toEqual(validSellETHBundle.make.assetType.contracts[1]);
     });
@@ -580,4 +581,102 @@ describe('Data Layer Service', () => {
   });
 
   describe('buildPriceAggregation', () => {});
+
+  describe('bundleContainsListedNft', () => {
+    const utcTimestamp = Utils.getUtcTimestamp();
+
+    it('should return true if there is an active listed bundle order with an NFT from the new bundle', async () => {
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return [validSellETHBundle];
+      })
+
+      const result = await dataLayerService.bundleContainsListedNft(
+        validSellETHBundle.make.assetType.tokenIds,
+        validSellETHBundle.make.assetType.contracts,
+        utcTimestamp
+      );
+      expect(result).toEqual(true);
+    });
+
+    it('should return true if there is an active listed non-bundle order with an NFT from the new bundle', async () => {
+      const validSellOrder = JSON.parse(JSON.stringify(validSellERC20Order));
+      validSellOrder.make.assetType.contract = '0x5a322b56ed080c559da183b69aa720d19690eaf3';
+      validSellOrder.make.assetType.tokenId = '1934';
+
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return [validSellOrder];
+      })
+
+      const result = await dataLayerService.bundleContainsListedNft(
+        validSellETHBundle.make.assetType.tokenIds,
+        validSellETHBundle.make.assetType.contracts,
+        utcTimestamp
+      );
+      expect(result).toEqual(true);
+    });
+
+    it('should return false if there is no active listings with any NFTs from the bundle', async () => {
+      const validSellOrder = JSON.parse(JSON.stringify(validSellERC20Order));
+      validSellOrder.make.assetType.contract = '0x5a322b56ed080c559da183b69aa720d19690eaf3';
+      validSellOrder.make.assetType.tokenId = '1000'; //not in bundle
+
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return [validSellOrder];
+      });
+
+      let result = await dataLayerService.bundleContainsListedNft(
+        validSellETHBundle.make.assetType.tokenIds,
+        validSellETHBundle.make.assetType.contracts,
+        utcTimestamp
+      );
+      expect(result).toEqual(false);
+
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return [];
+      })
+
+      result = await dataLayerService.bundleContainsListedNft(
+        validSellETHBundle.make.assetType.tokenIds,
+        validSellETHBundle.make.assetType.contracts,
+        utcTimestamp
+      );
+      expect(result).toEqual(false);
+    });
+  });
+
+  describe('getSellOrderByBundleAndMaker', () => {
+    const utcTimestamp = Utils.getUtcTimestamp();
+
+    it('should return an existing sell bundle order', async () => {
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return [validSellETHBundle];
+      });
+
+      const result = await dataLayerService.getSellOrderByBundleAndMaker(
+        validSellETHBundle.make,
+        validSellETHBundle.maker,
+      );
+      expect(orderModel.find).toBeCalledTimes(1);
+      expect(result).toHaveProperty('make');
+      expect(result.make.assetType.contracts[1]).toEqual(validSellETHBundle.make.assetType.contracts[1]);
+    });
+
+    it('should return null if there is a listing with same contracts but different tokenIds', async () => {
+      const validSellBundleOrder = JSON.parse(JSON.stringify(validSellETHBundle));
+      validSellBundleOrder.make.assetType.tokenIds[1] = ['2000', '2001']; // not in bundle
+      validSellBundleOrder.make.value = '3';
+      
+      jest.spyOn(orderModel, 'find').mockImplementationOnce(() => {
+        return [validSellBundleOrder];
+      });
+
+      const result = await dataLayerService.getSellOrderByBundleAndMaker(
+        validSellETHBundle.make,
+        validSellETHBundle.maker,
+      );
+      expect(orderModel.find).toBeCalledTimes(1);
+      expect(result).toEqual(null);
+    });
+
+  });
 });

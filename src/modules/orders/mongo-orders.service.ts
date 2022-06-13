@@ -83,23 +83,24 @@ export class OrdersService {
     // This has to happen before verifying the signature!
     this.removeUnexpectedPropeties(data);
 
+    // validate bundle order before convertToOrder() !
+    if (AssetClass.ERC721_BUNDLE == data.make.assetType.assetClass) {
+      await this.validateBundleOrder(data);
+    }
+
     const order = this.convertToOrder(data);
     const utcTimestamp = Utils.getUtcTimestamp();
 
-    // @TODO Remove when the support for bundles is added
-    if (AssetClass.ERC721_BUNDLE === order.make.assetType.assetClass) {
-      throw new MarketplaceException('Support for bundles is coming up...');
-    }
-
-    // Check if order for the nft already exists
-    // @TODO add support for ERC721_BUNDLE
-    if (order.side === OrderSide.SELL) {
+    // Check if this NFT is already listed
+    if (
+      OrderSide.SELL === order.side &&
+      AssetClass.ERC721_BUNDLE != order.make.assetType.assetClass
+    ) {
       const existingOrder = await this.dataLayerService.findExistingOrder(
         order.make.assetType.tokenId,
         order.make.assetType.contract,
         utcTimestamp,
       );
-
       if (existingOrder) {
         throw new MarketplaceException(constants.ORDER_ALREADY_EXISTS);
       }
@@ -275,19 +276,24 @@ export class OrdersService {
       hash: '',
     };
 
-    if (NftTokens.includes(order.make.assetType.assetClass)) {
-      order.side = OrderSide.SELL;
-    } else if (AssetClass.ERC20 === order.make.assetType.assetClass) {
-      order.side = OrderSide.BUY;
-    } else {
-      throw new MarketplaceException(constants.INVALID_ASSET_CLASS);
+    order.side = this.defineOrderSide(orderDto);
+
+    try {
+      order.hash = hashOrderKey(
+        order.maker.toLowerCase(),
+        order.make.assetType,
+        order.take.assetType,
+        order.salt,
+      );
+    } catch (e) {
+      this.logger.error(
+        `Could not create a hash for an order. Data from client: ${JSON.stringify(
+          orderDto,
+        )}`,
+      );
+      this.logger.error(e);
+      throw new MarketplaceException(constants.GENERIC_ERROR);
     }
-    order.hash = hashOrderKey(
-      order.maker.toLowerCase(),
-      order.make.assetType,
-      order.take.assetType,
-      order.salt,
-    );
 
     return order;
   }
@@ -839,5 +845,112 @@ export class OrdersService {
     const orders = await this.dataLayerService.fetchVolumeTraded(collection);
 
     return orders;
+  }
+
+  /**
+   * Defines and returns the side of the order based on
+   * order.make.assetType.assetClass.
+   * @param order
+   * @returns {OrderSide}
+   * @throws {MarketplaceException}
+   */
+  private defineOrderSide(order: any): OrderSide {
+    let value = null;
+
+    if (NftTokens.includes(order.make.assetType.assetClass)) {
+      value = OrderSide.SELL;
+    } else if (AssetClass.ERC20 === order.make.assetType.assetClass) {
+      value = OrderSide.BUY;
+    } else {
+      throw new MarketplaceException(constants.INVALID_ASSET_CLASS);
+    }
+
+    return value;
+  }
+
+  /**
+   * This method makes validations for ERC721_BUNDLE orders.
+   * If something is incorrect - throws an exception.
+   * Otherwise returns void.
+   * @param order
+   * @returns void
+   * @throws {MarketplaceException}
+   */
+  private async validateBundleOrder(order: OrderDto) {
+    let orderNftInfo: Asset = null;
+
+    try {
+      if (OrderSide.SELL === this.defineOrderSide(order)) {
+        orderNftInfo = order.make;
+      } else {
+        orderNftInfo = order.take;
+      }
+      const utcTimestamp = Utils.getUtcTimestamp();
+
+      // 1. check if orderNftInfo.value corresponds to the number of tokens.
+      const orderValue = orderNftInfo.assetType.tokenIds.flat().length;
+      if (orderValue !== Number(orderNftInfo.value)) {
+        throw new MarketplaceException(constants.INVALID_BUNDLE_DATA_ERROR);
+      }
+
+      // 2. check if contracts.length == tokenIds.length
+      if (
+        orderNftInfo.assetType.contracts.length !==
+        orderNftInfo.assetType.tokenIds.length
+      ) {
+        throw new MarketplaceException(constants.INVALID_BUNDLE_DATA_ERROR);
+      }
+
+      // 3. check if contracts or tokeIds have duplicates.
+      const uniqueContracts = [...new Set(orderNftInfo.assetType.contracts)];
+      if (uniqueContracts.length !== orderNftInfo.assetType.contracts.length) {
+        throw new MarketplaceException(constants.INVALID_BUNDLE_DATA_ERROR);
+      }
+      orderNftInfo.assetType.tokenIds.forEach((tokenIds) => {
+        const uniqueTokenIds = [...new Set(tokenIds)];
+        if (uniqueTokenIds.length !== tokenIds.length) {
+          throw new MarketplaceException(constants.INVALID_BUNDLE_DATA_ERROR);
+        }
+      });
+
+      // 4. if it's an offer to an existing listing, this offer must contain
+      // all the NFTs from that listing.
+      // i.e. there has to be an active SELL order with exact same bundle.
+      if (OrderSide.BUY == this.defineOrderSide(order)) {
+        const existingSellOrder =
+          await this.dataLayerService.getSellOrderByBundleAndMaker(
+            orderNftInfo,
+            order.taker,
+          );
+        if (!existingSellOrder) {
+          throw new MarketplaceException(
+            constants.SELL_ORDER_DOES_NOT_EXIST_ERROR,
+          );
+        }
+      }
+
+      // 5. check if there's any NFT in the bundle that is already listed.
+      if (OrderSide.SELL == this.defineOrderSide(order)) {
+        const alreadyListed =
+          await this.dataLayerService.bundleContainsListedNft(
+            orderNftInfo.assetType.tokenIds,
+            orderNftInfo.assetType.contracts,
+            utcTimestamp,
+          );
+        if (alreadyListed) {
+          throw new MarketplaceException(constants.ORDER_ALREADY_EXISTS);
+        }
+      }
+    } catch (e) {
+      if (e instanceof MarketplaceException) {
+        throw e;
+      } else {
+        this.logger.error(
+          `Could not validate bundle order ${JSON.stringify(order)}`,
+        );
+        this.logger.error(e);
+        throw new MarketplaceException(constants.GENERIC_ERROR);
+      }
+    }
   }
 }
