@@ -1174,7 +1174,8 @@ export class OrdersService {
     return value;
   }
 
-  /** This method makes validations for ERC721_BUNDLE orders.
+  /**
+   * This method makes validations for ERC721_BUNDLE orders.
    * If something is incorrect - throws an exception.
    * Otherwise returns void.
    * @param order

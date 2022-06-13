@@ -19,6 +19,12 @@ export interface IDataLayerService {
     utcTimestamp: number,
   );
 
+  bundleContainsListedNft(
+    tokenIds: Array<any>,
+    contracts: Array<any>,
+    utcTimestamp: number,
+  );
+
   getSaltByWalletAddress(walletAddress: string): Promise<number>;
 
   getOrderByHash(hash: string);
