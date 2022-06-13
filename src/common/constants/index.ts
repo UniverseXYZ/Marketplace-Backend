@@ -27,10 +27,12 @@ export const constants = {
   INVALID_TOKEN_ID: 'Invalid token id.',
   INVALID_ASSET_CLASS: 'Invalid asset class.',
   ORDER_ALREADY_FILLED_ERROR: 'Order has been filled.',
+  SELL_ORDER_DOES_NOT_EXIST_ERROR: 'Sell order does not exist.',
   NFT_ALLOWANCE_ERROR:
     'Some NFTs are not approved to be transferred or not owned by maker.',
   ORDER_ALREADY_EXISTS:
     'NFT is already listed or has been scheduled for listing.',
   ERC1155_INSUFFICIENT_BALANCE:
     'Insufficient ERC1155 balance. Cancel other listings or add editions to your wallet.',
+  INVALID_BUNDLE_DATA_ERROR: 'Invalid bundle data.',
 };

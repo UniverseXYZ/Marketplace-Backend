@@ -87,6 +87,13 @@ export class MockDataLayerService implements IDataLayerService {
   findExistingOrders(tokenId: string, contract: string, utcTimestamp: number) {
     return null;
   }
+  bundleContainsListedNft(
+    tokenIds: Array<any>,
+    contracts: Array<any>,
+    utcTimestamp: number,
+  ) {
+    throw new Error('Method not implemented.');
+  }
 
   async getSaltByWalletAddress(walletAddress: string) {
     return 0;
@@ -102,6 +109,10 @@ export class MockDataLayerService implements IDataLayerService {
     orderMaker: string,
     utcTimestamp: number,
   ) {
+    throw new Error('Method not implemented.');
+  }
+
+  getSellOrderByBundleAndMaker(bundle: Asset, maker: string) {
     throw new Error('Method not implemented.');
   }
 }

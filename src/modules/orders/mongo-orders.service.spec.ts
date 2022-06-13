@@ -4,7 +4,7 @@ import { OrdersController } from './orders.controller';
 import { ModuleMocker, MockFunctionMetadata } from 'jest-mock';
 import { Order } from './order.entity';
 import { getModelToken } from '@nestjs/mongoose';
-import { MockAppConfig } from '../../mocks/MockAppConfig';
+import { MockAppConfig } from '../../../test/MockAppConfig';
 import { MockOrder } from '../../../test/MockOrder';
 import {
   ETHEREUM_SERVICE,
@@ -28,7 +28,7 @@ import {
   validSellETHOrder,
 } from '../../../test/order.mocks';
 import { PrepareTxDto, QueryDto } from './order.dto';
-import { AssetClass, OrderStatus } from './order.types';
+import { AssetClass, OrderSide, OrderStatus } from './order.types';
 import { Utils } from '../../common/utils';
 import { PROD_TOKEN_ADDRESSES, TOKENS } from '../coingecko/tokens.config';
 
@@ -90,7 +90,7 @@ describe('Orders Service', () => {
 
     jest
       .spyOn(orderService, 'checkSubscribe')
-      .mockImplementation(async () => null);
+      .mockImplementation(async () => {});
 
     // ETHEREUM SERVICE MOCKS
     jest
@@ -123,8 +123,16 @@ describe('Orders Service', () => {
       expect(dataLayerService.createOrder).toBeCalled();
     });
 
+    it('creates valid ERC721_BUNDLE sell order', async () => {
+      jest.spyOn(dataLayerService, 'bundleContainsListedNft')
+        .mockReturnValueOnce(false);
+
+      await orderService.createOrderAndCheckSubscribe(validSellETHBundle);
+      expect(dataLayerService.createOrder).toBeCalled();
+    });
+
     it('throws if type is invalid or not found ', async () => {
-      const invalidOrder = { ...validSellETHOrder };
+      const invalidOrder = JSON.parse(JSON.stringify(validSellETHOrder));
       invalidOrder.type = 'INVALID';
 
       expect(
@@ -167,9 +175,7 @@ describe('Orders Service', () => {
     });
 
     it('deletes single order properties if exist (bundle)', async () => {
-      const bundleOrder = {
-        ...validSellETHBundle,
-      };
+      const bundleOrder = JSON.parse(JSON.stringify(validSellETHBundle));
       bundleOrder.make.assetType.contract = '123';
       bundleOrder.make.assetType.tokenId = '1';
 
@@ -266,6 +272,75 @@ describe('Orders Service', () => {
           await orderService.createOrderAndCheckSubscribe(validBuyERC20Order),
       ).rejects.toThrowError(
         new MarketplaceException(constants.INVALID_SIGNATURE_ERROR),
+      );
+    });
+
+    it('throws if ERC721_BUNDLE order has value not equal to the number of tokens', async () => {
+      const bundleOrderWrongValue = JSON.parse(JSON.stringify(validSellETHBundle));
+      bundleOrderWrongValue.make.value = '1';
+
+      expect(
+        async () => 
+          await orderService.createOrderAndCheckSubscribe(bundleOrderWrongValue))
+      .rejects.toThrowError(
+        new MarketplaceException(constants.INVALID_BUNDLE_DATA_ERROR),
+      );
+    });
+
+    it('throws if ERC721_BUNDLE order has number of contracts.length not equal tokenIds.length', async () => {
+      const bundleOrderWrongTokenIds = JSON.parse(JSON.stringify(validSellETHBundle));
+      bundleOrderWrongTokenIds.make.assetType.tokenIds = [['99']];
+
+      expect(
+        async () => 
+          await orderService.createOrderAndCheckSubscribe(bundleOrderWrongTokenIds))
+      .rejects.toThrowError(
+        new MarketplaceException(constants.INVALID_BUNDLE_DATA_ERROR),
+      );
+    });
+
+    it('throws if ERC721_BUNDLE order has duplicates in contracts or tokenIds', async () => {
+      const bundleOrderDuplicatedTokenIds = JSON.parse(JSON.stringify(validSellETHBundle));
+      bundleOrderDuplicatedTokenIds.make.assetType.tokenIds[0] = [['99', '99', '11']];
+      bundleOrderDuplicatedTokenIds.make.value = '4';
+
+      expect(
+        async () => 
+          await orderService.createOrderAndCheckSubscribe(bundleOrderDuplicatedTokenIds))
+      .rejects.toThrowError(
+        new MarketplaceException(constants.INVALID_BUNDLE_DATA_ERROR),
+      );
+      
+      const bundleOrderDuplicatedContracts = JSON.parse(JSON.stringify(validSellETHBundle));
+      bundleOrderDuplicatedContracts.make.assetType.contracts = [
+        '0x99999999999999999999aaaaaaaaaaaaaaaaaaaa',
+        '0x99999999999999999999aaaaaaaaaaaaaaaaaaaa',
+        '0x99999999999999999999bbbbbbbbbbbbbbbbbbbb',
+      ];
+      bundleOrderDuplicatedContracts.make.assetType.tokenIds = [
+        ['11'], ['22', '33'], ['44'],
+      ];
+      bundleOrderDuplicatedContracts.make.value = '4';
+
+      expect(
+        async () => 
+          await orderService.createOrderAndCheckSubscribe(bundleOrderDuplicatedContracts))
+      .rejects.toThrowError(
+        new MarketplaceException(constants.INVALID_BUNDLE_DATA_ERROR),
+      );
+    });
+    
+    it('throws if ERC721_BUNDLE sell order has an NFT that is already listed', async () => {
+      const bundleOrder = JSON.parse(JSON.stringify(validSellETHBundle));
+
+      jest.spyOn(dataLayerService, 'bundleContainsListedNft')
+        .mockReturnValueOnce(true);
+
+      expect(
+        async () => 
+          await orderService.createOrderAndCheckSubscribe(bundleOrder))
+      .rejects.toThrowError(
+        new MarketplaceException(constants.ORDER_ALREADY_EXISTS),
       );
     });
   });

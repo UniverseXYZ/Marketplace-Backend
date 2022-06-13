@@ -13,6 +13,12 @@ export interface IDataLayerService {
 
   findExistingOrders(tokenId: string, contract: string, utcTimestamp: number);
 
+  bundleContainsListedNft(
+    tokenIds: Array<any>,
+    contracts: Array<any>,
+    utcTimestamp: number,
+  );
+
   getSaltByWalletAddress(walletAddress: string): Promise<number>;
 
   getOrderByHash(hash: string);
@@ -85,4 +91,6 @@ export interface IDataLayerService {
   addEndSortingAggregation();
 
   getOffersByCreatorAndAsset(offerCreator: string, asset: Asset);
+
+  getSellOrderByBundleAndMaker(bundle: Asset, maker: string);
 }
