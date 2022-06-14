@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 import { getModelToken } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
+import { ConfigModule } from '@nestjs/config';
 import { ModuleMocker, MockFunctionMetadata } from 'jest-mock';
 import {
   createOrderDto,
@@ -9,8 +10,8 @@ import {
   validSellETHOrder,
   validSellETHBundle,
 } from '../../../test/order.mocks';
-import { MockAppConfig } from '../../../test/MockAppConfig';
 import { MockOrder } from '../../../test/MockOrder';
+import configuration from '../configuration';
 import { AppConfig } from '../configuration/configuration.service';
 import { Order } from '../orders/order.entity';
 import { DataLayerService } from './daya-layer.service';
@@ -28,13 +29,17 @@ describe('Data Layer Service', () => {
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [DataLayerService],
+      providers: [DataLayerService, AppConfig],
+      imports: [
+        ConfigModule.forRoot({
+          ignoreEnvFile: false,
+          ignoreEnvVars: false,
+          isGlobal: true,
+          load: [configuration],
+        }),
+      ],
     })
       .useMocker((token) => {
-        // // TODO: extract interface
-        if (token === AppConfig) {
-          return new MockAppConfig();
-        }
 
         if (token === getModelToken(Order.name)) {
           return new MockOrder();

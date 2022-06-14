@@ -1062,7 +1062,10 @@ export class DataLayerService implements IDataLayerService {
    * @param maker - SELL ERC721_BUNDLE order maker.
    * @returns {Promise<Order|null>}
    */
-  public async getSellOrderByBundleAndMaker(bundle: Asset, maker: string): Promise<Order|null> {
+  public async getSellOrderByBundleAndMaker(
+    bundle: Asset,
+    maker: string,
+  ): Promise<Order | null> {
     let value: Order = null;
 
     const utcTimestamp = Utils.getUtcTimestamp();

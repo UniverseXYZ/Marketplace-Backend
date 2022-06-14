@@ -1,10 +1,11 @@
 import { Test } from '@nestjs/testing';
+import { ConfigModule } from '@nestjs/config';
+import configuration from '../configuration';
 import { OrdersService } from './mongo-orders.service';
 import { OrdersController } from './orders.controller';
 import { ModuleMocker, MockFunctionMetadata } from 'jest-mock';
 import { Order } from './order.entity';
 import { getModelToken } from '@nestjs/mongoose';
-import { MockAppConfig } from '../../../test/MockAppConfig';
 import { MockOrder } from '../../../test/MockOrder';
 import {
   ETHEREUM_SERVICE,
@@ -42,7 +43,15 @@ describe('Orders Service', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [OrdersController],
-      providers: [OrdersService],
+      providers: [OrdersService, AppConfig],
+      imports: [
+        ConfigModule.forRoot({
+          ignoreEnvFile: false,
+          ignoreEnvVars: false,
+          isGlobal: true,
+          load: [configuration],
+        }),
+      ],
     })
       .useMocker((token) => {
         if (token === ETHEREUM_SERVICE) {
@@ -55,11 +64,6 @@ describe('Orders Service', () => {
 
         if (token === getModelToken(Order.name)) {
           return new MockOrder();
-        }
-
-        // TODO: extract interface
-        if (token === AppConfig) {
-          return new MockAppConfig();
         }
 
         if (typeof token === 'function') {

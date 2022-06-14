@@ -1,4 +1,6 @@
 import { registerAs } from '@nestjs/config';
+// import { config } from 'dotenv';
+// config();
 
 export const configValues = process.env;
 
