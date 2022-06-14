@@ -10,13 +10,8 @@ import {
   validSellETHOrder,
   validSellETHBundle,
 } from '../../../test/order.mocks';
-<<<<<<< HEAD
 import { MockOrder } from '../../../test/MockOrder';
 import configuration from '../configuration';
-=======
-import { MockAppConfig } from '../../../test/MockAppConfig';
-import { MockOrder } from '../../../test/MockOrder';
->>>>>>> 41da8cb (sc-4830: BE - Enable creating ERC721_BUNDLE orders)
 import { AppConfig } from '../configuration/configuration.service';
 import { Order } from '../orders/order.entity';
 import { DataLayerService } from './daya-layer.service';
