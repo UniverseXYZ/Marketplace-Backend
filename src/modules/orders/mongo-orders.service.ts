@@ -1197,6 +1197,13 @@ export class OrdersService {
       if (orderValue !== Number(orderNftInfo.value)) {
         throw new MarketplaceException(constants.INVALID_BUNDLE_DATA_ERROR);
       }
+      // 1.1. the number of tokens being listed is limited to ERC721_BUNDLE_VALUE_LIMIT
+      if (
+        Number(orderNftInfo.value) >
+        Number(this.config.values.ERC721_BUNDLE_VALUE_LIMIT)
+      ) {
+        throw new MarketplaceException(constants.INVALID_BUNDLE_DATA_ERROR);
+      }
 
       // 2. check if contracts.length == tokenIds.length
       if (
