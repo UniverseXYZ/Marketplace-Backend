@@ -3,7 +3,16 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 import CoinGecko from 'coingecko-api';
 import { Injectable, Logger } from '@nestjs/common';
-import { DEV_TOKEN_ADDRESSES, PROD_TOKEN_ADDRESSES, TOKENS } from './tokens';
+import {
+  DEV_TOKEN_ADDRESSES,
+  PROD_TOKEN_ADDRESSES,
+  TOKENS,
+  TOKEN_SYMBOLS,
+} from './tokens.config';
+import { TokenPricesDocument, TokenPrices } from './schema/token-prices.schema';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { CreateTokenPriceDTO } from './create-token-price.dto';
 
 @Injectable()
 export class CoingeckoService {
@@ -26,7 +35,11 @@ export class CoingeckoService {
     [TOKENS.WETH]: '',
   };
 
-  constructor(private readonly config: AppConfig) {
+  constructor(
+    private readonly config: AppConfig,
+    @InjectModel(TokenPrices.name)
+    readonly tokensModel: Model<TokenPricesDocument>,
+  ) {
     this.logger = new Logger(this.constructor.name);
     const client = new CoinGecko();
     this.coingeckoClient = client;
@@ -40,7 +53,7 @@ export class CoingeckoService {
   }
 
   @Cron(CronExpression.EVERY_10_MINUTES)
-  private async updatePrices() {
+  protected async updatePrices() {
     const [eth, dai, usdc, xyz, weth]: any = await Promise.all([
       this.coingeckoClient.coins.fetch(TOKENS.ETH),
       this.coingeckoClient.coins.fetch(TOKENS.DAI),
@@ -60,6 +73,39 @@ export class CoingeckoService {
       [TOKENS.WETH]: weth.data.market_data?.current_price?.usd,
     };
 
+    for (const token in coinsList) {
+      if (coinsList.hasOwnProperty(token)) {
+        const priceInUsd = coinsList[token];
+
+        if (token) {
+          const newTokenData: CreateTokenPriceDTO = {
+            symbol: TOKEN_SYMBOLS[token],
+            usd: priceInUsd,
+            name: token,
+          };
+          const savedToken = await this.queryByName(token);
+          await this.upsertTokenById(savedToken, newTokenData);
+        }
+      }
+    }
+
     this.tokenUsdValues = coinsList;
+  }
+
+  public async upsertTokenById(document: any, tokenData: CreateTokenPriceDTO) {
+    if (document) {
+      return await this.tokensModel.updateOne({ _id: document._id }, tokenData);
+    }
+    return await this.tokensModel.create(tokenData);
+  }
+
+  public async queryByName(token: string) {
+    return await this.tokensModel.findOne({
+      name: token,
+    });
+  }
+
+  public async queryAll() {
+    return await this.tokensModel.find({});
   }
 }

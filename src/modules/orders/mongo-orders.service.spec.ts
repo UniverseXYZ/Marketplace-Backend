@@ -30,7 +30,7 @@ import {
 import { PrepareTxDto, QueryDto } from './order.dto';
 import { AssetClass, OrderStatus } from './order.types';
 import { Utils } from '../../common/utils';
-import { PROD_TOKEN_ADDRESSES, TOKENS } from '../coingecko/tokens';
+import { PROD_TOKEN_ADDRESSES, TOKENS } from '../coingecko/tokens.config';
 
 const moduleMocker = new ModuleMocker(global);
 

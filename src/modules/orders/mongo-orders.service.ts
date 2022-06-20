@@ -30,7 +30,7 @@ import { MarketplaceException } from '../../common/exceptions/MarketplaceExcepti
 import { constants } from '../../common/constants';
 import { Utils } from '../../common/utils';
 import { CoingeckoService } from '../coingecko/coingecko.service';
-import { TOKENS, TOKEN_DECIMALS } from '../coingecko/tokens';
+import { TOKENS, TOKEN_DECIMALS } from '../coingecko/tokens.config';
 import { Order, OrderDocument } from './schema/order.schema';
 import {
   ETHEREUM_SERVICE,

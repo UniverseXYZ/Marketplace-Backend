@@ -39,7 +39,7 @@ import { Utils } from '../../common/utils';
 import web3 from 'web3';
 import { SortOrderOptionsEnum } from './order.sort';
 import { CoingeckoService } from '../coingecko/coingecko.service';
-import { TOKENS, TOKEN_DECIMALS } from '../coingecko/tokens';
+import { TOKENS, TOKEN_DECIMALS } from '../coingecko/tokens.config';
 import {
   ETHEREUM_SERVICE,
   IEthereumService,

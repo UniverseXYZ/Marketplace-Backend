@@ -1,4 +1,4 @@
-import { constants } from './../../common/constants/index';
+import { constants } from '../../common/constants/index';
 export enum TOKENS {
   ETH = 'ethereum',
   WETH = 'weth',
@@ -6,6 +6,14 @@ export enum TOKENS {
   XYZ = 'universe-xyz',
   USDC = 'usd-coin',
 }
+
+export const TOKEN_SYMBOLS = {
+  ethereum: 'ETH',
+  weth: 'WETH',
+  dai: 'DAI',
+  'universe-xyz': 'XYZ',
+  'usd-coin': 'USDC',
+};
 
 export const DEV_TOKEN_ADDRESSES: { [key in TOKENS]: string } = {
   [TOKENS.ETH]: constants.ZERO_ADDRESS,
