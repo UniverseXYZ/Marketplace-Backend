@@ -10,7 +10,6 @@ import R from 'ramda';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.enableCors();
   const config = app.get(AppConfig);
   const port = config.values.APP_PORT || 8080;
   const sessionSecret = R.path(['SESSION_SECRET'], config.values);

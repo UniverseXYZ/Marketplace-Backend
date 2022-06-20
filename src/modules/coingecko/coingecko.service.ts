@@ -84,7 +84,7 @@ export class CoingeckoService {
             name: token,
           };
           const savedToken = await this.queryByName(token);
-          await this.updateTokenById(savedToken._id, newTokenData);
+          await this.upsertTokenById(savedToken, newTokenData);
         }
       }
     }
@@ -92,8 +92,11 @@ export class CoingeckoService {
     this.tokenUsdValues = coinsList;
   }
 
-  public async updateTokenById(id: number, tokenData: CreateTokenPriceDTO) {
-    return await this.tokensModel.updateOne({ _id: id }, tokenData);
+  public async upsertTokenById(document: any, tokenData: CreateTokenPriceDTO) {
+    if (document) {
+      return await this.tokensModel.updateOne({ _id: document._id }, tokenData);
+    }
+    return await this.tokensModel.create(tokenData);
   }
 
   public async queryByName(token: string) {
