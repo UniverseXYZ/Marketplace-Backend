@@ -1,7 +1,6 @@
 import { AppConfig } from '../configuration/configuration.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
-
-import CoinGecko from 'coingecko-api';
+import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   DEV_TOKEN_ADDRESSES,
@@ -13,11 +12,12 @@ import { TokenPricesDocument, TokenPrices } from './schema/token-prices.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateTokenPriceDTO } from './create-token-price.dto';
+import { lastValueFrom, map } from 'rxjs';
 
+const COINGECKO_ENDPOINT = 'https://api.coingecko.com/api/v3/coins';
 @Injectable()
 export class CoingeckoService {
   private logger;
-  private coingeckoClient = null;
 
   public tokenUsdValues: { [key in TOKENS]: number } = {
     [TOKENS.ETH]: 0,
@@ -37,12 +37,11 @@ export class CoingeckoService {
 
   constructor(
     private readonly config: AppConfig,
+    private readonly httpService: HttpService,
     @InjectModel(TokenPrices.name)
     readonly tokensModel: Model<TokenPricesDocument>,
   ) {
     this.logger = new Logger(this.constructor.name);
-    const client = new CoinGecko();
-    this.coingeckoClient = client;
 
     this.tokenAddresses =
       config.values.ETHEREUM_CHAIN_ID === '1'
@@ -51,45 +50,54 @@ export class CoingeckoService {
 
     this.updatePrices();
   }
+  private fetchCoinData = async (url: string) => {
+    const observable = await this.httpService
+      .get(url)
+      .pipe(map((res) => res.data));
 
-  @Cron(CronExpression.EVERY_10_MINUTES)
+    const data = await lastValueFrom(observable);
+    return data;
+  };
+  @Cron(CronExpression.EVERY_MINUTE)
   protected async updatePrices() {
-    const [eth, dai, usdc, xyz, weth]: any = await Promise.all([
-      this.coingeckoClient.coins.fetch(TOKENS.ETH),
-      this.coingeckoClient.coins.fetch(TOKENS.DAI),
-      this.coingeckoClient.coins.fetch(TOKENS.USDC),
-      this.coingeckoClient.coins.fetch(TOKENS.XYZ),
-      this.coingeckoClient.coins.fetch(TOKENS.WETH),
-    ]).catch((e) => {
-      this.logger.error('Could not update USD quotes for ERC20 tokens: ' + e);
-      return;
-    });
+    try {
+      const [eth, dai, usdc, xyz, weth]: any = await Promise.all([
+        this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.ETH}`),
+        this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.DAI}`),
+        this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.USDC}`),
+        this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.XYZ}`),
+        this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.WETH}`),
+      ]);
+      const coinsList = {
+        [TOKENS.ETH]: eth.market_data?.current_price?.usd,
+        [TOKENS.DAI]: dai.market_data?.current_price?.usd,
+        [TOKENS.USDC]: usdc.market_data?.current_price?.usd,
+        [TOKENS.XYZ]: xyz.market_data?.current_price?.usd,
+        [TOKENS.WETH]: weth.market_data?.current_price?.usd,
+      };
 
-    const coinsList = {
-      [TOKENS.ETH]: eth.data.market_data?.current_price?.usd,
-      [TOKENS.DAI]: dai.data.market_data?.current_price?.usd,
-      [TOKENS.USDC]: usdc.data.market_data?.current_price?.usd,
-      [TOKENS.XYZ]: xyz.data.market_data?.current_price?.usd,
-      [TOKENS.WETH]: weth.data.market_data?.current_price?.usd,
-    };
+      for (const token in coinsList) {
+        if (coinsList.hasOwnProperty(token)) {
+          const priceInUsd = coinsList[token];
 
-    for (const token in coinsList) {
-      if (coinsList.hasOwnProperty(token)) {
-        const priceInUsd = coinsList[token];
-
-        if (token) {
-          const newTokenData: CreateTokenPriceDTO = {
-            symbol: TOKEN_SYMBOLS[token],
-            usd: priceInUsd,
-            name: token,
-          };
-          const savedToken = await this.queryByName(token);
-          await this.upsertTokenById(savedToken, newTokenData);
+          if (token) {
+            const newTokenData: CreateTokenPriceDTO = {
+              symbol: TOKEN_SYMBOLS[token],
+              usd: priceInUsd,
+              name: token,
+            };
+            const savedToken = await this.queryByName(token);
+            await this.upsertTokenById(savedToken, newTokenData);
+          }
         }
       }
-    }
 
-    this.tokenUsdValues = coinsList;
+      this.tokenUsdValues = coinsList;
+      this.logger.log('Updated token prices successfully!');
+    } catch (e) {
+      this.logger.error('Could not update USD quotes for ERC20 tokens: ' + e);
+      return;
+    }
   }
 
   public async upsertTokenById(document: any, tokenData: CreateTokenPriceDTO) {
