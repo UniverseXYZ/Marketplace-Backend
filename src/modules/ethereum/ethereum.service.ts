@@ -18,13 +18,11 @@ import { IEthereumService } from './interface/IEthereumService';
 export class EthereumService implements IEthereumService {
   public ether: ethers.providers.FallbackProvider;
   public exchange: any;
-  private logger;
+  private readonly logger = new Logger(EthereumService.name);
 
   constructor(
     private config: AppConfig, // private multicallService: MulticallService
   ) {
-    this.logger = new Logger(EthereumService.name);
-
     const network = <NetworkType>config.values.ETHEREUM_NETWORK;
     const quorum: number = R.path(['ETHEREUM_QUORUM'], config.values);
 
@@ -54,13 +52,14 @@ export class EthereumService implements IEthereumService {
       : undefined;
 
     if (
-      !infuraProvider &&
-      !alchemyProvider &&
-      !chainStackProvider &&
-      !quicknodeProvider
+      !quorum ||
+      (!infuraProvider &&
+        !alchemyProvider &&
+        !chainStackProvider &&
+        !quicknodeProvider)
     ) {
       throw new Error(
-        'Infura project id and secret or alchemy token or chainstack url is not defined',
+        'Quorum or Infura project id or secret or alchemy token or chainstack url is not defined',
       );
     }
 
@@ -79,6 +78,10 @@ export class EthereumService implements IEthereumService {
     this.exchange = Exchange(
       ethersProvider,
       R.path(['MARKETPLACE_CONTRACT'], this.config.values),
+    );
+
+    this.logger.log(
+      `Started ethers service with ${definedProviders.length} out of ${allProviders.length} Fallback Providers. Configured quorum: ${quorum}`,
     );
   }
 
