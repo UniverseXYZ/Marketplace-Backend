@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 import { getModelToken } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
+import { ConfigModule } from '@nestjs/config';
 import { ModuleMocker, MockFunctionMetadata } from 'jest-mock';
 import {
   createOrderDto,
@@ -8,8 +9,8 @@ import {
   validSellERC20Order,
   validSellETHOrder,
 } from '../../../test/order.mocks';
-import { MockAppConfig } from '../../mocks/MockAppConfig';
-import { MockOrder } from '../../mocks/MockOrder';
+import { MockOrder } from '../../../test/MockOrder';
+import configuration from '../configuration';
 import { AppConfig } from '../configuration/configuration.service';
 import { Order } from '../orders/order.entity';
 import { DataLayerService } from './daya-layer.service';
@@ -27,13 +28,17 @@ describe('Data Layer Service', () => {
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [DataLayerService],
+      providers: [DataLayerService, AppConfig],
+      imports: [
+        ConfigModule.forRoot({
+          ignoreEnvFile: false,
+          ignoreEnvVars: false,
+          isGlobal: true,
+          load: [configuration],
+        }),
+      ],
     })
       .useMocker((token) => {
-        // // TODO: extract interface
-        if (token === AppConfig) {
-          return new MockAppConfig();
-        }
 
         if (token === getModelToken(Order.name)) {
           return new MockOrder();
@@ -255,7 +260,16 @@ describe('Data Layer Service', () => {
 
       expect(orderModel.find).toBeCalledWith({
         $and: [
-          { status: OrderStatus.CREATED },
+          {
+            $or: [
+              {
+                status: OrderStatus.CREATED,
+              },
+              {
+                status: OrderStatus.PARTIALFILLED,
+              },
+            ],
+          },
           { side: OrderSide.SELL },
           {
             $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
@@ -278,7 +292,16 @@ describe('Data Layer Service', () => {
 
       expect(orderModel.find).toBeCalledWith({
         $and: [
-          { status: OrderStatus.CREATED },
+          {
+            $or: [
+              {
+                status: OrderStatus.CREATED,
+              },
+              {
+                status: OrderStatus.PARTIALFILLED,
+              },
+            ],
+          },
           { side: OrderSide.SELL },
           {
             $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
@@ -397,7 +420,9 @@ describe('Data Layer Service', () => {
 
       expect(orderModel.find).toBeCalledWith({
         side: OrderSide.SELL,
-        status: OrderStatus.CREATED,
+        status: {
+          $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+        },
         maker: creator.toLowerCase(),
         'make.assetType.tokenId': ethOrderNftInfo.assetType.tokenId,
       });
@@ -409,7 +434,9 @@ describe('Data Layer Service', () => {
 
       expect(orderModel.find).toBeCalledWith({
         side: OrderSide.SELL,
-        status: OrderStatus.CREATED,
+        status: {
+          $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+        },
         maker: creator.toLowerCase(),
         'make.assetType.tokenId': erc20OrderNftInfo.assetType.tokenId,
         'make.assetType.contract':

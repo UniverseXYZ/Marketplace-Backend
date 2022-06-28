@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigModule } from '@nestjs/config';
+import { HttpModule } from '@nestjs/axios';
 import { CoingeckoService } from './coingecko.service';
 import { CoingeckoController } from './coingecko.controller';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -7,8 +9,8 @@ import {
   rootMongooseTestModule,
   closeInMongodConnection,
 } from '../../../test/DBhandler';
+import configuration from '../configuration';
 import { AppConfig } from '../configuration/configuration.service';
-import { MockAppConfig } from '../../mocks/MockAppConfig';
 import { CreateTokenPriceDTO } from './create-token-price.dto';
 
 describe('Coingecko Service', () => {
@@ -18,7 +20,15 @@ describe('Coingecko Service', () => {
     const spy = jest.spyOn((CoingeckoService as any).prototype, 'updatePrices');
     spy.mockImplementation(() => {});
     const module: TestingModule = await Test.createTestingModule({
+      controllers: [CoingeckoController],
+      providers: [CoingeckoService, AppConfig],
       imports: [
+        ConfigModule.forRoot({
+          ignoreEnvFile: false,
+          ignoreEnvVars: false,
+          isGlobal: true,
+          load: [configuration],
+        }),
         rootMongooseTestModule(),
         MongooseModule.forFeature([
           {
@@ -26,14 +36,11 @@ describe('Coingecko Service', () => {
             schema: TokenPricesSchema,
           },
         ]),
+        HttpModule,
       ],
-      controllers: [CoingeckoController],
-      providers: [CoingeckoService],
     })
       .useMocker((token) => {
-        if (token === AppConfig) {
-          return new MockAppConfig();
-        }
+        
       })
       .compile();
 
