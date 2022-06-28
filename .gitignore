@@ -186,4 +186,3 @@ dmypy.json
 cython_debug/
 .history
 .vscode
-yarn.lock

@@ -7,7 +7,7 @@ import {
 } from 'src/modules/orders/order.dto';
 import { Order } from 'src/modules/orders/order.entity';
 import { OrderDocument } from 'src/modules/orders/schema/order.schema';
-import { Model } from 'mongoose';
+import { Model, PipelineStage } from 'mongoose';
 import { IDataLayerService } from './interfaces/IDataLayerInterface';
 import {
   Asset,
@@ -106,7 +106,7 @@ export class DataLayerService implements IDataLayerService {
       addresses,
       decimals,
       OrderSide.SELL,
-    );
+    ) as unknown as PipelineStage[];
 
     return await Promise.all([
       this.ordersModel.aggregate([

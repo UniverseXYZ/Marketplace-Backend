@@ -13,6 +13,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateTokenPriceDTO } from './create-token-price.dto';
 import { lastValueFrom, map } from 'rxjs';
+import * as mongodb from 'mongoose/node_modules/mongodb';
 
 const COINGECKO_ENDPOINT = 'https://api.coingecko.com/api/v3/coins';
 @Injectable()
