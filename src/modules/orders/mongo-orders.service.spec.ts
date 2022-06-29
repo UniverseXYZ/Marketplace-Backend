@@ -5,7 +5,7 @@ import { ModuleMocker, MockFunctionMetadata } from 'jest-mock';
 import { Order } from './order.entity';
 import { getModelToken } from '@nestjs/mongoose';
 import { MockAppConfig } from '../../mocks/MockAppConfig';
-import { MockOrder } from '../../mocks/MockOrder';
+import { MockOrder } from '../../../test/MockOrder';
 import {
   ETHEREUM_SERVICE,
   IEthereumService,

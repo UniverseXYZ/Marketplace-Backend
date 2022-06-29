@@ -219,18 +219,18 @@ export class DataLayerService implements IDataLayerService {
     return results;
   }
 
-  public async updateById(newOrder: any) {
+  public async updateById(newOrder: any): Promise<any> {
     return await this.ordersModel.updateOne({ _id: newOrder._id }, newOrder);
   }
 
-  public async staleOrder(order: any) {
+  public async staleOrder(order: any): Promise<any> {
     return await this.ordersModel.updateOne(
       { hash: order.hash },
       { status: OrderStatus.STALE },
     );
   }
 
-  public async updateMany(newOrders: any) {
+  public async updateMany(newOrders: any): Promise<any> {
     return await await this.ordersModel.bulkSave(newOrders);
   }
 
@@ -241,7 +241,7 @@ export class DataLayerService implements IDataLayerService {
     );
   }
 
-  public async cancelOrder(event: CancelOrder) {
+  public async cancelOrder(event: CancelOrder): Promise<any> {
     return await this.ordersModel.updateOne(
       {
         hash: event.leftOrderHash,
