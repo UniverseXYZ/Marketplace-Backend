@@ -46,12 +46,8 @@ export class DataLayerService implements IDataLayerService {
     return await this.ordersModel.findOne({
       side: OrderSide.SELL,
       status: { $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED] },
-      make: {
-        assetType: {
-          tokenId: tokenId,
-          contract: contract.toLowerCase(),
-        },
-      },
+      'make.assetType.tokenId': tokenId,
+      'make.assetType.contract': contract.toLowerCase(),
       $and: [{ $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] }],
     });
   }
