@@ -5,7 +5,6 @@ import {
   CreateOrderDto,
   QueryDto,
 } from 'src/modules/orders/order.dto';
-// import { Order } from 'src/modules/orders/order.entity';
 import { Order, OrderDocument } from '../orders/schema/order.schema';
 import { Model, PipelineStage } from 'mongoose';
 import { IDataLayerService } from './interfaces/IDataLayerInterface';

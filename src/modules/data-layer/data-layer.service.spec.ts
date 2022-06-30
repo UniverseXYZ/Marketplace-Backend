@@ -257,6 +257,7 @@ describe('Data Layer Service', () => {
 
       expect(orderModel.find).toBeCalledWith({
         $and: [
+          { side: OrderSide.SELL },
           {
             $or: [
               {
@@ -267,7 +268,6 @@ describe('Data Layer Service', () => {
               },
             ],
           },
-          { side: OrderSide.SELL },
           {
             $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
           },
@@ -289,6 +289,7 @@ describe('Data Layer Service', () => {
 
       expect(orderModel.find).toBeCalledWith({
         $and: [
+          { side: OrderSide.SELL },
           {
             $or: [
               {
@@ -299,7 +300,6 @@ describe('Data Layer Service', () => {
               },
             ],
           },
-          { side: OrderSide.SELL },
           {
             $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
           },
