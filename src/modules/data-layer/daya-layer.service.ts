@@ -599,7 +599,7 @@ export class DataLayerService implements IDataLayerService {
   ) {
     let queryFilters = [] as any;
 
-    switch (query.side) {
+    switch (Number(query.side)) {
       case (OrderSide.SELL, OrderSide.BUY):
         queryFilters = [
           {

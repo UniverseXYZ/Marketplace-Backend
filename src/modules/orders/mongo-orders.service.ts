@@ -485,7 +485,7 @@ export class OrdersService {
         const assetType = order.make.assetType as BundleType;
         const collectionIndex = assetType.contracts.indexOf(contract);
         // 2. find token ids array and check if tokenId is in the array
-        const tokenIdArray = assetType.tokenIds[collectionIndex];
+        const tokenIdArray = assetType.tokenIds[collectionIndex] || [];
         if (tokenIdArray.includes(tokenId)) {
           return order;
         }
