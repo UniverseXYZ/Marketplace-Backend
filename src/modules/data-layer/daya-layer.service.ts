@@ -5,7 +5,6 @@ import {
   CreateOrderDto,
   QueryDto,
 } from 'src/modules/orders/order.dto';
-import { NFTTokenOwner, NFTTokenOwnerDocument } from 'datascraper-schema';
 // import { Order } from 'src/modules/orders/order.entity';
 import { Order, OrderDocument } from '../orders/schema/order.schema';
 import { Model, PipelineStage } from 'mongoose';
@@ -28,8 +27,6 @@ export class DataLayerService implements IDataLayerService {
   constructor(
     @InjectModel(Order.name)
     private readonly ordersModel: Model<OrderDocument>,
-    @InjectModel(NFTTokenOwner.name)
-    private readonly nftTokenOwnerModel: Model<NFTTokenOwnerDocument>,
   ) {
     this.logger = new Logger(DataLayerService.name);
   }
@@ -683,31 +680,6 @@ export class DataLayerService implements IDataLayerService {
         .split(',')
         .map((c) => c.toLowerCase());
 
-      //when requesting offers (OrderSide.BUY) for certain collection and token id,
-      //we can only account for cases when a single collection and token id being requested,
-      //and in this case we need to exclude offers made by the current owner of this NFT.
-      if (
-        1 == collections.length &&
-        Object.values(OrderSide).includes(Number(query.side)) &&
-        OrderSide.BUY === Number(query.side) &&
-        query.tokenIds
-      ) {
-        const requestedTokenIds = query.tokenIds.replace(/\s/g, '').split(',');
-        if (1 == requestedTokenIds.length) {
-          const currentTokenOwner = await this.getTokenOwner(
-            collections[0],
-            requestedTokenIds[0],
-          );
-          if (currentTokenOwner) {
-            queryFilters.push({
-              maker: {
-                $ne: currentTokenOwner,
-              },
-            });
-          }
-        }
-      }
-
       queryFilters.push({
         $or: [
           {
@@ -893,27 +865,21 @@ export class DataLayerService implements IDataLayerService {
   }
 
   /**
-   * Returns the owner address of an NFT by looking
-   * up in the nft-token-owners table.
-   * @param contractAddress
-   * @param tokenId
-   * @returns {Promise<string>}
+   * Returns offers (OrderSide.BUY orders) created by offerCreator for asset.
+   * Asset describes the listing details that these offers are made for.
+   * @param offerCreator
+   * @param asset
+   * @returns {Promise<any[]>}
    */
-  private async getTokenOwner(contractAddress, tokenId) {
-    let value = '';
-    if (
-      constants.REGEX_ETHEREUM_ADDRESS.test(contractAddress) &&
-      !isNaN(Number(tokenId))
-    ) {
-      const currentOwner = await this.nftTokenOwnerModel.distinct('address', {
-        contractAddress: ethers.utils.getAddress(contractAddress.toLowerCase()),
-        tokenId: tokenId,
-      });
-      if (currentOwner.length > 0) {
-        value = currentOwner[0];
-      }
-    }
-
-    return value;
+  public async getOffersByCreatorAndAsset(offerCreator: string, asset: Asset) {
+    return await this.ordersModel.find({
+      side: OrderSide.BUY,
+      status: {
+        $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+      },
+      maker: offerCreator.toLowerCase(),
+      'take.assetType.contract': asset.assetType.contract,
+      'take.assetType.tokenId': asset.assetType.tokenId,
+    });
   }
 }

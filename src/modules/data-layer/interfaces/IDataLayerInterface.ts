@@ -83,4 +83,6 @@ export interface IDataLayerService {
   );
 
   addEndSortingAggregation();
+
+  getOffersByCreatorAndAsset(offerCreator: string, asset: Asset);
 }

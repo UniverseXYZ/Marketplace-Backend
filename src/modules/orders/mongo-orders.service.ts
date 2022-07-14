@@ -554,6 +554,9 @@ export class OrdersService {
             await this.dataLayerService.updateById(leftOrder);
             this.checkUnsubscribe(leftOrder.maker);
 
+            //stale offers made by the address which has just made a match (direct buy of a listed NFT)
+            await this.staleOffersMadeByOwner(leftOrder);
+
             value[event.txHash] = 'success';
           } else if (OrderStatus.FILLED == leftOrder.status) {
             // this is added to provide idempotency!
@@ -605,52 +608,6 @@ export class OrdersService {
       contract,
       tokenId,
     );
-  }
-
-  private async markRelatedOrdersAsStale(leftOrder: Order, event: MatchOrder) {
-    let orderNftInfo: Asset = null;
-    let orderCreator = '';
-
-    // Take nft info either from 'take' or 'make'.
-    if (leftOrder.make.assetType.tokenId) {
-      orderNftInfo = leftOrder.make;
-      orderCreator = leftOrder.maker;
-    } else if (leftOrder.take.assetType.tokenId) {
-      orderNftInfo = leftOrder.take;
-      orderCreator = leftOrder.taker;
-    } else {
-      throw new MarketplaceException(
-        "Invalid left order. Doesn't contain nft info.",
-      );
-    }
-
-    const sellOffers = await this.dataLayerService.queryStaleOrders(
-      orderCreator,
-      orderNftInfo,
-    );
-
-    this.logger.log(
-      `Found ${sellOffers.length} sell offers related to an order match`,
-    );
-
-    if (sellOffers.length) {
-      sellOffers.forEach((offer) => {
-        if (
-          AssetClass.ERC1155 === offer.make.assetType.assetClass &&
-          //it's always event.newLeftFill as the matching event here is assumed to be
-          //a match against a buy order (an offer).
-          Number(offer.make.value) >
-            Number(offer.fill) + Number(event.newLeftFill)
-        ) {
-          offer.status = OrderStatus.PARTIALFILLED;
-          offer.fill = '' + (Number(offer.fill) + Number(event.newLeftFill));
-        } else {
-          offer.status = OrderStatus.STALE;
-          this.checkUnsubscribe(offer.maker);
-        }
-      });
-      await this.dataLayerService.updateMany(sellOffers);
-    }
   }
 
   /**
@@ -841,6 +798,87 @@ export class OrdersService {
         error: (e) => this.logger.error(e),
         complete: () => this.logger.log('complete'),
       });
+  }
+
+  private async markRelatedOrdersAsStale(leftOrder: Order, event: MatchOrder) {
+    let orderNftInfo: Asset = null;
+    let orderCreator = '';
+
+    // Take nft info either from 'take' or 'make'.
+    if (leftOrder.make.assetType.tokenId) {
+      orderNftInfo = leftOrder.make;
+      orderCreator = leftOrder.maker;
+    } else if (leftOrder.take.assetType.tokenId) {
+      orderNftInfo = leftOrder.take;
+      orderCreator = leftOrder.taker;
+    } else {
+      throw new MarketplaceException(
+        "Invalid left order. Doesn't contain nft info.",
+      );
+    }
+
+    const sellOffers = await this.dataLayerService.queryStaleOrders(
+      orderCreator,
+      orderNftInfo,
+    );
+
+    this.logger.log(
+      `Found ${sellOffers.length} sell offers related to an order match`,
+    );
+
+    if (sellOffers.length) {
+      sellOffers.forEach((offer) => {
+        if (
+          AssetClass.ERC1155 === offer.make.assetType.assetClass &&
+          //it's always event.newLeftFill as the matching event here is assumed to be
+          //a match against a buy order (an offer).
+          Number(offer.make.value) >
+            Number(offer.fill) + Number(event.newLeftFill)
+        ) {
+          offer.status = OrderStatus.PARTIALFILLED;
+          offer.fill = '' + (Number(offer.fill) + Number(event.newLeftFill));
+        } else {
+          offer.status = OrderStatus.STALE;
+          this.checkUnsubscribe(offer.maker);
+        }
+      });
+      await this.dataLayerService.updateMany(sellOffers);
+    }
+  }
+
+  /**
+   * This method looks up for offers (OrderSide.BUY orders) created by the address which has
+   * executed the order, and marks these offers as stale.
+   * I.e. it is staling offers created by the address which has made a direct buy of an NFT after
+   * creating an offer.
+   * The executed order is a ERC721 listing.
+   * Offers are being staled with no regards to the activity time (start and end properties).
+   * It's important to pass order with already populated order.taker and updated order.status.
+   * @param order
+   */
+  private async staleOffersMadeByOwner(order: Order) {
+    // only do it for listings (OrderSide.SELL orders)
+    if (order.make.assetType.tokenId) {
+      if (
+        OrderStatus.FILLED === order.status &&
+        AssetClass.ERC721 === order.make.assetType.assetClass
+      ) {
+        const offersToStale =
+          await this.dataLayerService.getOffersByCreatorAndAsset(
+            order.taker,
+            order.make,
+          );
+        if (offersToStale.length) {
+          this.logger.log(
+            `Found ${offersToStale.length} offers created by the new owner (${order.taker}) of the sold NFT. Staling all of them...`,
+          );
+          offersToStale.forEach((offer) => {
+            offer.status = OrderStatus.STALE;
+          });
+          await this.dataLayerService.updateMany(offersToStale);
+        }
+      }
+    }
   }
 
   /**
