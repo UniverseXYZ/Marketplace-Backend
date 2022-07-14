@@ -47,6 +47,7 @@
     "chai": "^4.3.4",
     "class-transformer": "0.4.0",
     "class-validator": "^0.13.2",
+    "datascraper-schema": "git+https://github.com/UniverseXYZ/Universe-Datascraper-Schema.git#dev",
     "dotenv": "^10.0.0",
     "@ethersproject/providers": "5.6.8",
     "ethers": "5.6.9",

@@ -95,6 +95,11 @@ jobs:
         run: |
           echo "Version to set in deployment manifests: ${IMAGE_TAG}"
 
+      - name: Adjusting datascraper-schema source
+        run: |
+          branchName=${{ env.BRANCH_NAME }}
+          if [ $branchName = 'main' ]; then sed -i s/Universe-Datascraper-Schema.git#dev/Universe-Datascraper-Schema.git/g package.json ; fi
+
       - name: Fetch Amazon ECR repo from secrets if exists
         if: env.ECR_REPOSITORY_EXISTS == 'true'
         run: echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}" >> $GITHUB_ENV

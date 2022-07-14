@@ -7,6 +7,7 @@ import { HttpModule } from '@nestjs/axios';
 import { AppConfigModule } from '../configuration/configuration.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Order, OrderSchema } from './schema/order.schema';
+import { NFTTokenOwner, NFTTokenOwnerSchema } from 'datascraper-schema';
 import { OrdersService } from './mongo-orders.service';
 import { DATA_LAYER_SERVICE } from '../data-layer/interfaces/IDataLayerInterface';
 import { DataLayerService } from '../data-layer/daya-layer.service';
@@ -26,6 +27,9 @@ import { DataLayerService } from '../data-layer/daya-layer.service';
   ],
   imports: [
     MongooseModule.forFeature([{ name: Order.name, schema: OrderSchema }]),
+    MongooseModule.forFeature([
+      { name: NFTTokenOwner.name, schema: NFTTokenOwnerSchema },
+    ]),
     EthereumModule,
     HttpModule,
     AppConfigModule,
