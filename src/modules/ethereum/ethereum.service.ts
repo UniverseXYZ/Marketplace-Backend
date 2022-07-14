@@ -462,6 +462,7 @@ export class EthereumService implements IEthereumService {
           `Wallet ${walletAddress} does not have enough balance of ${amount} on token ${tokenId}, got ${balance}`,
         );
       }
+      value = true;
     } catch (e) {
       value = false;
       this.logger.error(e);
