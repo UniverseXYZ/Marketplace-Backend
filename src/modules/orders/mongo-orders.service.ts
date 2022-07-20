@@ -94,13 +94,23 @@ export class OrdersService {
     // Check if order for the nft already exists
     // @TODO add support for ERC721_BUNDLE
     if (order.side === OrderSide.SELL) {
-      const existingOrder = await this.dataLayerService.findExistingOrder(
+      const existingOrders = await this.dataLayerService.findExistingOrders(
         order.make.assetType.tokenId,
         order.make.assetType.contract,
         utcTimestamp,
       );
 
-      if (existingOrder) {
+      // do not allow multiple ERC721 orders with same NFT.
+      // do not allow multiple ERC1155 order created by same maker.
+      if (
+        existingOrders.length &&
+        (existingOrders[0].make.assetType.assetClass !== AssetClass.ERC1155 ||
+          existingOrders
+            .map((existingOrder) => {
+              return existingOrder.maker;
+            })
+            .includes(order.maker.toLowerCase()))
+      ) {
         throw new MarketplaceException(constants.ORDER_ALREADY_EXISTS);
       }
     }
