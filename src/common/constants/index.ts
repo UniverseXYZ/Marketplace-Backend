@@ -31,4 +31,6 @@ export const constants = {
     'Some NFTs are not approved to be transferred or not owned by maker.',
   ORDER_ALREADY_EXISTS:
     'NFT is already listed or has been scheduled for listing.',
+  ERC1155_INSUFFICIENT_BALANCE:
+    'Insufficient ERC1155 balance. Cancel other listings or add editions to your wallet.',
 };
