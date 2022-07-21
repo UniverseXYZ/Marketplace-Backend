@@ -5,8 +5,8 @@ import {
   CreateOrderDto,
   QueryDto,
 } from 'src/modules/orders/order.dto';
-import { Order } from 'src/modules/orders/order.entity';
-import { OrderDocument } from 'src/modules/orders/schema/order.schema';
+// import { Order } from 'src/modules/orders/order.entity';
+import { Order, OrderDocument } from '../orders/schema/order.schema';
 import { Model, PipelineStage } from 'mongoose';
 import { IDataLayerService } from './interfaces/IDataLayerInterface';
 import {
@@ -16,8 +16,9 @@ import {
   OrderStatus,
 } from 'src/modules/orders/order.types';
 import * as mongodb from 'mongodb';
-import { constants } from 'src/common/constants';
+import { constants } from '../../common/constants';
 import web3 from 'web3';
+import { ethers } from 'ethers';
 import { SortOrderOptionsEnum } from '../orders/order.sort';
 @Injectable()
 export class DataLayerService implements IDataLayerService {
@@ -597,36 +598,29 @@ export class DataLayerService implements IDataLayerService {
     tokenAdresses: string[],
     decimals: number[],
   ) {
-    let queryFilters = [] as any;
+    const queryFilters = [
+      {
+        status: {
+          $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+        },
+      },
+      { $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }] },
+      { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
+    ] as any;
 
     switch (Number(query.side)) {
-      case (OrderSide.SELL, OrderSide.BUY):
-        queryFilters = [
-          {
-            side: query.side,
-            status: {
-              $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
-            },
-          },
-          {
-            $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
-          },
-          { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-        ];
+      case OrderSide.SELL:
+        queryFilters.push({
+          side: OrderSide.SELL,
+        });
+        break;
+      case OrderSide.BUY:
+        queryFilters.push({
+          side: OrderSide.BUY,
+        });
         break;
       default:
-        queryFilters = [
-          {
-            status: {
-              $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
-            },
-          },
-        ] as any;
         break;
-    }
-
-    if (query.side) {
-      queryFilters.push({ side: Number(query.side) });
     }
 
     if (!!query.hasOffers) {
@@ -756,11 +750,8 @@ export class DataLayerService implements IDataLayerService {
           'take.assetType.assetClass': AssetClass.ETH,
         });
       } else {
-        // REGEX SEARCH IS NOT PERFORMANT
-        // DOCUMENTDB DOESNT SUPPORT COLLATION INDICES
-        // query.token address MUST BE UPPERCASE CONTRACT ADDRESS
         queryFilters.push({
-          'take.assetType.contract': query.token,
+          'take.assetType.contract': query.token.toLowerCase(),
         });
       }
     }
@@ -871,5 +862,24 @@ export class DataLayerService implements IDataLayerService {
         },
       },
     ];
+  }
+
+  /**
+   * Returns offers (OrderSide.BUY orders) created by offerCreator for asset.
+   * Asset describes the listing details that these offers are made for.
+   * @param offerCreator
+   * @param asset
+   * @returns {Promise<any[]>}
+   */
+  public async getOffersByCreatorAndAsset(offerCreator: string, asset: Asset) {
+    return await this.ordersModel.find({
+      side: OrderSide.BUY,
+      status: {
+        $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+      },
+      maker: offerCreator.toLowerCase(),
+      'take.assetType.contract': asset.assetType.contract,
+      'take.assetType.tokenId': asset.assetType.tokenId,
+    });
   }
 }
