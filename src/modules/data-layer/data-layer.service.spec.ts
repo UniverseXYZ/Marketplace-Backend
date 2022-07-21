@@ -73,7 +73,7 @@ describe('Data Layer Service', () => {
     });
   });
 
-  describe('findExistingOrder', () => {
+  describe('findExistingOrders', () => {
     it('should have correct query', async () => {
       jest.spyOn(orderModel, 'findOne');
 
@@ -81,9 +81,9 @@ describe('Data Layer Service', () => {
 
       const tokenId = '1';
       const contract = '0xC0n7TrAcT';
-      await dataLayerService.findExistingOrder(tokenId, contract, utcTimestamp);
-      expect(orderModel.findOne).toBeCalled();
-      expect(orderModel.findOne).toHaveBeenCalledWith({
+      await dataLayerService.findExistingOrders(tokenId, contract, utcTimestamp);
+      expect(orderModel.find).toBeCalled();
+      expect(orderModel.find).toHaveBeenCalledWith({
         side: OrderSide.SELL,
         status: { $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED] },
         'make.assetType.tokenId': tokenId,

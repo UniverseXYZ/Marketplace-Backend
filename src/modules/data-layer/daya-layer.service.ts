@@ -39,12 +39,21 @@ export class DataLayerService implements IDataLayerService {
     return newOrder;
   }
 
-  public async findExistingOrder(
+  /**
+   * Returns array of active SELL orders for spcified contract and token id.
+   * It does return an array because ERC1155 NFTs may be listed multiple times
+   * by different makers.
+   * @param tokenId
+   * @param contract
+   * @param utcTimestamp
+   * @returns {Promise<Array>}
+   */
+  public async findExistingOrders(
     tokenId: string,
     contract: string,
     utcTimestamp: number,
   ) {
-    return await this.ordersModel.findOne({
+    return await this.ordersModel.find({
       side: OrderSide.SELL,
       status: { $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED] },
       'make.assetType.tokenId': tokenId,

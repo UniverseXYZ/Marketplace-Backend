@@ -94,13 +94,53 @@ export class OrdersService {
     // Check if order for the nft already exists
     // @TODO add support for ERC721_BUNDLE
     if (order.side === OrderSide.SELL) {
-      const existingOrder = await this.dataLayerService.findExistingOrder(
+      const existingOrders = await this.dataLayerService.findExistingOrders(
         order.make.assetType.tokenId,
         order.make.assetType.contract,
         utcTimestamp,
       );
 
-      if (existingOrder) {
+      // do not allow multiple ERC721 orders with same NFT.
+      if (
+        AssetClass.ERC721 == order.make.assetType.assetClass &&
+        existingOrders.length
+      ) {
+        throw new MarketplaceException(constants.ORDER_ALREADY_EXISTS);
+        // do not allow ERC1155 orders with not enough balance.
+      } else if (
+        AssetClass.ERC1155 == order.make.assetType.assetClass &&
+        existingOrders.length
+      ) {
+        const existingMakers = existingOrders.map((existingOrder) => {
+          return existingOrder.maker.toLowerCase();
+        });
+        if (existingMakers.includes(order.maker.toLowerCase())) {
+          const makerErc1155TokenBalance =
+            await this.ethereumService.getErc1155TokenBalance(
+              order.make.assetType.contract.toLowerCase(),
+              order.make.assetType.tokenId,
+              order.maker,
+            );
+          let requiredBalance = Number(order.make.value);
+          existingOrders.forEach((existingOrder) => {
+            if (existingOrder.maker == order.maker.toLowerCase()) {
+              requiredBalance += Number(existingOrder.make.value);
+            }
+          });
+          if (makerErc1155TokenBalance < BigInt(requiredBalance)) {
+            this.logger.error(`
+            Wallet ${
+              order.maker
+            } does not have enough balance of editions of token ${
+              order.make.assetType.tokenId
+            } on contract ${order.make.assetType.contract.toLowerCase()}. Has ${makerErc1155TokenBalance}, required ${requiredBalance}.`);
+            throw new MarketplaceException(
+              constants.ERC1155_INSUFFICIENT_BALANCE,
+            );
+          }
+        }
+        // a bit extra safe
+      } else if (existingOrders.length) {
         throw new MarketplaceException(constants.ORDER_ALREADY_EXISTS);
       }
     }

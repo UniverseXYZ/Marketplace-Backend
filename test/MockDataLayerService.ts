@@ -84,7 +84,7 @@ export class MockDataLayerService implements IDataLayerService {
   createOrder(order: CreateOrderDto) {
     return order;
   }
-  findExistingOrder(tokenId: string, contract: string, utcTimestamp: number) {
+  findExistingOrders(tokenId: string, contract: string, utcTimestamp: number) {
     return null;
   }
 
