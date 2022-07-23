@@ -287,7 +287,7 @@ describe('Orders Service', () => {
       expect(
         async () => await orderService.prepareOrderExecution(hash, data),
       ).rejects.toThrowError(
-        new MarketplaceException(constants.ORDER_ALREADY_FILLED_ERROR),
+        new MarketplaceException(constants.CANNOT_EXECUTE_ORDER),
       );
     });
 

@@ -231,9 +231,11 @@ export class OrdersService {
     // 1. get sell/left order
     const leftOrder = await this.dataLayerService.getOrderByHash(hash);
     if (leftOrder) {
-      //TODO: What happens if the order is canceled?
-      if (leftOrder.status !== OrderStatus.CREATED) {
-        throw new MarketplaceException(constants.ORDER_ALREADY_FILLED_ERROR);
+      if (
+        OrderStatus.CREATED !== leftOrder.status &&
+        OrderStatus.PARTIALFILLED !== leftOrder.status
+      ) {
+        throw new MarketplaceException(constants.CANNOT_EXECUTE_ORDER);
       }
 
       // verify if maker's token got approved to transfer proxy
@@ -333,6 +335,13 @@ export class OrdersService {
     return order;
   }
 
+  /**
+   *
+   * @param prepareDto
+   * @param leftOrder
+   * @returns
+   * @throws {MarketplaceException}
+   */
   public convertToRightOrder(prepareDto: PrepareTxDto, leftOrder: Order) {
     const rightOrder = {
       type: leftOrder.type,
@@ -350,6 +359,21 @@ export class OrdersService {
         revenueSplits: prepareDto.revenueSplits,
       },
     };
+
+    // for erc1155 we need to take the value from request (the amount parameter)
+    if (AssetClass.ERC1155 == leftOrder.make.assetType.assetClass) {
+      const availableAmount =
+        Number(leftOrder.make.value) - Number(leftOrder.fill);
+      if (
+        Math.floor(Number(prepareDto.amount)) < 1 ||
+        Math.floor(Number(prepareDto.amount)) > availableAmount
+      ) {
+        throw new MarketplaceException(constants.ERC1155_INCORRECT_AMOUNT);
+      }
+
+      rightOrder.take.value = Math.floor(Number(prepareDto.amount)).toString();
+    }
+
     return rightOrder;
   }
 

@@ -210,7 +210,7 @@ export class OrdersService {
     const leftOrder = await this.getOrderByHash(hash);
     if (leftOrder) {
       if (leftOrder.status !== OrderStatus.CREATED) {
-        throw new MarketplaceException(constants.ORDER_ALREADY_FILLED_ERROR);
+        throw new MarketplaceException(constants.CANNOT_EXECUTE_ORDER);
       }
 
       // verify if maker's token got approved to transfer proxy

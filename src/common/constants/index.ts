@@ -26,11 +26,12 @@ export const constants = {
   INVALID_ORDER_SIDE: 'Invalid order side.',
   INVALID_TOKEN_ID: 'Invalid token id.',
   INVALID_ASSET_CLASS: 'Invalid asset class.',
-  ORDER_ALREADY_FILLED_ERROR: 'Order has been filled.',
+  CANNOT_EXECUTE_ORDER: 'Cannot execute this order.',
   NFT_ALLOWANCE_ERROR:
     'Some NFTs are not approved to be transferred or not owned by maker.',
   ORDER_ALREADY_EXISTS:
     'NFT is already listed or has been scheduled for listing.',
   ERC1155_INSUFFICIENT_BALANCE:
     'Insufficient ERC1155 balance. Cancel other listings or add editions to your wallet.',
+  ERC1155_INCORRECT_AMOUNT: 'Cannot match ERC1155 order with specified amount.',
 };
