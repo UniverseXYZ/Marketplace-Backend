@@ -40,6 +40,7 @@ import {
   IDataLayerService,
   DATA_LAYER_SERVICE,
 } from 'src/modules/data-layer/interfaces/IDataLayerInterface';
+import { isFinite } from 'lodash';
 
 @Injectable()
 export class OrdersService {

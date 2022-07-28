@@ -232,6 +232,19 @@ export class QueryDto {
   side: number;
 
   @ApiProperty({
+    example: 1,
+    description: 'Order status. Values are 0, 1, 2, 3, 4. Default is 0 OR 1.',
+    required: false,
+  })
+  @Max(4)
+  @Min(0)
+  @IsOptional()
+  @IsInt()
+  @IsNumber()
+  @Type(() => Number)
+  status: number;
+
+  @ApiProperty({
     example: 'ERC721,ERC721_BUNDLE',
     description: 'Asset class of the order. e.g. ERC721, ERC721_BUNDLE',
     required: false,

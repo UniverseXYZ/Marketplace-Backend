@@ -608,11 +608,6 @@ export class DataLayerService implements IDataLayerService {
     decimals: number[],
   ) {
     const queryFilters = [
-      {
-        status: {
-          $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
-        },
-      },
       { $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }] },
       { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
     ] as any;
@@ -630,6 +625,20 @@ export class DataLayerService implements IDataLayerService {
         break;
       default:
         break;
+    }
+
+    // status
+    if (Object.values(OrderStatus).includes(Number(query.status))) {
+      queryFilters.push({
+        status: OrderStatus[OrderStatus[Number(query.status)]],
+      });
+    } else {
+      // default status
+      queryFilters.push({
+        status: {
+          $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+        },
+      });
     }
 
     if (!!query.hasOffers) {
