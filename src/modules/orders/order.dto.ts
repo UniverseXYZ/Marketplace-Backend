@@ -233,16 +233,27 @@ export class QueryDto {
 
   @ApiProperty({
     example: 1,
-    description: 'Order status. Values are 0, 1, 2, 3, 4. Default is 0 OR 1.',
+    description:
+      'Order status. Values are 0, 1, 2, 3, 4 and can be combined like &status=0,3,4. Default is 0 OR 1.',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  status: string;
+
+  @ApiProperty({
+    example: 1,
+    description:
+      'Order activity. 0 for active orders, 1 - inactive, 2 - only future, 3 - only passed, 4 - all. Default is 0.',
     required: false,
   })
   @Max(4)
   @Min(0)
-  @IsOptional()
   @IsInt()
   @IsNumber()
+  @IsOptional()
   @Type(() => Number)
-  status: number;
+  activity: number;
 
   @ApiProperty({
     example: 'ERC721,ERC721_BUNDLE',

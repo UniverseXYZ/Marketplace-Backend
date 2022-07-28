@@ -20,6 +20,7 @@ import {
 import {
   OrderSide,
   OrderStatus,
+  OrderActivity,
   NftTokens,
   AssetType,
   AssetClass,
@@ -423,6 +424,18 @@ export class OrdersService {
 
     if (side && side !== OrderSide.BUY && side !== OrderSide.SELL) {
       throw new MarketplaceException(constants.INVALID_ORDER_SIDE);
+    }
+
+    if (query.status) {
+      const statusValues = query.status.split(',');
+      statusValues.forEach((statusValue) => {
+        if (
+          isNaN(Number(statusValue)) ||
+          !Object.values(OrderStatus).includes(Number(statusValue))
+        ) {
+          throw new MarketplaceException(constants.INVALID_ORDER_STATUS);
+        }
+      });
     }
 
     const utcTimestamp = Utils.getUtcTimestamp();

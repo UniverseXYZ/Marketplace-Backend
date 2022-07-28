@@ -24,6 +24,8 @@ export const constants = {
   INVALID_SALT_ERROR: 'Invalid salt for the order.',
   INVALID_CONTRACT_ADDRESS: 'Invalid contract address.',
   INVALID_ORDER_SIDE: 'Invalid order side.',
+  INVALID_ORDER_STATUS: 'Invalid order status.',
+  INVALID_ORDER_ACTIVITY: 'Invalid order activity.',
   INVALID_TOKEN_ID: 'Invalid token id.',
   INVALID_ASSET_CLASS: 'Invalid asset class.',
   CANNOT_EXECUTE_ORDER: 'Cannot execute this order.',

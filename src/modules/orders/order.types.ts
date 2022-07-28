@@ -193,3 +193,11 @@ export enum OrderSide {
   BUY,
   SELL,
 }
+
+export enum OrderActivity {
+  ACTIVE,
+  INACTIVE,
+  FUTURE,
+  PASSED,
+  ALL,
+}
