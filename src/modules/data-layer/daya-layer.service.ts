@@ -672,7 +672,7 @@ export class DataLayerService implements IDataLayerService {
         });
       } else {
         queryFilters.push({
-          status: OrderStatus[OrderStatus[Number(status)]],
+          status: OrderStatus[OrderStatus[Number(status[0])]],
         });
       }
     } else {
