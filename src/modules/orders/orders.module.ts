@@ -9,7 +9,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Order, OrderSchema } from './schema/order.schema';
 import { OrdersService } from './mongo-orders.service';
 import { DATA_LAYER_SERVICE } from '../data-layer/interfaces/IDataLayerInterface';
-import { DataLayerService } from '../data-layer/daya-layer.service';
+import { DataLayerService } from '../data-layer/data-layer.service';
 
 @Module({
   providers: [

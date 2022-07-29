@@ -13,7 +13,7 @@ import { MockOrder } from '../../../test/MockOrder';
 import configuration from '../configuration';
 import { AppConfig } from '../configuration/configuration.service';
 import { Order } from '../orders/order.entity';
-import { DataLayerService } from './daya-layer.service';
+import { DataLayerService } from './data-layer.service';
 import { Model } from 'mongoose';
 import { Utils } from '../../common/utils';
 import { AssetClass, OrderSide, OrderStatus } from '../orders/order.types';

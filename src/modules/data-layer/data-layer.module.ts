@@ -3,7 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { MongoDatabaseModule } from 'src/modules/mongo-database/mongo-database.module';
 import { Order } from '../orders/order.entity';
 import { OrderSchema } from '../orders/schema/order.schema';
-import { DataLayerService } from './daya-layer.service';
+import { DataLayerService } from './data-layer.service';
 
 @Module({
   providers: [DataLayerService],
