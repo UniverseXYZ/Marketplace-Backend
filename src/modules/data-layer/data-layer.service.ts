@@ -12,6 +12,7 @@ import { IDataLayerService } from './interfaces/IDataLayerInterface';
 import {
   Asset,
   AssetClass,
+  OrderActivity,
   OrderSide,
   OrderStatus,
 } from 'src/modules/orders/order.types';
@@ -607,15 +608,7 @@ export class DataLayerService implements IDataLayerService {
     tokenAdresses: string[],
     decimals: number[],
   ) {
-    const queryFilters = [
-      {
-        status: {
-          $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
-        },
-      },
-      { $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }] },
-      { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
-    ] as any;
+    const queryFilters = [] as any;
 
     switch (Number(query.side)) {
       case OrderSide.SELL:
@@ -630,6 +623,65 @@ export class DataLayerService implements IDataLayerService {
         break;
       default:
         break;
+    }
+
+    // activity
+    switch (query.activity) {
+      case OrderActivity.INACTIVE:
+        queryFilters.push({
+          $or: [
+            { start: { $gt: utcTimestamp } },
+            { end: { $lt: utcTimestamp } },
+          ],
+        });
+        break;
+      case OrderActivity.FUTURE:
+        queryFilters.push({
+          start: { $gt: utcTimestamp },
+        });
+        break;
+      case OrderActivity.PASSED:
+        queryFilters.push({
+          end: { $lt: utcTimestamp },
+        });
+        break;
+      case OrderActivity.ALL:
+        // nothing here!
+        break;
+      case OrderActivity.ACTIVE:
+      default:
+        queryFilters.push({
+          $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
+        });
+        queryFilters.push({
+          $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }],
+        });
+        break;
+    }
+
+    // status
+    if (query.status) {
+      const status = query.status.split(',');
+      if (status.length > 1) {
+        queryFilters.push({
+          status: {
+            $in: status.map((statusValue) => {
+              return OrderStatus[OrderStatus[Number(statusValue)]];
+            }),
+          },
+        });
+      } else {
+        queryFilters.push({
+          status: OrderStatus[OrderStatus[Number(status[0])]],
+        });
+      }
+    } else {
+      // default status
+      queryFilters.push({
+        status: {
+          $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+        },
+      });
     }
 
     if (!!query.hasOffers) {

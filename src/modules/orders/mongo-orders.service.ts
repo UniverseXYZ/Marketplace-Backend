@@ -20,6 +20,7 @@ import {
 import {
   OrderSide,
   OrderStatus,
+  OrderActivity,
   NftTokens,
   AssetType,
   AssetClass,
@@ -40,6 +41,7 @@ import {
   IDataLayerService,
   DATA_LAYER_SERVICE,
 } from 'src/modules/data-layer/interfaces/IDataLayerInterface';
+import { isFinite } from 'lodash';
 
 @Injectable()
 export class OrdersService {
@@ -422,6 +424,18 @@ export class OrdersService {
 
     if (side && side !== OrderSide.BUY && side !== OrderSide.SELL) {
       throw new MarketplaceException(constants.INVALID_ORDER_SIDE);
+    }
+
+    if (query.status) {
+      const statusValues = query.status.split(',');
+      statusValues.forEach((statusValue) => {
+        if (
+          isNaN(Number(statusValue)) ||
+          !Object.values(OrderStatus).includes(Number(statusValue))
+        ) {
+          throw new MarketplaceException(constants.INVALID_ORDER_STATUS);
+        }
+      });
     }
 
     const utcTimestamp = Utils.getUtcTimestamp();
