@@ -48,7 +48,7 @@ export class MockDataLayerService implements IDataLayerService {
   fetchPendingOrders(walletAddress: string) {
     throw new Error('Method not implemented.');
   }
-  queryStaleOrders(orderCreator: string, orderNftInfo: Asset) {
+  queryOrdersForStale(orderCreator: string, orderNftInfo: Asset) {
     throw new Error('Method not implemented.');
   }
   fetchOrdersWithHigherPrice(orderWithLowerPrice: OrderDocument) {

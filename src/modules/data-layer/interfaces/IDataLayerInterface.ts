@@ -44,7 +44,7 @@ export interface IDataLayerService {
 
   fetchPendingOrders(walletAddress: string);
 
-  queryStaleOrders(orderCreator: string, orderNftInfo: Asset);
+  queryOrdersForStale(orderCreator: string, orderNftInfo: Asset);
 
   queryOrderForStale(
     tokenId: string,

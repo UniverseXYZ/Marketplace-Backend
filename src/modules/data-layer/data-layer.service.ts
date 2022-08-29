@@ -274,7 +274,7 @@ export class DataLayerService implements IDataLayerService {
     return pendingOrders;
   }
 
-  async queryStaleOrders(orderCreator: string, orderNftInfo: Asset) {
+  async queryOrdersForStale(orderCreator: string, orderNftInfo: Asset) {
     // 1. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
 
     const queryFilters = {
