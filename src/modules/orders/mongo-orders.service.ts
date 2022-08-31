@@ -907,21 +907,27 @@ export class OrdersService {
 
     if (sellOffers.length) {
       sellOffers.forEach((offer) => {
-        if (
-          AssetClass.ERC1155 === offer.make.assetType.assetClass &&
-          //it's always event.newLeftFill as the matching event here is assumed to be
-          //a match against a buy order (an offer).
-          Number(offer.make.value) >
-            Number(offer.fill) + Number(event.newLeftFill)
-        ) {
-          offer.status = OrderStatus.PARTIALFILLED;
-          offer.fill = '' + (Number(offer.fill) + Number(event.newLeftFill));
-          this.logger.log('   Marking order as partialfilled');
-        } else if (AssetClass.ERC1155 !== offer.make.assetType.assetClass) {
+        if (AssetClass.ERC721 === offer.make.assetType.assetClass) {
           offer.status = OrderStatus.STALE;
           this.logger.log('   Marking order as stale');
           this.checkUnsubscribe(offer.maker);
         }
+
+        // if (
+        //   AssetClass.ERC1155 === offer.make.assetType.assetClass &&
+        //   //it's always event.newLeftFill as the matching event here is assumed to be
+        //   //a match against a buy order (an offer).
+        //   Number(offer.make.value) >
+        //     Number(offer.fill) + Number(event.newLeftFill)
+        // ) {
+        //   offer.status = OrderStatus.PARTIALFILLED;
+        //   offer.fill = '' + (Number(offer.fill) + Number(event.newLeftFill));
+        //   this.logger.log('   Marking order as partialfilled');
+        // } else if (AssetClass.ERC1155 !== offer.make.assetType.assetClass) {
+        //   offer.status = OrderStatus.STALE;
+        //   this.logger.log('   Marking order as stale');
+        //   this.checkUnsubscribe(offer.maker);
+        // }
       });
       await this.dataLayerService.updateMany(sellOffers);
     }
