@@ -265,7 +265,7 @@ export class OrdersService {
         );
       }
 
-      // 2. generate the oppsite right order
+      // 2. generate the opposite right order
       const rightOrder = this.convertToRightOrder(data, leftOrder);
 
       // 3. generate the match tx
@@ -349,16 +349,16 @@ export class OrdersService {
       type: leftOrder.type,
       maker: prepareDto.maker.toLowerCase(),
       taker: constants.ZERO_ADDRESS,
-      make: leftOrder.take,
-      take: leftOrder.make,
-      salt: leftOrder.salt,
+      make: JSON.parse(JSON.stringify(leftOrder.take)),
+      take: JSON.parse(JSON.stringify(leftOrder.make)),
+      salt: 0,
       start: leftOrder.start,
       end: leftOrder.end,
       data: {
         dataType: prepareDto.revenueSplits?.length
           ? constants.ORDER_DATA
           : constants.DATA_TYPE_0X,
-        revenueSplits: prepareDto.revenueSplits,
+        revenueSplits: prepareDto.revenueSplits || [],
       },
     };
 
@@ -374,7 +374,20 @@ export class OrdersService {
       }
 
       rightOrder.take.value = Math.floor(Number(prepareDto.amount)).toString();
-    }
+    } 
+    // Potential step to make partial filling offers work
+    // else if (AssetClass.ERC1155 == leftOrder.take.assetType.assetClass) {
+    //   const availableAmount =
+    //     Number(leftOrder.take.value) - Number(leftOrder.fill);
+    //   if (
+    //     Math.floor(Number(prepareDto.amount)) < 1 ||
+    //     Math.floor(Number(prepareDto.amount)) > availableAmount
+    //   ) {
+    //     throw new MarketplaceException(constants.ERC1155_INCORRECT_AMOUNT);
+    //   }
+
+    //   rightOrder.make.value = Math.floor(Number(prepareDto.amount)).toString();
+    // }
 
     return rightOrder;
   }
@@ -615,26 +628,27 @@ export class OrdersService {
           // leftOrder.matchedTxHash = event.txHash;
           this.setMatchedTxHash(leftOrder, event);
 
-          // Populate taker
-          if (leftOrder.make.assetType.tokenId) {
-            const orderMaker = leftOrder.maker;
-            if (orderMaker.toLowerCase() === event.leftMaker.toLowerCase()) {
-              leftOrder.taker = event.rightMaker.toLowerCase();
-            } else {
-              leftOrder.taker = event.leftMaker.toLowerCase();
-            }
-          } else if (leftOrder.take.assetType.tokenId) {
-            const orderTaker = leftOrder.maker;
-            if (orderTaker.toLowerCase() === event.leftMaker.toLowerCase()) {
-              leftOrder.taker = event.rightMaker.toLowerCase();
-            } else {
-              leftOrder.taker = event.leftMaker.toLowerCase();
-            }
-          } else {
-            throw new MarketplaceException(
-              "Invalid left order. Doesn't contain nft info.",
-            );
-          }
+          // We don't want to populate taker as this will invalidate the signature that was created when order was initially created.
+          // This is particularly important when doing 1155 partial filling because a left order will be sent multiple times for validations
+          // if (leftOrder.make.assetType.tokenId) {
+          //   const orderMaker = leftOrder.maker;
+          //   if (orderMaker.toLowerCase() === event.leftMaker.toLowerCase()) {
+          //     leftOrder.taker = event.rightMaker.toLowerCase();
+          //   } else {
+          //     leftOrder.taker = event.leftMaker.toLowerCase();
+          //   }
+          // } else if (leftOrder.take.assetType.tokenId) {
+          //   const orderTaker = leftOrder.maker;
+          //   if (orderTaker.toLowerCase() === event.leftMaker.toLowerCase()) {
+          //     leftOrder.taker = event.rightMaker.toLowerCase();
+          //   } else {
+          //     leftOrder.taker = event.leftMaker.toLowerCase();
+          //   }
+          // } else {
+          //   throw new MarketplaceException(
+          //     "Invalid left order. Doesn't contain nft info.",
+          //   );
+          // }
 
           await this.dataLayerService.updateById(leftOrder);
           this.checkUnsubscribe(leftOrder.maker);
