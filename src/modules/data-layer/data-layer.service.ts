@@ -274,17 +274,27 @@ export class DataLayerService implements IDataLayerService {
     return pendingOrders;
   }
 
-  async queryOrdersForStale(orderCreator: string, orderNftInfo: Asset) {
+  async queryOrdersForStale(
+    orderCreator: string,
+    orderNftInfo: Asset,
+    utcTimestamp: number,
+  ) {
     // 1. Mark any sell offers as stale. They can't be executed anymore as the owner has changed
 
-    const queryFilters = {
-      side: OrderSide.SELL,
-      status: {
-        $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+    const queryFilters = [
+      { side: OrderSide.SELL },
+      {
+        status: {
+          $in: [OrderStatus.CREATED, OrderStatus.PARTIALFILLED],
+        },
       },
-      maker: orderCreator.toLowerCase(),
-      'make.assetType.tokenId': orderNftInfo.assetType.tokenId,
-    } as any;
+      { maker: orderCreator.toLowerCase() },
+      { 'make.assetType.tokenId': orderNftInfo.assetType.tokenId },
+      {
+        $or: [{ start: { $lt: utcTimestamp } }, { start: 0 }],
+      },
+      { $or: [{ end: { $gt: utcTimestamp } }, { end: 0 }] },
+    ] as any;
 
     // ETH orders don't have contract
     if (orderNftInfo.assetType.contract) {
@@ -292,7 +302,7 @@ export class DataLayerService implements IDataLayerService {
         orderNftInfo.assetType.contract.toLowerCase();
     }
 
-    const sellOffers = await this.ordersModel.find(queryFilters);
+    const sellOffers = await this.ordersModel.find({ $and: queryFilters });
     return sellOffers;
   }
 
