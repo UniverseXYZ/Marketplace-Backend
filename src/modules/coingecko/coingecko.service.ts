@@ -25,6 +25,7 @@ export class CoingeckoService {
     [TOKENS.USDC]: 0,
     [TOKENS.XYZ]: 0,
     [TOKENS.WETH]: 0,
+    [TOKENS.APE]: 0,
   };
 
   public tokenAddresses: { [key in TOKENS]: string } = {
@@ -33,6 +34,7 @@ export class CoingeckoService {
     [TOKENS.USDC]: '',
     [TOKENS.XYZ]: '',
     [TOKENS.WETH]: '',
+    [TOKENS.APE]: '',
   };
 
   constructor(
@@ -61,12 +63,13 @@ export class CoingeckoService {
   @Cron(CronExpression.EVERY_MINUTE)
   protected async updatePrices() {
     try {
-      const [eth, dai, usdc, xyz, weth]: any = await Promise.all([
+      const [eth, dai, usdc, xyz, weth, ape]: any = await Promise.all([
         this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.ETH}`),
         this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.DAI}`),
         this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.USDC}`),
         this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.XYZ}`),
         this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.WETH}`),
+        this.fetchCoinData(`${COINGECKO_ENDPOINT}/${TOKENS.APE}`),
       ]);
       const coinsList = {
         [TOKENS.ETH]: eth.market_data?.current_price?.usd,
@@ -74,6 +77,7 @@ export class CoingeckoService {
         [TOKENS.USDC]: usdc.market_data?.current_price?.usd,
         [TOKENS.XYZ]: xyz.market_data?.current_price?.usd,
         [TOKENS.WETH]: weth.market_data?.current_price?.usd,
+        [TOKENS.APE]: ape.market_data?.current_price?.usd,
       };
 
       for (const token in coinsList) {
