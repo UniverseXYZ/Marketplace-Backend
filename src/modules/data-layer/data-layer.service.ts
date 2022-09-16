@@ -438,10 +438,10 @@ export class DataLayerService implements IDataLayerService {
     decimals: number[],
     orderSide: OrderSide,
   ) {
-    const [ethPrice, usdcPrice, xyzPrice, daiPrice, wethPrice] = prices;
-    const [ethAddress, usdcAddress, xyzAddress, daiAddress, wethAddress] =
+    const [ethPrice, usdcPrice, xyzPrice, daiPrice, wethPrice, apePrice] = prices;
+    const [ethAddress, usdcAddress, xyzAddress, daiAddress, wethAddress, apeAddress] =
       tokenAdresses;
-    const [ethDecimals, usdcDecimals, xyzDecimals, daiDecimals, wethDecimals] =
+    const [ethDecimals, usdcDecimals, xyzDecimals, daiDecimals, wethDecimals, apeDecimals] =
       decimals;
 
     if (orderSide === OrderSide.BUY) {
@@ -506,6 +506,18 @@ export class DataLayerService implements IDataLayerService {
                       ],
                     },
                   },
+                  {
+                    case: {
+                      $eq: ['$make.assetType.contract', apeAddress],
+                    },
+                    then: {
+                      $divide: [
+                        { $toDecimal: '$make.value' },
+                        Math.pow(10, apeDecimals) * apePrice,
+                      ],
+                    },
+                  },
+
                 ],
                 default: 0,
               },
@@ -597,6 +609,22 @@ export class DataLayerService implements IDataLayerService {
                           ],
                         },
                         xyzPrice,
+                      ],
+                    },
+                  },
+                  {
+                    case: {
+                      $eq: ['$take.assetType.contract', apeAddress],
+                    },
+                    then: {
+                      $multiply: [
+                        {
+                          $divide: [
+                            { $toDecimal: '$take.value' },
+                            { $pow: [10, apeDecimals] },
+                          ],
+                        },
+                        apePrice,
                       ],
                     },
                   },

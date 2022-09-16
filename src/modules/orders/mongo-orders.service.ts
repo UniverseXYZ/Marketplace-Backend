@@ -472,6 +472,7 @@ export class OrdersService {
       this.coingecko.tokenUsdValues[TOKENS.XYZ],
       this.coingecko.tokenUsdValues[TOKENS.DAI],
       this.coingecko.tokenUsdValues[TOKENS.WETH],
+      this.coingecko.tokenUsdValues[TOKENS.APE],
     ];
 
     const addresses = [
@@ -480,6 +481,7 @@ export class OrdersService {
       this.coingecko.tokenAddresses[TOKENS.XYZ],
       this.coingecko.tokenAddresses[TOKENS.DAI],
       this.coingecko.tokenAddresses[TOKENS.WETH],
+      this.coingecko.tokenAddresses[TOKENS.APE],
     ];
 
     const decimals = [
@@ -488,6 +490,7 @@ export class OrdersService {
       TOKEN_DECIMALS[TOKENS.XYZ],
       TOKEN_DECIMALS[TOKENS.DAI],
       TOKEN_DECIMALS[TOKENS.WETH],
+      TOKEN_DECIMALS[TOKENS.APE],
     ];
 
     return { prices, addresses, decimals };

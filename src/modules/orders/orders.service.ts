@@ -761,6 +761,13 @@ export class OrdersService {
       TOKEN_DECIMALS[TOKENS.XYZ]
     }) * ${this.coingecko.tokenUsdValues[TOKENS.XYZ]}
       
+    when LOWER(${nftSide}->'assetType'->>'contract') = '${this.coingecko.tokenAddresses[
+      TOKENS.APE
+    ].toLowerCase()}' 
+      then CAST(${nftSide}->>'value' as DECIMAL) / POWER(10,${
+      TOKEN_DECIMALS[TOKENS.APE]
+    }) * ${this.coingecko.tokenUsdValues[TOKENS.APE]} 
+
       end)`;
   }
 
