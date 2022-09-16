@@ -265,7 +265,7 @@ export class OrdersService {
         );
       }
 
-      // 2. generate the oppsite right order
+      // 2. generate the opposite right order
       const rightOrder = this.convertToRightOrder(data, leftOrder);
 
       // 3. generate the match tx
@@ -349,16 +349,16 @@ export class OrdersService {
       type: leftOrder.type,
       maker: prepareDto.maker.toLowerCase(),
       taker: constants.ZERO_ADDRESS,
-      make: leftOrder.take,
-      take: leftOrder.make,
-      salt: leftOrder.salt,
+      make: JSON.parse(JSON.stringify(leftOrder.take)),
+      take: JSON.parse(JSON.stringify(leftOrder.make)),
+      salt: 0,
       start: leftOrder.start,
       end: leftOrder.end,
       data: {
         dataType: prepareDto.revenueSplits?.length
           ? constants.ORDER_DATA
           : constants.DATA_TYPE_0X,
-        revenueSplits: prepareDto.revenueSplits,
+        revenueSplits: prepareDto.revenueSplits || [],
       },
     };
 
@@ -375,6 +375,19 @@ export class OrdersService {
 
       rightOrder.take.value = Math.floor(Number(prepareDto.amount)).toString();
     }
+    // Potential step to make partial filling offers work
+    // else if (AssetClass.ERC1155 == leftOrder.take.assetType.assetClass) {
+    //   const availableAmount =
+    //     Number(leftOrder.take.value) - Number(leftOrder.fill);
+    //   if (
+    //     Math.floor(Number(prepareDto.amount)) < 1 ||
+    //     Math.floor(Number(prepareDto.amount)) > availableAmount
+    //   ) {
+    //     throw new MarketplaceException(constants.ERC1155_INCORRECT_AMOUNT);
+    //   }
+
+    //   rightOrder.make.value = Math.floor(Number(prepareDto.amount)).toString();
+    // }
 
     return rightOrder;
   }
@@ -585,88 +598,90 @@ export class OrdersService {
           event.leftOrderHash,
         );
 
-        if (leftOrder) {
-          if (
-            OrderStatus.CREATED == leftOrder.status ||
-            OrderStatus.PARTIALFILLED == leftOrder.status ||
-            // stale orders also need to be able to be marked as filled
-            // because of the Watchdog.
-            OrderStatus.STALE == leftOrder.status
-          ) {
-            this.logger.log(
-              `The matched order has been found. Order left hash: ${event.leftOrderHash}`,
-            );
-
-            if (this.isPartialFill(leftOrder, event)) {
-              leftOrder.status = OrderStatus.PARTIALFILLED;
-              this.setPartialFill(leftOrder, event);
-            } else {
-              leftOrder.status = OrderStatus.FILLED;
-              leftOrder.fill = '0';
-            }
-
-            // leftOrder.matchedTxHash = event.txHash;
-            this.setMatchedTxHash(leftOrder, event);
-
-            // Populate taker
-            if (leftOrder.make.assetType.tokenId) {
-              const orderMaker = leftOrder.maker;
-              if (orderMaker.toLowerCase() === event.leftMaker.toLowerCase()) {
-                leftOrder.taker = event.rightMaker.toLowerCase();
-              } else {
-                leftOrder.taker = event.leftMaker.toLowerCase();
-              }
-            } else if (leftOrder.take.assetType.tokenId) {
-              const orderTaker = leftOrder.maker;
-              if (orderTaker.toLowerCase() === event.leftMaker.toLowerCase()) {
-                leftOrder.taker = event.rightMaker.toLowerCase();
-              } else {
-                leftOrder.taker = event.leftMaker.toLowerCase();
-              }
-            } else {
-              throw new MarketplaceException(
-                "Invalid left order. Doesn't contain nft info.",
-              );
-            }
-
-            await this.dataLayerService.updateById(leftOrder);
-            this.checkUnsubscribe(leftOrder.maker);
-
-            //stale offers made by the address which has just made a match (direct buy of a listed NFT)
-            await this.staleOffersMadeByOwner(leftOrder);
-
-            value[event.txHash] = 'success';
-          } else if (OrderStatus.FILLED == leftOrder.status) {
-            // this is added to provide idempotency!
-            this.logger.log(
-              `The matched order is already filled. Order left hash: ${event.leftOrderHash}`,
-            );
-            value[event.txHash] = 'success';
-            this.checkUnsubscribe(leftOrder.maker);
-          } else {
-            this.logger.log(
-              `The matched order's status is already "${
-                OrderStatus[leftOrder.status]
-              }"`,
-            );
-            value[event.txHash] = `error: order has status ${
-              OrderStatus[leftOrder.status]
-            }`;
-          }
-
-          try {
-            //marking related orders as stale regardless of the status.
-            await this.markRelatedOrdersAsStale(leftOrder as Order, event);
-          } catch (e) {
-            this.logger.error(`Error marking related orders as stale ${e}`);
-            value[event.txHash] =
-              'error marking related orders as stale: ' + e.message;
-          }
-        } else {
+        if (!leftOrder) {
           value[event.txHash] = 'not found';
           this.logger.error(
             `The matched order is not found in database. Order left hash: ${event.leftOrderHash}`,
           );
+          continue;
+        }
+
+        if (
+          OrderStatus.CREATED == leftOrder.status ||
+          OrderStatus.PARTIALFILLED == leftOrder.status ||
+          // stale orders also need to be able to be marked as filled
+          // because of the Watchdog.
+          OrderStatus.STALE == leftOrder.status
+        ) {
+          this.logger.log(
+            `The matched order has been found. Order left hash: ${event.leftOrderHash}`,
+          );
+
+          if (this.isPartialFill(leftOrder, event)) {
+            leftOrder.status = OrderStatus.PARTIALFILLED;
+            this.setPartialFill(leftOrder, event);
+          } else {
+            leftOrder.status = OrderStatus.FILLED;
+            leftOrder.fill = '0';
+          }
+
+          // leftOrder.matchedTxHash = event.txHash;
+          this.setMatchedTxHash(leftOrder, event);
+
+          // We don't want to populate taker as this will invalidate the signature that was created when order was initially created.
+          // This is particularly important when doing 1155 partial filling because a left order will be sent multiple times for validations
+          // if (leftOrder.make.assetType.tokenId) {
+          //   const orderMaker = leftOrder.maker;
+          //   if (orderMaker.toLowerCase() === event.leftMaker.toLowerCase()) {
+          //     leftOrder.taker = event.rightMaker.toLowerCase();
+          //   } else {
+          //     leftOrder.taker = event.leftMaker.toLowerCase();
+          //   }
+          // } else if (leftOrder.take.assetType.tokenId) {
+          //   const orderTaker = leftOrder.maker;
+          //   if (orderTaker.toLowerCase() === event.leftMaker.toLowerCase()) {
+          //     leftOrder.taker = event.rightMaker.toLowerCase();
+          //   } else {
+          //     leftOrder.taker = event.leftMaker.toLowerCase();
+          //   }
+          // } else {
+          //   throw new MarketplaceException(
+          //     "Invalid left order. Doesn't contain nft info.",
+          //   );
+          // }
+
+          await this.dataLayerService.updateById(leftOrder);
+          this.checkUnsubscribe(leftOrder.maker);
+
+          //stale offers made by the address which has just made a match (direct buy of a listed NFT)
+          await this.staleOffersMadeByOwner(leftOrder);
+
+          value[event.txHash] = 'success';
+        } else if (OrderStatus.FILLED == leftOrder.status) {
+          // this is added to provide idempotency!
+          this.logger.log(
+            `The matched order is already filled. Order left hash: ${event.leftOrderHash}`,
+          );
+          value[event.txHash] = 'success';
+          this.checkUnsubscribe(leftOrder.maker);
+        } else {
+          this.logger.log(
+            `The matched order's status is already "${
+              OrderStatus[leftOrder.status]
+            }"`,
+          );
+          value[event.txHash] = `error: order has status ${
+            OrderStatus[leftOrder.status]
+          }`;
+        }
+
+        try {
+          //marking related orders as stale regardless of the status.
+          await this.markRelatedOrdersAsStale(leftOrder._doc, event);
+        } catch (e) {
+          this.logger.error(`Error marking related orders as stale ${e}`);
+          value[event.txHash] =
+            'error marking related orders as stale: ' + e.message;
         }
       } catch (e) {
         value[event.txHash] = 'error: ' + e.message;
@@ -879,48 +894,69 @@ export class OrdersService {
   }
 
   private async markRelatedOrdersAsStale(leftOrder: Order, event: MatchOrder) {
+    const utcTimestamp = Utils.getUtcTimestamp();
+
     let orderNftInfo: Asset = null;
     let orderCreator = '';
-
+    let is1155Offer = false;
     // Take nft info either from 'take' or 'make'.
     if (leftOrder.make.assetType.tokenId) {
       orderNftInfo = leftOrder.make;
       orderCreator = leftOrder.maker;
     } else if (leftOrder.take.assetType.tokenId) {
+      is1155Offer = true;
       orderNftInfo = leftOrder.take;
-      orderCreator = leftOrder.taker;
+      const orderTaker = leftOrder.maker;
+      if (orderTaker.toLowerCase() === event.leftMaker.toLowerCase()) {
+        orderCreator = event.rightMaker.toLowerCase();
+      } else {
+        orderCreator = event.leftMaker.toLowerCase();
+      }
     } else {
       throw new MarketplaceException(
         "Invalid left order. Doesn't contain nft info.",
       );
     }
 
-    const sellOffers = await this.dataLayerService.queryStaleOrders(
+    const sellOrders = await this.dataLayerService.queryOrdersForStale(
       orderCreator,
       orderNftInfo,
+      utcTimestamp,
     );
 
     this.logger.log(
-      `Found ${sellOffers.length} sell offers related to an order match`,
+      `Found ${sellOrders.length} sell listings related to an order match`,
     );
 
-    if (sellOffers.length) {
-      sellOffers.forEach((offer) => {
+    if (sellOrders.length) {
+      sellOrders.forEach((listing) => {
         if (
-          AssetClass.ERC1155 === offer.make.assetType.assetClass &&
-          //it's always event.newLeftFill as the matching event here is assumed to be
-          //a match against a buy order (an offer).
-          Number(offer.make.value) >
-            Number(offer.fill) + Number(event.newLeftFill)
+          AssetClass.ERC721 === listing.make.assetType.assetClass ||
+          (AssetClass.ERC1155 === listing.make.assetType.assetClass &&
+            is1155Offer)
         ) {
-          offer.status = OrderStatus.PARTIALFILLED;
-          offer.fill = '' + (Number(offer.fill) + Number(event.newLeftFill));
-        } else {
-          offer.status = OrderStatus.STALE;
-          this.checkUnsubscribe(offer.maker);
+          listing.status = OrderStatus.STALE;
+          this.logger.log('   Marking ERC-721 order as stale');
+          this.checkUnsubscribe(listing.maker);
         }
+
+        // if (
+        //   AssetClass.ERC1155 === listing.make.assetType.assetClass &&
+        //   //it's always event.newLeftFill as the matching event here is assumed to be
+        //   //a match against a buy order (an offer).
+        //   Number(listing.make.value) >
+        //     Number(listing.fill) + Number(event.newLeftFill)
+        // ) {
+        //   listing.status = OrderStatus.PARTIALFILLED;
+        //   listing.fill = '' + (Number(listing.fill) + Number(event.newLeftFill));
+        //   this.logger.log('   Marking order as partialfilled');
+        // } else if (AssetClass.ERC1155 !== listing.make.assetType.assetClass) {
+        //   listing.status = OrderStatus.STALE;
+        //   this.logger.log('   Marking order as stale');
+        //   this.checkUnsubscribe(listing.maker);
+        // }
       });
-      await this.dataLayerService.updateMany(sellOffers);
+      await this.dataLayerService.updateMany(sellOrders);
     }
   }
 
@@ -929,7 +965,7 @@ export class OrdersService {
    * executed the order, and marks these offers as stale.
    * I.e. it is staling offers created by the address which has made a direct buy of an NFT after
    * creating an offer.
-   * The executed order is a ERC721 listing.
+   * The executed order is a ERC721 listing (temporary for 1155 as well).
    * Offers are being staled with no regards to the activity time (start and end properties).
    * It's important to pass order with already populated order.taker and updated order.status.
    * @param order
