@@ -29,7 +29,7 @@ export class Order {
   take: Asset;
 
   @Prop({ trim: true, required: true })
-  salt: number;
+  salt: string;
 
   @Prop({ trim: true, required: true })
   start: number;

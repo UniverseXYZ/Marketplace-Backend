@@ -148,10 +148,11 @@ export class OrdersService {
     }
 
     // check salt along with the signature (just in case)
-    const salt = await this.dataLayerService.getSaltByWalletAddress(data.maker);
-    if (salt !== data.salt) {
-      throw new MarketplaceException(constants.INVALID_SALT_ERROR);
-    }
+    // We're removing this as reservoir salt is generated using a random uint256 number
+    // const salt = await this.dataLayerService.getSaltByWalletAddress(data.maker);
+    // if (salt !== data.salt) {
+    //   throw new MarketplaceException(constants.INVALID_SALT_ERROR);
+    // }
 
     // verify signature
     const encodedOrder = this.encode(order);
@@ -351,7 +352,7 @@ export class OrdersService {
       taker: constants.ZERO_ADDRESS,
       make: JSON.parse(JSON.stringify(leftOrder.take)),
       take: JSON.parse(JSON.stringify(leftOrder.make)),
-      salt: 0,
+      salt: '0',
       start: leftOrder.start,
       end: leftOrder.end,
       data: {

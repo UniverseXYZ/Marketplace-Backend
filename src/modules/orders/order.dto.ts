@@ -93,14 +93,14 @@ export class OrderDto {
   @Type(() => Asset)
   take: Asset;
 
-  @IsNumber()
+  @IsNumberString()
   @IsNotEmpty()
   @ApiProperty({
-    example: 1,
+    example: '1',
     description: 'nonce for signatures submitted with the order',
     required: true,
   })
-  salt: number;
+  salt: string;
 
   @IsNumber()
   @IsInt()

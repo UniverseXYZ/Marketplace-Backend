@@ -97,7 +97,7 @@ export const hashOrderKey = (
   maker: string,
   makeAssetType: IAssetType | BundleType,
   takeAssetType: IAssetType | BundleType,
-  salt: number,
+  salt: string,
 ) => {
   const encodedOrder = utils.defaultAbiCoder.encode(
     ['address', 'bytes32', 'bytes32', 'uint256'],
